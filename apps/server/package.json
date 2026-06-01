@@ -2,6 +2,9 @@
   "name": "server",
   "private": true,
   "dependencies": {
-    "better-auth/client": "^1.6.13"
+    "better-auth": "^1.6.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.10"
   }
 }
