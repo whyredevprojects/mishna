@@ -42,3 +42,8 @@ Thumbs.db
 .nx/workspace-data
 .claude/worktrees
 .claude/settings.local.json
+
+vitest.config.*.timestamp*
+.angular
+
+__screenshots__/
