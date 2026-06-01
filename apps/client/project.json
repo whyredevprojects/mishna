@@ -62,7 +62,11 @@
           "buildTarget": "client:build:development"
         }
       },
-      "defaultConfiguration": "development"
+      "defaultConfiguration": "development",
+      "dependsOn": ["server:serve"],
+      "options": {
+        "proxyConfig": "apps/client/proxy.conf.json"
+      }
     },
     "lint": {
       "executor": "@nx/eslint:lint"
