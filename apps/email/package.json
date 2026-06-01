@@ -1,0 +1,7 @@
+{
+  "name": "email",
+  "private": true,
+  "dependencies": {
+    "resend": "^6.12.4"
+  }
+}
