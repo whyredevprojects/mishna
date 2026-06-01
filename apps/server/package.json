@@ -1,4 +1,7 @@
 {
   "name": "server",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "better-auth": "^1.6.13"
+  }
 }

@@ -4,3 +4,6 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
+[[services]]
+binding = "AUTH"
+service = "login"
