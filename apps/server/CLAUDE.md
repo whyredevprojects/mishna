@@ -52,6 +52,7 @@ service binding (`/api/auth/get-session`, a better-auth built-in) and sets
 | Method & path | Behavior |
 |---|---|
 | `GET /api/corpus` | The static `MishnahDataset` (public; lets the client skip bundling it). |
+| `GET /api/cycle` | `{ cycleStart, cycleEnd, daysElapsed, daysRemaining, totalDays }` for the current cycle (public; powers the landing-page progress bar without shipping `@hebcal/core` to the client). |
 | `GET /api/me` | `{ joined, commitment }` (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { poweredBy } from 'hono/powered-by';
 import { Block, Commitment, mishnahDataset } from '@mishna/domain';
 import { AllocatorDO } from './allocator';
-import { assignmentEngine, idGen, structure } from './domain';
+import { assignmentEngine, calendar, idGen, structure } from './domain';
 import { D1GroupRepository } from './repository';
 import { AuthVariables, requireAuth } from './auth-middleware';
 
@@ -41,6 +41,21 @@ app.get('/', (c) => c.text('Mishna API'));
 
 // Static corpus, so the client need not bundle the 4192-mishna dataset. Public.
 app.get('/api/corpus', (c) => c.json(mishnahDataset));
+
+// The current learning cycle's bounds and progress. Public, so the landing page
+// can show cycle urgency before login — and keeps @hebcal/core out of the client.
+app.get('/api/cycle', (c) => {
+  const today = new Date();
+  const daysElapsed = calendar.daysSinceCycleStart(today);
+  const daysRemaining = calendar.daysRemaining(today);
+  return c.json({
+    cycleStart: calendar.cycleStart(today).toISOString(),
+    cycleEnd: calendar.cycleEnd(today).toISOString(),
+    daysElapsed,
+    daysRemaining,
+    totalDays: daysElapsed + daysRemaining,
+  });
+});
 
 // Whether the caller has joined, and their per-day commitment.
 app.get('/api/me', requireAuth, async (c) => {

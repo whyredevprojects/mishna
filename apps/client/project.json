@@ -20,7 +20,10 @@
             "input": "apps/client/public"
           }
         ],
-        "styles": ["apps/client/src/styles.scss"],
+        "styles": [
+          "node_modules/@awesome.me/webawesome/dist/styles/webawesome.css",
+          "apps/client/src/styles.scss"
+        ],
         "server": "apps/client/src/main.server.ts",
         "ssr": {
           "entry": "apps/client/src/server.ts"
@@ -32,8 +35,8 @@
           "budgets": [
             {
               "type": "initial",
-              "maximumWarning": "500kb",
-              "maximumError": "1mb"
+              "maximumWarning": "750kb",
+              "maximumError": "1.5mb"
             },
             {
               "type": "anyComponentStyle",

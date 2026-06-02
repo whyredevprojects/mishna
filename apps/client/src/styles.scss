@@ -1,1 +1,57 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global styles. Web Awesome's webawesome.css (with the default theme) is loaded
+   ahead of this file via the build's `styles` array, so its design tokens
+   (`--wa-color-*`, `--wa-space-*`, …) are available everywhere below. */
+
+:root {
+  /* Brand: a warm Torah-scroll gold/brown, applied to wa-* brand variants. */
+  --wa-color-brand-fill-loud: #8a5a2b;
+  --wa-color-brand-fill-normal: #a9712f;
+  --wa-color-brand-border-loud: #8a5a2b;
+  --wa-color-brand-on-loud: #fff;
+
+  color-scheme: light;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--wa-color-surface-default, #faf8f5);
+  color: var(--wa-color-text-normal, #1a1a1a);
+  font-family: var(--wa-font-family-body, system-ui, sans-serif);
+}
+
+/* Mobile-first: a single centered column that never gets uncomfortably wide. */
+.page {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: var(--wa-space-l, 1rem);
+  box-sizing: border-box;
+}
+
+/* Vertical rhythm helper used by most screens. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-l, 1rem);
+}
+
+.muted {
+  color: var(--wa-color-text-quiet, #6b6b6b);
+}
+
+.center {
+  text-align: center;
+}
+
+/* Full-height flex centering for the loading / landing splash states. */
+.fill-center {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--wa-space-l, 1rem);
+  box-sizing: border-box;
+}
