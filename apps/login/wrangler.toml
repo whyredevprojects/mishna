@@ -10,4 +10,4 @@ database_name = "mishna-auth"
 database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
 
 [vars]
-BETTER_AUTH_URL = "http://localhost:8787"
+BETTER_AUTH_URL = ""
