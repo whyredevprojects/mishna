@@ -4,6 +4,25 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
+# Auth: the apps/login better-auth worker, reached via this service binding.
 [[services]]
 binding = "AUTH"
 service = "login"
+
+# App data store (groups, members, participants). Separate from the better-auth
+# `mishna-auth` DB owned by apps/login. One-time setup:
+#   wrangler d1 create mishna-app          # paste the returned id below
+#   wrangler d1 execute mishna-app --file src/schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "mishna-app"
+database_id = "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+
+# Single-instance write mutex serializing join/leave allocation.
+[[durable_objects.bindings]]
+name = "ALLOCATOR"
+class_name = "AllocatorDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AllocatorDO"]

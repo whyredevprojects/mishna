@@ -3,7 +3,7 @@
 export * from './lib/mishna-types';
 export * from './lib/types';
 export { MishnaStructure } from './lib/mishna-structure';
-export { createMishnaStructure } from './lib/mishna-structure-factory';
+export { createMishnaStructure, mishnahDataset } from './lib/mishna-structure-factory';
 export { CycleCalendar } from './lib/cycle-calendar';
 export { Group } from './lib/group';
 export type { GroupState, GroupInit } from './lib/group';

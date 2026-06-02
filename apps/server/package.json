@@ -2,7 +2,12 @@
   "name": "server",
   "private": true,
   "dependencies": {
+    "@hebcal/core": "^6.5.2",
+    "@mishna/domain": "*",
     "better-auth": "^1.6.13",
     "hono": "^4.8.9"
+  },
+  "devDependencies": {
+    "wrangler": "^4.95.0"
   }
 }
