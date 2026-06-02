@@ -26,13 +26,7 @@ NX monorepo. All apps are Cloudflare Workers/Pages unless noted.
 - **Language**: TypeScript throughout
 
 ## Domain Model (libs/shared/domain)
-
-Key concepts:
-- **MishnaStructure** — the full structure of all mishnayos, sedarim, mesachtos and perakim, and how they are allocated for memorization by a group for a particular cycle. Knows names of the sedarim and mesachtos, how many perakim, how many mishnas in each perek. Not the actual mishnayos text content ; has `assign(user, commitment, todaysDate)` method which returns a `block`.
-- **Block** — a range of mishnayos which a user is assigned to for the year. A range, identified by a start and end mesechta,perek,mishna. The length of the block is determined by the user's commitment and how many days are remaining in the cycle.
-- **Assignment** — what a specific user must do on a specific date (includes a `date` property)
-- **Commitment** — enum: 1, 2, or 3 mishnayos per day
-- **Group** — a set of users whose blocks together cover all sedarim; new groups are auto-created when a group fills up
+TBD: this section will have a small summary when the library is fleshed out.
 
 ## Conventions
 
