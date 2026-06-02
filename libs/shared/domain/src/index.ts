@@ -1,1 +1,13 @@
-export * from './lib/domain';
+// Public surface of the @mishna/domain library.
+
+export * from './lib/mishna-types';
+export * from './lib/types';
+export { MishnaStructure } from './lib/mishna-structure';
+export { createMishnaStructure } from './lib/mishna-structure-factory';
+export { CycleCalendar } from './lib/cycle-calendar';
+export { Group } from './lib/group';
+export type { GroupState, GroupInit } from './lib/group';
+export { AssignmentEngine } from './lib/assignment-engine';
+export type { GroupRepository } from './lib/group-repository';
+export { InMemoryGroupRepository } from './lib/group-repository';
+export { GroupManager } from './lib/group-manager';
