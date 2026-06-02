@@ -49,6 +49,7 @@
     "eslint-plugin-playwright": "^1.6.2",
     "jsdom": "^27.1.0",
     "jsonc-eslint-parser": "^2.1.0",
+    "kysely": "^0.28.17",
     "nx": "22.7.5",
     "prettier": "~3.6.2",
     "tslib": "^2.3.0",

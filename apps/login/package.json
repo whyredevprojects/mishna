@@ -3,5 +3,8 @@
   "private": true,
   "dependencies": {
     "better-auth": "^1.6.13"
+  },
+  "devDependencies": {
+    "wrangler": "^4.95.0"
   }
 }

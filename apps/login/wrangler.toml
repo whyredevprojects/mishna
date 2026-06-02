@@ -8,3 +8,6 @@ account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 binding = "DB"
 database_name = "mishna-auth"
 database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
+
+[vars]
+BETTER_AUTH_URL = "http://localhost:8787"
