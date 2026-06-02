@@ -19,7 +19,7 @@ describe('Worker', () => {
   it('GET /api/auth/ok returns { status: "ok" }', async () => {
     const request = new Request('http://example.com/api/auth/ok');
     const ctx = createExecutionContext();
-    const response = await worker.fetch(request, env as Env, ctx);
+    const response = await worker.fetch(request, env as Env);
     await waitOnExecutionContext(ctx);
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -29,15 +29,17 @@ describe('Worker', () => {
   it('unknown routes return 404', async () => {
     const request = new Request('http://example.com/unknown');
     const ctx = createExecutionContext();
-    const response = await worker.fetch(request, env as Env, ctx);
+    const response = await worker.fetch(request, env as Env);
     await waitOnExecutionContext(ctx);
     expect(response.status).toBe(404);
   });
 
   it('/migrate POST without secret returns 403', async () => {
-    const request = new Request('http://example.com/migrate', { method: 'POST' });
+    const request = new Request('http://example.com/migrate', {
+      method: 'POST',
+    });
     const ctx = createExecutionContext();
-    const response = await worker.fetch(request, env as Env, ctx);
+    const response = await worker.fetch(request, env as Env);
     await waitOnExecutionContext(ctx);
     expect(response.status).toBe(403);
   });
