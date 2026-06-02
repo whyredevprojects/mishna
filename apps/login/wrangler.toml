@@ -9,5 +9,7 @@ binding = "DB"
 database_name = "mishna-auth"
 database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
 
+# Local login-worker URL. Set the real deployed URL before going to Cloudflare;
+# the localhost value will fail loudly there rather than silently misbehaving.
 [vars]
-BETTER_AUTH_URL = ""
+BETTER_AUTH_URL = "http://localhost:8787"

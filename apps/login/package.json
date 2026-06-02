@@ -2,7 +2,8 @@
   "name": "login",
   "private": true,
   "dependencies": {
-    "better-auth": "^1.6.13"
+    "better-auth": "^1.6.13",
+    "kysely": "^0.28.17"
   },
   "devDependencies": {
     "wrangler": "^4.95.0"

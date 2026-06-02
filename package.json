@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    ":build": "npx nx run-many -t lint test build"
+    ":build": "npx nx run-many -t lint test build",
+    ":test": "npx nx run-many -t lint test build"
   },
   "private": true,
   "workspaces": [
@@ -49,7 +50,6 @@
     "eslint-plugin-playwright": "^1.6.2",
     "jsdom": "^27.1.0",
     "jsonc-eslint-parser": "^2.1.0",
-    "kysely": "^0.28.17",
     "nx": "22.7.5",
     "prettier": "~3.6.2",
     "tslib": "^2.3.0",

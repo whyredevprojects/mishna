@@ -1,21 +1,19 @@
 import { SELF, env } from 'cloudflare:test';
+import { getMigrations } from 'better-auth/db/migration';
+import { createAuth } from './auth';
 import { describe, expect, it, beforeAll } from 'vitest';
 import '../src';
 
 describe('Integration', () => {
   beforeAll(async () => {
-    const res = await SELF.fetch('http://example.com/migrate', {
-      method: 'POST',
-      headers: { 'x-migrate-secret': (env as Env).BETTER_AUTH_SECRET },
-    });
-    if (!res.ok) throw new Error(`Migration failed: ${await res.text()}`);
+    const { runMigrations } = await getMigrations(createAuth(env as Env).options);
+    await runMigrations();
   });
 
-  it('GET /api/auth/ok returns { status: "ok" }', async () => {
+  it('GET /api/auth/ok returns { ok: true }', async () => {
     const response = await SELF.fetch('http://example.com/api/auth/ok');
     expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body).toMatchObject({ ok: true });
+    expect(await response.json()).toMatchObject({ ok: true });
   });
 
   it('sign-up with email and password succeeds', async () => {
