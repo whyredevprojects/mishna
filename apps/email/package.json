@@ -3,8 +3,5 @@
   "private": true,
   "dependencies": {
     "resend": "^6.12.4"
-  },
-  "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.10"
   }
 }
