@@ -4,3 +4,7 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "mishna-auth"
+database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
