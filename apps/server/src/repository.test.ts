@@ -2,18 +2,7 @@ import { env } from 'cloudflare:test';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { IdGenerator, createMishnaStructure } from '@mishna/domain';
 import { D1GroupRepository } from './repository';
-import schema from './schema.sql?raw';
-
-/** Applies schema.sql to a D1 binding, one statement at a time. */
-async function applySchema(db: D1Database): Promise<void> {
-  const sql = schema.replace(/--[^\n]*/g, '');
-  for (const stmt of sql.split(';')) {
-    const single = stmt.trim().replace(/\s+/g, ' ');
-    if (single) {
-      await db.exec(single);
-    }
-  }
-}
+import { applyMigrations } from './apply-migrations';
 
 /** Deterministic ids so saved/reloaded GroupStates compare exactly. */
 function makeIdGen(): IdGenerator {
@@ -24,7 +13,7 @@ function makeIdGen(): IdGenerator {
 const structure = createMishnaStructure();
 
 describe('D1GroupRepository', () => {
-  beforeAll(() => applySchema(env.DB));
+  beforeAll(() => applyMigrations(env.DB));
 
   let repo: D1GroupRepository;
   beforeEach(async () => {

@@ -19,14 +19,17 @@ routes = [
 binding = "AUTH"
 service = "login"
 
-# App data store (groups, members, participants). Separate from the better-auth
-# `mishna-auth` DB owned by apps/login. One-time setup:
-#   wrangler d1 create mishna-app          # paste the returned id below
-#   wrangler d1 execute mishna-app --file src/schema.sql
+# App data store (groups, members, participants, completions). Separate from the
+# better-auth `mishna-auth` DB owned by apps/login. Schema lives in ./migrations as
+# numbered D1 migrations (tracked in the d1_migrations table). One-time setup:
+#   wrangler d1 create mishna-app                 # paste the returned id below
+# Then apply pending migrations (see the db:migrate:* scripts in the root package.json):
+#   wrangler d1 migrations apply mishna-app --local    # or --remote for production
 [[d1_databases]]
 binding = "DB"
 database_name = "mishna-app"
 database_id = "c7b07846-05d0-497b-82d8-89ae41557ed8"
+migrations_dir = "migrations"
 
 # Single-instance write mutex serializing join/leave allocation.
 [[durable_objects.bindings]]

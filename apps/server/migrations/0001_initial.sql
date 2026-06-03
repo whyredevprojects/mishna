@@ -1,5 +1,8 @@
 -- Mishna app data layer (D1 binding `DB`, database `mishna-app`).
 -- Separate from the better-auth `mishna-auth` DB owned by apps/login.
+--
+-- IF NOT EXISTS so this migration is safe to adopt on databases that were
+-- provisioned from the old src/schema.sql before migrations existed.
 
 -- One row per group. `state` is the JSON GroupState from Group.toState().
 -- `exhausted` and `capacity_left` are denormalized from the state so the

@@ -25,6 +25,13 @@ export interface Assignment {
   userId: string;
   date: string;
   mishnas: MishnaRef[];
+  /** The group these mishnayot belong to; echoed back when recording completions. Null when the assignment is empty. */
+  groupId: string | null;
+}
+
+/** GET /api/completions — every mishna the caller has marked learned. */
+export interface Completions {
+  completed: MishnaRef[];
 }
 
 /** One group's row in GET /api/admin/groups */

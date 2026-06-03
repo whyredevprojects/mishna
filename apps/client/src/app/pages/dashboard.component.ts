@@ -12,7 +12,7 @@ import { Assignment, Commitment, Cycle } from '../models/api.types';
 import { TodayCardComponent } from '../components/today-card.component';
 import { JoinFormComponent } from '../components/join-form.component';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
-import { formatLongDate } from '../util/format';
+import { formatLongDate, formatRef } from '../util/format';
 
 /** Logged-in home: today's mishnayot when joined, otherwise the join card. */
 @Component({
@@ -43,7 +43,12 @@ import { formatLongDate } from '../util/format';
         @if (joined()) {
           <p class="today-date muted">{{ today() }}</p>
           @if (assignment(); as a) {
-            <app-today-card [mishnas]="a.mishnas" [date]="a.date"></app-today-card>
+            <app-today-card
+              [mishnas]="a.mishnas"
+              [date]="a.date"
+              [groupId]="a.groupId"
+              [completed]="completed()"
+            ></app-today-card>
           }
           @if (cycle(); as c) {
             <wa-divider></wa-divider>
@@ -73,6 +78,7 @@ export class DashboardComponent {
   protected readonly error = signal<string | null>(null);
   protected readonly joined = signal(false);
   protected readonly assignment = signal<Assignment | null>(null);
+  protected readonly completed = signal<Set<string>>(new Set());
   protected readonly cycle = signal<Cycle | null>(null);
   protected readonly today = signal('');
 
@@ -105,6 +111,13 @@ export class DashboardComponent {
         this.error.set('Could not load today’s assignment.');
         this.loading.set(false);
       },
+    });
+    // Completion state loads in parallel; on failure the card just starts
+    // unchecked (toggles still work and sync), so no user-facing error here.
+    this.assignments.listCompletions().subscribe({
+      next: (c) =>
+        this.completed.set(new Set(c.completed.map((r) => formatRef(r)))),
+      error: () => this.completed.set(new Set()),
     });
   }
 
