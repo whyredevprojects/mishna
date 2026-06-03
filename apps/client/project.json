@@ -84,6 +84,13 @@
         "staticFilePath": "dist/apps/client/browser",
         "spa": true
       }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "wrangler pages deploy dist/apps/client/browser --project-name=chevramishnayos --branch=main"
+      }
     }
   }
 }

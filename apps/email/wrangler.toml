@@ -4,3 +4,8 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
+# Reminder-email cron: fire every 3 hours. The handler dedupes so each user gets
+# at most one email per day.
+[triggers]
+crons = ["0 */3 * * *"]
+
