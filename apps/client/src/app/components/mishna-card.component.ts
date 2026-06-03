@@ -64,7 +64,7 @@ import { formatRef, formatRefHe } from '../util/format';
       <div slot="header" class="header">
         <strong>{{ format(ref()) }}</strong>
         @if (text(); as t) {
-          <span class="he">{{
+          <span class="he hebrew-text">{{
             formatHe(t.tractateHebrewName, ref().perek, ref().mishna)
           }}</span>
         }
@@ -73,7 +73,7 @@ import { formatRef, formatRefHe } from '../util/format';
       @if (loading()) {
         <div class="spinner-wrap"><wa-spinner></wa-spinner></div>
       } @else if (text(); as t) {
-        <p class="hebrew">{{ t.hebrew }}</p>
+        <p class="hebrew hebrew-text">{{ t.hebrew }}</p>
         @if (showEnglish()) {
           <p class="english">{{ t.english }}</p>
         }
@@ -82,7 +82,10 @@ import { formatRef, formatRefHe } from '../util/format';
       }
 
       <div slot="footer" class="footer">
-        <wa-button appearance="outlined" (click)="showEnglish.set(!showEnglish())">
+        <wa-button
+          appearance="outlined"
+          (click)="showEnglish.set(!showEnglish())"
+        >
           <wa-icon slot="start" name="language"></wa-icon>
           {{ showEnglish() ? 'Hide English' : 'English' }}
         </wa-button>
