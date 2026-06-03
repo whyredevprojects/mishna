@@ -10,6 +10,7 @@ export default [
       '**/out-tsc',
       '**/vitest.config.*.timestamp*',
       '**/worker-configuration.d.ts',
+      '**/.wrangler',
     ],
   },
   {

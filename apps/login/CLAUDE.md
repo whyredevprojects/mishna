@@ -59,6 +59,14 @@ The core email/password schema is stable, so this is usually a no-op — but che
    `create table` DDL, so for an **existing** production DB apply only the delta as
    `ALTER TABLE` statements (a fresh local DB can just re-run the full file).
 
+## Authentication methods
+
+- **Email + password** — enabled in `authOptions` (`src/auth.ts`). No email
+  verification yet (`emailVerified` stays 0); add later via a `sendEmail` callback.
+- **Google OAuth** — wired in `createAuth(env)` via `socialProviders.google`,
+  reading `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from env (Wrangler secrets).
+  Enabling it needs no schema change — the existing `account` table covers OAuth.
+
 ## Before first deploy
 
 - Set the real `BETTER_AUTH_URL` in `wrangler.toml` (currently a localhost
@@ -66,6 +74,11 @@ The core email/password schema is stable, so this is usually a no-op — but che
 - Add the real client origin(s) to `trustedOrigins` in `src/auth.ts` (currently
   only `http://localhost:4200`).
 - `wrangler secret put BETTER_AUTH_SECRET`.
+- `wrangler secret put GOOGLE_CLIENT_ID` and `wrangler secret put
+  GOOGLE_CLIENT_SECRET` (from a Google Cloud OAuth 2.0 Client). For local dev,
+  put them in `.dev.vars`. Register the redirect URI
+  `{BETTER_AUTH_URL}/api/auth/callback/google` (e.g.
+  `http://localhost:8787/api/auth/callback/google`) in the Google Cloud console.
 
 ## Tests
 

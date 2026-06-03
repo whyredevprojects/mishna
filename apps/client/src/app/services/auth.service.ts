@@ -32,9 +32,32 @@ export class AuthService {
   }
 
   /**
+   * Signs in with email + password via the login worker. On success the session
+   * cookie is set; callers should refresh `loadSession()` / navigate. Emits the
+   * created session on success and propagates errors (e.g. invalid credentials)
+   * so the caller can surface a message.
+   */
+  signInWithEmail(email: string, password: string): Observable<unknown> {
+    return this.http.post('/api/auth/sign-in/email', { email, password });
+  }
+
+  /**
+   * Creates an account with email + password via the login worker. With no email
+   * verification configured, the user is signed in immediately. Propagates errors
+   * (e.g. email already registered) for the caller to display.
+   */
+  signUpWithEmail(
+    name: string,
+    email: string,
+    password: string,
+  ): Observable<unknown> {
+    return this.http.post('/api/auth/sign-up/email', { name, email, password });
+  }
+
+  /**
    * Kicks off better-auth's Google OAuth flow via the login worker. Requires the
-   * `google` social provider to be configured in apps/login (currently a TODO),
-   * after which this redirects to Google and back to `callbackURL`.
+   * `google` social provider credentials to be configured in apps/login, after
+   * which this redirects to Google and back to `callbackURL`.
    */
   signInWithGoogle(callbackURL = '/dashboard'): void {
     this.http
