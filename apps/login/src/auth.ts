@@ -1,4 +1,4 @@
-import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { betterAuth, type BetterAuthOptions } from 'better-auth';
 
 // Env-independent config. Shared with auth.config.ts so the offline schema
 // generator (better-auth CLI) emits DDL for exactly this configuration.
@@ -6,9 +6,9 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 // enabling it adds no new tables (the generated `account` table already
 // covers OAuth), so this object stays the source of truth for schema generation.
 export const authOptions = {
-  emailAndPassword: { enabled: true },
+  emailAndPassword: { enabled: true, minPasswordLength: 4 },
   // Angular dev client origin; add the real client URL(s) before deploying.
-  trustedOrigins: ["http://localhost:4200"],
+  trustedOrigins: ['http://localhost:4200'],
 } satisfies Partial<BetterAuthOptions>;
 
 export function createAuth(env: Env) {

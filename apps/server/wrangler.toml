@@ -16,7 +16,7 @@ service = "login"
 [[d1_databases]]
 binding = "DB"
 database_name = "mishna-app"
-database_id = "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+database_id = "c7b07846-05d0-497b-82d8-89ae41557ed8"
 
 # Single-instance write mutex serializing join/leave allocation.
 [[durable_objects.bindings]]
