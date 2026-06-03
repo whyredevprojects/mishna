@@ -25,6 +25,7 @@
           }
         ],
         "styles": [
+          "node_modules/@fontsource/frank-ruhl-libre/index.css",
           "node_modules/@awesome.me/webawesome/dist/styles/webawesome.css",
           "apps/client/src/styles.scss"
         ]

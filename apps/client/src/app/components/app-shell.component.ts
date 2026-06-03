@@ -65,7 +65,7 @@ import { GroupService } from '../services/group.service';
       <wa-button appearance="plain" (click)="drawerOpen.set(true)">
         <wa-icon name="bars" label="Menu"></wa-icon>
       </wa-button>
-      <h1>Mishna Together</h1>
+      <h1>Chevras Mishnayos</h1>
       <span class="spacer"></span>
     </header>
 
@@ -74,7 +74,7 @@ import { GroupService } from '../services/group.service';
     </main>
 
     <wa-drawer
-      label="Mishna Together"
+      label="Chevras Mishnayos"
       placement="start"
       [attr.open]="drawerOpen() ? '' : null"
       (wa-after-hide)="drawerOpen.set(false)"
@@ -110,7 +110,11 @@ import { GroupService } from '../services/group.service';
     >
       Your mishnayot will be returned to the group for someone else to pick up.
       You can rejoin at any time.
-      <wa-button slot="footer" appearance="plain" (click)="confirmOpen.set(false)">
+      <wa-button
+        slot="footer"
+        appearance="plain"
+        (click)="confirmOpen.set(false)"
+      >
         Cancel
       </wa-button>
       <wa-button

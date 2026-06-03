@@ -24,6 +24,4 @@ import '@awesome.me/webawesome/dist/components/select/select.js';
 import '@awesome.me/webawesome/dist/components/spinner/spinner.js';
 import '@awesome.me/webawesome/dist/components/tag/tag.js';
 
-import '@fontsource/frank-ruhl-libre';
-
 bootstrapApplication(App, appConfig).catch((err) => console.error(err));
