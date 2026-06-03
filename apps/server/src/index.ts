@@ -39,6 +39,16 @@ function parseUtcDate(value: string | undefined): Date | null {
 
 app.get('/', (c) => c.text('Mishna API'));
 
+// Auth surface. The client only knows this worker's origin (relative `/api/*`),
+// so better-auth's endpoints (sign-in, sign-out, get-session, …) are forwarded to
+// the login worker via the AUTH service binding rather than exposed separately.
+// Re-wrap the response: a service-binding fetch yields immutable headers, which
+// the poweredBy middleware can't write to ("Can't modify immutable headers").
+app.all('/api/auth/*', async (c) => {
+  const res = await c.env.AUTH.fetch(c.req.raw);
+  return new Response(res.body, res);
+});
+
 // Static corpus, so the client need not bundle the 4192-mishna dataset. Public.
 app.get('/api/corpus', (c) => c.json(mishnahDataset));
 

@@ -1,0 +1,7 @@
+# Local secrets for `wrangler dev` (read from .dev.vars, NOT .env).
+# Copy this file to `.dev.vars` and fill in real values. `.dev.vars` is gitignored.
+#
+# better-auth signing secret. Any sufficiently random string works for local dev;
+# generate one with e.g. `openssl rand -base64 24`.
+# For production set it with: wrangler secret put BETTER_AUTH_SECRET
+BETTER_AUTH_SECRET=replace-me

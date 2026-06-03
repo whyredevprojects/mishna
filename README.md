@@ -1,5 +1,75 @@
 # Mishna
 
+App for organizing groups to collectively memorize the entire Mishna by Rosh
+Chodesh Sivan. See [`CLAUDE.md`](./CLAUDE.md) for the project overview and
+[`apps/*/CLAUDE.md`](./apps) for per-app details.
+
+## Local Development
+
+### Topology
+
+One command boots the whole stack. The Angular client makes only relative
+`/api/*` calls, proxied to the server worker; the server reaches the login worker
+internally through a Cloudflare **service binding** (`AUTH`), so you never hit
+login directly.
+
+| App | Port | Notes |
+|-----|------|-------|
+| `apps/client` (Angular) | **4200** | `proxy.conf.json` forwards `/api` → `:8787`. |
+| `apps/server` (Hono API) | **8787** | The single API surface the client talks to. |
+| `apps/login` (better-auth) | **8788** | Reached via the `AUTH` service binding, not directly. |
+
+> There are intentionally **no Angular `environment.ts` files** — the dev proxy +
+> relative URLs behave the same in production (same-origin API).
+
+### Prerequisites
+
+- Node.js + npm (this repo uses npm; see `package-lock.json`).
+- `npm install`
+
+### One-time setup
+
+1. **Login secret.** `wrangler dev` reads `.dev.vars` (not `.env`). Create one:
+
+   ```sh
+   cp apps/login/.dev.vars.example apps/login/.dev.vars
+   # then edit apps/login/.dev.vars and set a BETTER_AUTH_SECRET
+   ```
+
+   `.dev.vars` is gitignored. For production set the secret with
+   `wrangler secret put BETTER_AUTH_SECRET` (see `apps/login/CLAUDE.md`).
+
+2. **Local databases.** Apply both D1 schemas to local wrangler state:
+
+   ```sh
+   npm run db:init:local
+   ```
+
+   This seeds the `mishna-auth` (login) and `mishna-app` (server) databases under
+   each app's `.wrangler/` state. Re-run it any time you wipe `.wrangler`.
+
+### Run everything
+
+```sh
+npm run dev          # alias for: npx nx serve client
+```
+
+This starts the login worker (`:8788`), the server worker (`:8787`), and the
+Angular dev server, then open **http://localhost:4200**. Nx starts the two worker
+`serve` targets first (they're declared as `dependsOn` of `client:serve`), and
+wrangler's dev registry wires the `AUTH` service binding across the processes.
+
+To run a single piece on its own: `npx nx serve server`, `npx nx serve login`, or
+`npx nx serve client` (the client always pulls in the two workers).
+
+### Notes
+
+- **Auth providers:** only email + password is enabled in `apps/login/src/auth.ts`.
+  The landing page's "sign in" button currently calls Google OAuth, which needs a
+  `socialProviders.google` block plus credentials before it works end-to-end.
+
+---
+
 <a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
 
 ✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.

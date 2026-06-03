@@ -4,6 +4,11 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
+# Local dev: distinct debugger/inspector port so it doesn't collide with the
+# server worker's default (9229) when both run via `nx serve client`.
+[dev]
+inspector_port = 9230
+
 [[d1_databases]]
 binding = "DB"
 database_name = "mishna-auth"
