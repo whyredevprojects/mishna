@@ -73,6 +73,16 @@ wrangler d1 execute mishna-app --file src/schema.sql
 wrangler types                         # regenerate worker-configuration.d.ts after binding changes
 ```
 
+For **local dev**, apply both apps' schemas to the local D1 before `npm run dev`:
+
+```sh
+npm run db:init:local                  # initializes mishna-auth + mishna-app local D1
+```
+
+If the local `mishna-app` schema is missing, sign-in succeeds but `GET /api/me` returns an
+opaque **500** (D1 throws on `SELECT ... FROM participants`), and the client treats it as
+unauthenticated — looking like login is broken.
+
 ## Testing
 
 `nx test server`. Tests run on `@cloudflare/vitest-pool-workers` (real D1 + DO
