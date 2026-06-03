@@ -85,7 +85,9 @@ export class TodayCardComponent {
 
   protected readonly allDone = computed(() => {
     const refs = this.mishnas();
-    return refs.length > 0 && refs.every((r) => this.checked().has(formatRef(r)));
+    return (
+      refs.length > 0 && refs.every((r) => this.checked().has(formatRef(r)))
+    );
   });
 
   protected toggle(refKey: string, event: Event): void {
