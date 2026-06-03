@@ -18,6 +18,10 @@
           {
             "glob": "**/*",
             "input": "apps/client/public"
+          },
+          {
+            "glob": "*.json",
+            "input": "node_modules/mishna-text/data"
           }
         ],
         "styles": [
