@@ -22,7 +22,7 @@
     "@angular/build:application": {
       "cache": true,
       "dependsOn": ["^build"],
-      "inputs": ["production", "^production"]
+      "inputs": ["production", "^production", "{projectRoot}/project.json"]
     },
     "@angular/build:unit-test": {
       "cache": true,

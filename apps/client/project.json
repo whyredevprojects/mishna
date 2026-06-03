@@ -23,12 +23,7 @@
         "styles": [
           "node_modules/@awesome.me/webawesome/dist/styles/webawesome.css",
           "apps/client/src/styles.scss"
-        ],
-        "server": "apps/client/src/main.server.ts",
-        "ssr": {
-          "entry": "apps/client/src/server.ts"
-        },
-        "outputMode": "server"
+        ]
       },
       "configurations": {
         "production": {

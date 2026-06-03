@@ -1,16 +1,17 @@
 # apps/client
 
-Angular frontend for the Mishna app (Cloudflare Pages target via Angular SSR
-host). Mobile-first: a logged-in user's first screen is today's mishnayot. Talks
-to `apps/server`'s REST API and to `apps/login` (better-auth) for sign-in.
+Angular frontend for the Mishna app (Cloudflare Pages target). Mobile-first: a
+logged-in user's first screen is today's mishnayot. Talks to `apps/server`'s REST
+API and to `apps/login` (better-auth) for sign-in.
 
 ## Rendering model
 
-Configured for Angular SSR (`outputMode: server`), but **all routes render
-client-side** (`app.routes.server.ts` → `RenderMode.Client`). This is a deliberate
-choice: the app is an interactive, authenticated SPA built on Web Awesome custom
-elements. Client rendering avoids prerender-time API calls (no cookies/server at
-build) and shadow-DOM hydration mismatches. The SSR host still serves the shell.
+Plain client-side-rendered SPA — no SSR. The build (`@angular/build:application`)
+emits a browser-only bundle to `dist/apps/client/browser/`; `index.html` ships an
+empty `<app-root>` shell that boots in the browser via `src/main.ts`. This suits an
+interactive, authenticated app built on Web Awesome custom elements: no
+prerender-time API calls (no cookies/server at build) and no shadow-DOM hydration
+mismatches.
 
 ## Web Awesome
 
