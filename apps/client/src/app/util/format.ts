@@ -5,6 +5,15 @@ export function formatRef(ref: MishnaRef): string {
   return `${ref.mesechta} ${ref.perek}:${ref.mishna}`;
 }
 
+/** Hebrew label for a mishna, e.g. "ברכות פרק 8 משנה 7". */
+export function formatRefHe(
+  hebrewName: string,
+  perek: number,
+  mishna: number,
+): string {
+  return `${hebrewName} פרק ${perek} משנה ${mishna}`;
+}
+
 /** A Date as the `YYYY-MM-DD` (UTC) string the assignments API expects. */
 export function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);

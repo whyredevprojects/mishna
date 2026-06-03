@@ -8,24 +8,27 @@ import {
 } from '@angular/core';
 import { MishnaRef } from '../models/api.types';
 import { formatRef } from '../util/format';
+import { MishnaCardComponent } from './mishna-card.component';
 
 /**
- * The prominent "today's mishnayot" checklist. Each mishna is a checkbox; when
- * all are checked the card shows a completion state.
+ * Today's mishnayot — one {@link MishnaCardComponent} per mishna, with a
+ * completion banner when all are learned.
  *
- * Completion is persisted to localStorage keyed by date — a stand-in until the
+ * This component owns completion state for the day so the cards share one source
+ * of truth. It's persisted to localStorage keyed by date — a stand-in until the
  * server grows a completions endpoint (`POST /api/assignments/done`), at which
  * point this should sync instead.
  */
 @Component({
   selector: 'app-today-card',
+  imports: [MishnaCardComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
-      wa-checkbox {
-        display: block;
-        padding-block: var(--wa-space-xs, 0.25rem);
-        font-size: var(--wa-font-size-l, 1.125rem);
+      .cards {
+        display: flex;
+        flex-direction: column;
+        gap: var(--wa-space-m, 0.75rem);
       }
       .done-banner {
         display: flex;
@@ -38,28 +41,26 @@ import { formatRef } from '../util/format';
     `,
   ],
   template: `
-    <wa-card>
-      <strong slot="header">Today's Mishnayot</strong>
-
-      @if (mishnas().length) {
+    @if (mishnas().length) {
+      <div class="cards">
         @for (ref of mishnas(); track key(ref)) {
-          <wa-checkbox
-            [attr.checked]="isChecked(key(ref)) ? '' : null"
-            (change)="toggle(key(ref), $event)"
-            >{{ format(ref) }}</wa-checkbox
-          >
+          <app-mishna-card
+            [ref]="ref"
+            [done]="isChecked(key(ref))"
+            (learned)="toggle(key(ref))"
+          ></app-mishna-card>
         }
+      </div>
 
-        @if (allDone()) {
-          <div class="done-banner">
-            <wa-icon name="circle-check" variant="solid"></wa-icon>
-            Done for today!
-          </div>
-        }
-      } @else {
-        <p class="muted">No mishnayot assigned today.</p>
+      @if (allDone()) {
+        <div class="done-banner">
+          <wa-icon name="circle-check" variant="solid"></wa-icon>
+          Done for today!
+        </div>
       }
-    </wa-card>
+    } @else {
+      <p class="muted">No mishnayot assigned today.</p>
+    }
   `,
 })
 export class TodayCardComponent {
@@ -67,7 +68,6 @@ export class TodayCardComponent {
   /** ISO date the assignment belongs to; namespaces the saved checked state. */
   readonly date = input.required<string>();
 
-  protected readonly format = formatRef;
   protected readonly key = formatRef;
 
   private readonly checked = signal<Set<string>>(new Set());
@@ -90,13 +90,12 @@ export class TodayCardComponent {
     );
   });
 
-  protected toggle(refKey: string, event: Event): void {
-    const on = (event.target as HTMLInputElement).checked;
+  protected toggle(refKey: string): void {
     const next = new Set(this.checked());
-    if (on) {
-      next.add(refKey);
-    } else {
+    if (next.has(refKey)) {
       next.delete(refKey);
+    } else {
+      next.add(refKey);
     }
     this.checked.set(next);
     this.save(this.date(), next);
