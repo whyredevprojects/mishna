@@ -27,6 +27,8 @@ export interface Assignment {
   mishnas: MishnaRef[];
   /** The group these mishnayot belong to; echoed back when recording completions. Null when the assignment is empty. */
   groupId: string | null;
+  /** The subset of `mishnas` the caller has already marked learned. */
+  completed: MishnaRef[];
 }
 
 /** GET /api/completions — every mishna the caller has marked learned. */

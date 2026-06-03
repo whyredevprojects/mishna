@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Assignment, Completions, MishnaRef } from '../models/api.types';
+import { Assignment, MishnaRef } from '../models/api.types';
 
 /** Reads the caller's daily mishnayot and completion state from apps/server. */
 @Injectable({ providedIn: 'root' })
@@ -18,11 +18,6 @@ export class AssignmentService {
     return this.http.get<Assignment>('/api/assignments', {
       params: new HttpParams().set('date', date),
     });
-  }
-
-  /** Every mishna the caller has marked learned. */
-  listCompletions(): Observable<Completions> {
-    return this.http.get<Completions>('/api/completions');
   }
 
   /** Mark a mishna learned. `groupId` comes from the assignment it belongs to. */

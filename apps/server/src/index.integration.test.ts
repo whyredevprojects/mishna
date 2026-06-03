@@ -173,6 +173,15 @@ describe('server API integration', () => {
         .first<{ group_id: string }>();
       expect(row?.group_id).toBe(groupId);
 
+      // The assignment now carries its own completion state for its mishnas.
+      const dateStr = calendar.cycleStart(new Date()).toISOString().slice(0, 10);
+      const dayZero = await SELF.fetch(
+        `https://server/api/assignments?date=${dateStr}`,
+        { headers: as('alice') },
+      );
+      const dayZeroBody = (await dayZero.json()) as { completed: MishnaRef[] };
+      expect(dayZeroBody.completed).toEqual([ref]);
+
       // Re-marking is a no-op, not a duplicate.
       const again = await SELF.fetch(
         'https://server/api/completions',

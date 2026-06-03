@@ -70,7 +70,31 @@ async function buildAssignment(env: Env, userId: string, date: Date) {
   const groupId = assignment.mishnas.length
     ? groupIdForRef(groups, userId, assignment.mishnas[0])
     : null;
-  return { ...assignment, groupId };
+  const completed = await completedAmong(env, userId, assignment.mishnas);
+  return { ...assignment, groupId, completed };
+}
+
+/** `refKey`-style identity for a mishna ("Berachos|1|1"); cross-cycle, group-agnostic. */
+function refKey(ref: MishnaRef): string {
+  return `${ref.mesechta}|${ref.perek}|${ref.mishna}`;
+}
+
+/** The subset of `refs` the user has already marked learned (any group). */
+async function completedAmong(
+  env: Env,
+  userId: string,
+  refs: MishnaRef[],
+): Promise<MishnaRef[]> {
+  if (refs.length === 0) {
+    return [];
+  }
+  const { results } = await env.DB.prepare(
+    'SELECT DISTINCT mesechta, perek, mishna FROM completions WHERE user_id = ?',
+  )
+    .bind(userId)
+    .all<MishnaRef>();
+  const done = new Set(results.map(refKey));
+  return refs.filter((ref) => done.has(refKey(ref)));
 }
 
 /** Parses a `YYYY-MM-DD` query value as a UTC-midnight Date, or null if invalid. */

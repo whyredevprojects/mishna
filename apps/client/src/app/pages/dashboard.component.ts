@@ -105,19 +105,15 @@ export class DashboardComponent {
       next: (a) => {
         this.assignment.set(a);
         this.today.set(formatLongDate(a.date));
+        // The assignment carries its own completion state, so the checks render
+        // from the same response (no separate, separately-failing fetch).
+        this.completed.set(new Set(a.completed.map((r) => formatRef(r))));
         this.loading.set(false);
       },
       error: () => {
         this.error.set('Could not load today’s assignment.');
         this.loading.set(false);
       },
-    });
-    // Completion state loads in parallel; on failure the card just starts
-    // unchecked (toggles still work and sync), so no user-facing error here.
-    this.assignments.listCompletions().subscribe({
-      next: (c) =>
-        this.completed.set(new Set(c.completed.map((r) => formatRef(r)))),
-      error: () => this.completed.set(new Set()),
     });
   }
 
