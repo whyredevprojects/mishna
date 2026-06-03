@@ -8,7 +8,10 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth';
 export const authOptions = {
   emailAndPassword: { enabled: true, minPasswordLength: 4 },
   // Angular dev client origin; add the real client URL(s) before deploying.
-  trustedOrigins: ['http://localhost:4200'],
+  trustedOrigins: [
+    'http://localhost:4200',
+    'https://chevrasmishnayos.pages.dev/',
+  ],
 } satisfies Partial<BetterAuthOptions>;
 
 export function createAuth(env: Env) {
