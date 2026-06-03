@@ -6,6 +6,8 @@
     "kysely": "^0.28.17"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.4.1",
     "wrangler": "^4.95.0"
   }
 }
