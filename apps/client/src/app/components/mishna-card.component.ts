@@ -89,14 +89,10 @@ import { formatRef, formatRefHe } from '../util/format';
           <wa-icon slot="start" name="language"></wa-icon>
           {{ showEnglish() ? 'Hide English' : 'English' }}
         </wa-button>
-        <wa-button
-          variant="success"
-          [attr.appearance]="done() ? 'filled' : 'accent'"
-          (click)="learned.emit()"
-        >
-          <wa-icon slot="start" name="circle-check" variant="solid"></wa-icon>
-          {{ done() ? 'Learned Baal Peh' : 'I Learned This Baal Peh' }}
-        </wa-button>
+        <wa-checkbox
+          [attr.checked]="done() ? '' : null"
+          (wa-change)="learned.emit()"
+        >I Learned This Baal Peh</wa-checkbox>
       </div>
     </wa-card>
   `,
