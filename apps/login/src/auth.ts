@@ -7,10 +7,13 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth';
 // covers OAuth), so this object stays the source of truth for schema generation.
 export const authOptions = {
   emailAndPassword: { enabled: true, minPasswordLength: 4 },
-  // Angular dev client origin; add the real client URL(s) before deploying.
+  // Origins better-auth accepts state-changing requests from. No trailing slash —
+  // these are compared against the request's Origin header, which never has one.
+  // In production the client and auth share one host (getchevrasmishnayos.com), so
+  // this is same-origin; localhost:4200 is the Angular dev server.
   trustedOrigins: [
     'http://localhost:4200',
-    'https://chevrasmishnayos.pages.dev/',
+    'https://getchevrasmishnayos.com',
   ],
 } satisfies Partial<BetterAuthOptions>;
 

@@ -4,7 +4,17 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
-# Auth: the apps/login better-auth worker, reached via this service binding.
+# Same-origin production API. This route claims /api/* on the client's own domain
+# so the browser sees one origin (cookies first-party, no CORS). The login worker's
+# more specific /api/auth/* route wins for auth paths; the rest land here. Anything
+# outside /api/* falls through to the Cloudflare Pages SPA.
+routes = [
+  { pattern = "getchevrasmishnayos.com/api/*", zone_name = "getchevrasmishnayos.com" }
+]
+
+# Auth: the apps/login better-auth worker, reached via this service binding
+# (requireAuth validates the session cookie via /api/auth/get-session). The login
+# worker also serves the browser's /api/auth/* directly via its own route above.
 [[services]]
 binding = "AUTH"
 service = "login"

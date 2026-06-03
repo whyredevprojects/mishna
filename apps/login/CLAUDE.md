@@ -67,18 +67,35 @@ The core email/password schema is stable, so this is usually a no-op — but che
   reading `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from env (Wrangler secrets).
   Enabling it needs no schema change — the existing `account` table covers OAuth.
 
+## Production topology (same-origin)
+
+The client (Cloudflare Pages) and both workers all serve from one host,
+`getchevrasmishnayos.com`, so the session cookie is first-party and there is **no
+CORS**. Routing is by path at the edge (`routes` in each `wrangler.toml`), with
+Cloudflare running the most specific match:
+
+- `getchevrasmishnayos.com/api/auth/*` → **this** (login) worker
+- `getchevrasmishnayos.com/api/*` → the server worker
+- everything else → the Pages SPA
+
+In **dev** there are no routes: `apps/client/proxy.conf.json` sends all `/api/*` to
+the server worker, which forwards `/api/auth/*` here via the `AUTH` service binding.
+
 ## Before first deploy
 
-- Set the real `BETTER_AUTH_URL` in `wrangler.toml` (currently a localhost
-  placeholder).
-- Add the real client origin(s) to `trustedOrigins` in `src/auth.ts` (currently
-  only `http://localhost:4200`).
+- `BETTER_AUTH_URL` in `wrangler.toml` is `https://getchevrasmishnayos.com` (the
+  public origin). `.dev.vars` overrides it to `http://localhost:8787` for dev.
+- `trustedOrigins` in `src/auth.ts` is `http://localhost:4200` +
+  `https://getchevrasmishnayos.com` (no trailing slash — matched against the Origin
+  header).
 - `wrangler secret put BETTER_AUTH_SECRET`.
 - `wrangler secret put GOOGLE_CLIENT_ID` and `wrangler secret put
   GOOGLE_CLIENT_SECRET` (from a Google Cloud OAuth 2.0 Client). For local dev,
-  put them in `.dev.vars`. Register the redirect URI
-  `{BETTER_AUTH_URL}/api/auth/callback/google` (e.g.
-  `http://localhost:8787/api/auth/callback/google`) in the Google Cloud console.
+  put them in `.dev.vars`. Register **both** redirect URIs in the Google Cloud
+  console: `https://getchevrasmishnayos.com/api/auth/callback/google` (prod) and
+  `http://localhost:8787/api/auth/callback/google` (dev).
+- The Pages project must have `getchevrasmishnayos.com` as a custom domain (its
+  zone must be on this Cloudflare account for the worker `routes` to bind).
 
 ## Tests
 

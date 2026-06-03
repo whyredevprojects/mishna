@@ -49,7 +49,13 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `AdminService` | `GET /api/admin/groups`. |
 
-In dev, `proxy.conf.json` forwards `/api` to the worker on `:8787`.
+All calls use **relative `/api/*`** (no `environment.ts`), which works in both
+environments because the API is always same-origin:
+- **Dev**: `proxy.conf.json` forwards `/api` to the server worker on `:8787`.
+- **Prod**: the SPA serves from `getchevrasmishnayos.com` (Pages custom domain), and
+  Cloudflare Worker `routes` claim `/api/*` on that same host — `/api/auth/*` → the
+  login worker, the rest of `/api/*` → the server worker. Same origin means the
+  better-auth session cookie is first-party; no CORS, no client config.
 
 ## Known gaps / follow-ups
 
