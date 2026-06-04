@@ -27,7 +27,7 @@ app.use('*', poweredBy());
 // -- helpers ----------------------------------------------------------------
 
 /** The single allocator Durable Object stub — the serialized write path. */
-function allocator(env: Env): DurableObjectStub {
+function allocator(env: Env) {
   return env.ALLOCATOR.get(env.ALLOCATOR.idFromName('allocator'));
 }
 

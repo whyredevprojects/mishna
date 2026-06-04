@@ -5,13 +5,14 @@
     "module": "es2022",
     "types": [
       "node",
+      "vite/client",
       "@cloudflare/workers-types/experimental",
       "@cloudflare/vitest-pool-workers"
     ],
     "esModuleInterop": true,
     "target": "es2021",
     "lib": ["es2021"],
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "allowJs": true,
     "checkJs": false,
