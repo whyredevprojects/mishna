@@ -25,6 +25,7 @@ export default {
   // to the queue. Does no sending itself.
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     const jobs = await planSends(env, new Date(controller.scheduledTime));
+    console.log(`email orchestrator: queued ${jobs.length} job(s)`);
     if (jobs.length === 0) return;
     await env.EMAIL_QUEUE.sendBatch(jobs.map((body) => ({ body })));
   },
