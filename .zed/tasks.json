@@ -1,0 +1,12 @@
+[
+  {
+    "label": "Build",
+    "hooks": ["create_worktree"],
+    "command": "npm run :build"
+  },
+  {
+    "label": "Setup local db",
+    "hooks": ["create_worktree"],
+    "command": "npm run db:init:local"
+  }
+]
