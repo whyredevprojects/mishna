@@ -1,5 +1,13 @@
 [
   {
+    "label": "Install deps",
+    "env": {
+      "NX_NON_INTERACTIVE": "true"
+    },
+    "hooks": ["create_worktree"],
+    "command": "npm i"
+  },
+  {
     "label": "Build",
     "env": {
       "NX_NON_INTERACTIVE": "true"
