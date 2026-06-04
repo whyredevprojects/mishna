@@ -31,6 +31,11 @@ export class AuthService {
     return this.loadSession().pipe(map((me) => me !== null));
   }
 
+  /** Whether the current session belongs to an admin (from the latest /api/me). */
+  isAdmin(): boolean {
+    return this.me()?.isAdmin === true;
+  }
+
   /**
    * Signs in with email + password via the login worker. On success the session
    * cookie is set; callers should refresh `loadSession()` / navigate. Emits the

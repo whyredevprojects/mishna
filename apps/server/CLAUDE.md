@@ -45,7 +45,14 @@ Reads — assignments, `/me`, admin — hit D1 directly and need no coordination
 
 `requireAuth` forwards the incoming `cookie` to the login worker via the `AUTH`
 service binding (`/api/auth/get-session`, a better-auth built-in) and sets
-`c.get("userId")`, else `401`.
+`c.get("userId")` / `c.get("user")` (id, name, email, role, **isAdmin**), else `401`.
+
+`requireAdmin` does the same, then requires `user.isAdmin === true`, else `403`.
+This worker holds **no** admin config: `apps/login` is the single source of truth —
+its `customSession` plugin stamps `isAdmin` onto the get-session response from its
+`ADMIN_USER_IDS`. The admin user-management routes also proxy better-auth's
+`/api/auth/admin/*` endpoints through the `AUTH` binding (forwarding the caller's
+cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 
 ## Routes
 
@@ -53,17 +60,22 @@ service binding (`/api/auth/get-session`, a better-auth built-in) and sets
 |---|---|
 | `GET /api/corpus` | The static `MishnahDataset` (public; lets the client skip bundling it). |
 | `GET /api/cycle` | `{ cycleStart, cycleEnd, daysElapsed, daysRemaining, totalDays }` for the current cycle (public; powers the landing-page progress bar without shipping `@hebcal/core` to the client). |
-| `GET /api/me` | `{ joined, commitment }` (auth). |
+| `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |
 | `GET /api/assignments/today` | Today's mishnayot for the caller (auth). |
 | `GET /api/assignments?date=YYYY-MM-DD` | Same for an explicit UTC date (auth). |
-| `GET /api/admin/groups` | Per group: `id`, `progress`, `members` (userIds) + `memberCount` (auth). |
+| `GET /api/admin/groups` | Per group: `id`, `progress`, `members` (userIds) + `memberCount` (**admin**). |
+| `GET /api/admin/users` | `{ users: [{ id, name, email, role, joined, commitment }], total }` — better-auth `list-users` merged with `participants` (**admin**). |
+| `GET /api/admin/users/:id` | One user: identity + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
+| `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
+| `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
 
 Assignments pass **all** of a user's blocks across groups straight to
-`AssignmentEngine`, which sorts by corpus position internally. Admin returns
-`userId`s only — resolving names (they live in the `apps/login` auth DB) is a
-follow-up.
+`AssignmentEngine`, which sorts by corpus position internally. The admin
+user-management routes proxy better-auth's admin plugin
+(`/api/auth/admin/*` on the login worker) for identity, merging in join/group data
+this worker owns. `/api/admin/groups` still returns `userId`s only.
 
 ## One-time setup
 
@@ -87,9 +99,12 @@ unauthenticated — looking like login is broken.
 
 `nx test server`. Tests run on `@cloudflare/vitest-pool-workers` (real D1 + DO
 bindings); `schema.sql` is applied in `beforeAll` and tables are cleared in
-`beforeEach`. The `AUTH` service binding is stubbed in `vitest.config.mts` to treat
-the forwarded `cookie` value as the user id, so a test authenticates as whoever its
-`Cookie:` header names.
+`beforeEach`. The `AUTH` service binding is stubbed in `vitest.config.mts`:
+`get-session` treats the forwarded `cookie` value as the user id (so a test
+authenticates as whoever its `Cookie:` header names) and flags cookie `'admin'` as
+`isAdmin` (mirroring apps/login's `customSession`), so only `as('admin')` clears
+`requireAdmin`. The better-auth admin endpoints (`list-users`/`get-user`/
+`remove-user`) are stubbed with a fixed user directory.
 
 - `repository.test.ts` — the `D1GroupRepository` against the same scenarios as the
   domain's `InMemoryGroupRepository`.

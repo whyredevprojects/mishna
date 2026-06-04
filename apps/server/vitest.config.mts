@@ -13,15 +13,47 @@ export default defineConfig(() => ({
       wrangler: { configPath: './wrangler.toml' },
       miniflare: {
         // The login worker isn't running in tests, so stub the AUTH service
-        // binding: treat the forwarded cookie value as the user id (so tests
-        // pick who they are with a `Cookie:` header); no cookie -> no session.
+        // binding. get-session treats the forwarded cookie value as the user id
+        // (so tests pick who they are with a `Cookie:` header; no cookie -> no
+        // session) and flags cookie 'admin' as the admin (mirroring apps/login's
+        // customSession). The better-auth admin endpoints the server proxies are
+        // stubbed with a fixed user directory.
         serviceBindings: {
           AUTH: async (request: Request) => {
+            const url = new URL(request.url);
             const cookie = request.headers.get('cookie');
-            const body = cookie ? { user: { id: cookie } } : null;
-            return new Response(JSON.stringify(body), {
-              headers: { 'content-type': 'application/json' },
+            const json = (body: unknown) =>
+              new Response(JSON.stringify(body), {
+                headers: { 'content-type': 'application/json' },
+              });
+            const fakeUser = (id: string) => ({
+              id,
+              name: `${id} name`,
+              email: `${id}@example.com`,
+              role: null,
             });
+
+            if (url.pathname === '/api/auth/get-session') {
+              return json(
+                cookie
+                  ? { user: { ...fakeUser(cookie), isAdmin: cookie === 'admin' } }
+                  : null,
+              );
+            }
+            if (url.pathname === '/api/auth/admin/list-users') {
+              return json({
+                users: ['alice', 'bob', 'admin'].map(fakeUser),
+                total: 3,
+              });
+            }
+            if (url.pathname === '/api/auth/admin/get-user') {
+              const id = url.searchParams.get('id');
+              return json(id ? fakeUser(id) : null);
+            }
+            if (url.pathname === '/api/auth/admin/remove-user') {
+              return json({ success: true });
+            }
+            return json(null);
           },
         },
       },

@@ -4,7 +4,7 @@ import { Block, Commitment, mishnahDataset } from '@mishna/domain';
 import { AllocatorDO } from './allocator';
 import { assignmentEngine, calendar, idGen, structure } from './domain';
 import { D1GroupRepository } from './repository';
-import { AuthVariables, requireAuth } from './auth-middleware';
+import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
 
@@ -33,6 +33,30 @@ function parseUtcDate(value: string | undefined): Date | null {
   }
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Calls a better-auth admin endpoint (`/api/auth/admin/<path>`) on the login worker
+ * via the AUTH service binding, forwarding the caller's cookie so better-auth
+ * authorizes against its `adminUserIds`. Used by the admin user-management routes.
+ */
+function adminAuthFetch(
+  env: Env,
+  cookie: string | undefined,
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
+  return env.AUTH.fetch(`https://login/api/auth/admin/${path}`, {
+    ...init,
+    headers: { cookie: cookie ?? '', ...(init?.headers ?? {}) },
+  });
+}
+
+/** Total mishnayot a user holds in one group, summed across their blocks. */
+function userBlockSize(blocks: Block[], userId: string): number {
+  return blocks
+    .filter((b) => b.userId === userId)
+    .reduce((sum, b) => sum + b.totalSize, 0);
 }
 
 // -- routes -----------------------------------------------------------------
@@ -68,15 +92,26 @@ app.get('/api/cycle', (c) => {
   });
 });
 
-// Whether the caller has joined, and their per-day commitment.
+// The caller's identity (for the settings page), whether they're an admin, and
+// their join status + per-day commitment.
 app.get('/api/me', requireAuth, async (c) => {
-  const userId = c.get('userId');
+  const user = c.get('user');
   const row = await c.env.DB.prepare(
     'SELECT commitment FROM participants WHERE user_id = ?',
   )
-    .bind(userId)
+    .bind(user.id)
     .first<{ commitment: number }>();
-  return c.json({ joined: row !== null, commitment: row?.commitment ?? null });
+  return c.json({
+    joined: row !== null,
+    commitment: row?.commitment ?? null,
+    user: {
+      id: user.id,
+      name: user.name ?? null,
+      email: user.email ?? null,
+      role: user.role ?? null,
+    },
+    isAdmin: user.isAdmin === true,
+  });
 });
 
 // Join the current cycle. Allocation runs through the AllocatorDO write mutex.
@@ -126,7 +161,7 @@ app.get('/api/assignments', requireAuth, async (c) => {
 });
 
 // Admin view: every group's progress and members.
-app.get('/api/admin/groups', requireAuth, async (c) => {
+app.get('/api/admin/groups', requireAdmin, async (c) => {
   const total = structure.totalMishnayot;
   const { results: groupRows } = await c.env.DB.prepare(
     'SELECT id, capacity_left FROM groups',
@@ -153,6 +188,131 @@ app.get('/api/admin/groups', requireAuth, async (c) => {
   });
 
   return c.json({ count: groups.length, groups });
+});
+
+// -- admin: user management -------------------------------------------------
+// All gated by requireAdmin. User identity lives in the apps/login auth DB, so
+// list/get/delete proxy better-auth's admin plugin (/api/auth/admin/*); join
+// status, commitment and group membership come from this worker's mishna-app DB.
+
+interface AuthUser {
+  id: string;
+  name?: string;
+  email?: string;
+  role?: string | null;
+}
+
+// Every user with their join status and commitment.
+app.get('/api/admin/users', requireAdmin, async (c) => {
+  const res = await adminAuthFetch(
+    c.env,
+    c.req.header('cookie'),
+    'list-users?limit=1000',
+  );
+  if (!res.ok) {
+    return c.json({ error: 'failed to list users' }, 502);
+  }
+  const { users = [], total } = (await res.json()) as {
+    users?: AuthUser[];
+    total?: number;
+  };
+
+  const { results } = await c.env.DB.prepare(
+    'SELECT user_id, commitment FROM participants',
+  ).all<{ user_id: string; commitment: number }>();
+  const commitmentByUser = new Map(results.map((r) => [r.user_id, r.commitment]));
+
+  const merged = users.map((u) => ({
+    id: u.id,
+    name: u.name ?? null,
+    email: u.email ?? null,
+    role: u.role ?? null,
+    joined: commitmentByUser.has(u.id),
+    commitment: commitmentByUser.get(u.id) ?? null,
+  }));
+  return c.json({ users: merged, total: total ?? merged.length });
+});
+
+// One user's identity plus their join status, commitment and group membership.
+app.get('/api/admin/users/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+  const res = await adminAuthFetch(
+    c.env,
+    c.req.header('cookie'),
+    `get-user?id=${encodeURIComponent(id)}`,
+  );
+  if (!res.ok) {
+    return c.json({ error: 'user not found' }, 404);
+  }
+  const user = (await res.json()) as AuthUser | null;
+  if (!user?.id) {
+    return c.json({ error: 'user not found' }, 404);
+  }
+
+  const row = await c.env.DB.prepare(
+    'SELECT commitment FROM participants WHERE user_id = ?',
+  )
+    .bind(id)
+    .first<{ commitment: number }>();
+
+  const repo = new D1GroupRepository(c.env.DB, structure, idGen);
+  const groups = await repo.loadGroupsForUser(id);
+  const groupSummaries = groups.map((g) => ({
+    id: g.id,
+    blockSize: userBlockSize(g.toState().blocks, id),
+  }));
+
+  return c.json({
+    id: user.id,
+    name: user.name ?? null,
+    email: user.email ?? null,
+    role: user.role ?? null,
+    joined: row !== null,
+    commitment: row?.commitment ?? null,
+    groups: groupSummaries,
+  });
+});
+
+// Return a user's mishnayot to their groups' gap queues (same path as /api/leave,
+// but acting on an arbitrary user). Leaves the auth account intact.
+app.post('/api/admin/users/:id/remove-assignments', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+  const res = await allocator(c.env).fetch('https://allocator/leave', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId: id }),
+  });
+  return new Response(res.body, res);
+});
+
+// Hard-delete a user. Removes their assignments first (so mishna-app holds no
+// orphaned blocks/participants), then removes the better-auth account.
+app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+
+  const leave = await allocator(c.env).fetch('https://allocator/leave', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId: id }),
+  });
+  if (!leave.ok) {
+    return c.json({ error: 'failed to remove assignments' }, 502);
+  }
+
+  const removed = await adminAuthFetch(
+    c.env,
+    c.req.header('cookie'),
+    'remove-user',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ userId: id }),
+    },
+  );
+  if (!removed.ok) {
+    return c.json({ error: 'failed to delete account' }, 502);
+  }
+  return c.json({ deleted: true });
 });
 
 export default app;

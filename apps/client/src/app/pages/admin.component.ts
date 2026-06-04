@@ -1,85 +1,51 @@
-import {
-  CUSTOM_ELEMENTS_SCHEMA,
-  Component,
-  inject,
-  signal,
-} from '@angular/core';
-import { AdminService } from '../services/admin.service';
-import { AdminGroup } from '../models/api.types';
+import { CUSTOM_ELEMENTS_SCHEMA, Component } from '@angular/core';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
-/** Group stats: how many groups, and each group's fill + progress. */
+/**
+ * Admin shell: a local sub-nav (Groups / Users) and a nested router-outlet for
+ * the admin pages. Gated by `adminGuard` in the route config.
+ */
 @Component({
   selector: 'app-admin',
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
-      wa-card {
-        width: 100%;
-      }
-      .group-head {
+      .subnav {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
+        gap: var(--wa-space-xs, 0.25rem);
+        margin-block-end: var(--wa-space-m, 0.75rem);
       }
-      .pct {
-        font-variant-numeric: tabular-nums;
-        font-size: var(--wa-font-size-s, 0.875rem);
+      .subnav a {
+        padding: var(--wa-space-2xs, 0.125rem) var(--wa-space-s, 0.5rem);
+        border-radius: var(--wa-border-radius-m, 0.5rem);
+        color: inherit;
+        text-decoration: none;
+        font-size: var(--wa-font-size-l, 1.125rem);
+      }
+      .subnav a:hover {
+        background: var(--wa-color-neutral-fill-quiet, #f0ece6);
+      }
+      .subnav a.active {
+        background: var(--wa-color-brand-fill-quiet, #f0e6d8);
+        font-weight: var(--wa-font-weight-semibold, 600);
       }
     `,
   ],
   template: `
     <div class="stack">
       <h2>Admin</h2>
-
-      @if (loading()) {
-        <wa-spinner style="font-size: 2rem"></wa-spinner>
-      } @else if (error()) {
-        <wa-callout variant="danger">{{ error() }}</wa-callout>
-      } @else {
-        <p class="muted">{{ count() }} active {{ count() === 1 ? 'group' : 'groups' }}</p>
-
-        @for (group of groups(); track group.id; let i = $index) {
-          <wa-card>
-            <div slot="header" class="group-head">
-              <strong>Group {{ i + 1 }}</strong>
-              <span class="pct">{{ pct(group) }}%</span>
-            </div>
-            <div class="stack">
-              <span class="muted"
-                >{{ group.memberCount }}
-                {{ group.memberCount === 1 ? 'member' : 'members' }}</span
-              >
-              <wa-progress-bar [value]="pct(group)"></wa-progress-bar>
-            </div>
-          </wa-card>
-        }
-      }
+      <nav class="subnav">
+        <a
+          routerLink="/admin"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          >Groups</a
+        >
+        <a routerLink="/admin/users" routerLinkActive="active">Users</a>
+      </nav>
+      <router-outlet />
     </div>
   `,
 })
-export class AdminComponent {
-  private readonly admin = inject(AdminService);
-
-  protected readonly loading = signal(true);
-  protected readonly error = signal<string | null>(null);
-  protected readonly count = signal(0);
-  protected readonly groups = signal<AdminGroup[]>([]);
-
-  constructor() {
-    this.admin.groups().subscribe({
-      next: (res) => {
-        this.count.set(res.count);
-        this.groups.set(res.groups);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Could not load group stats.');
-        this.loading.set(false);
-      },
-    });
-  }
-
-  protected pct(group: AdminGroup): number {
-    return Math.round(group.progress * 100);
-  }
-}
+export class AdminComponent {}

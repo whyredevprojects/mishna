@@ -31,23 +31,24 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | Path | Role |
 |------|------|
 | `app.ts` | Root: a bare `<router-outlet>`. |
-| `app.routes.ts` | `/` = landing (public). `/dashboard`, `/review`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. |
+| `app.routes.ts` | `/` = landing (public). `/dashboard`, `/review`, `/settings`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. `/admin` is a shell (sub-nav + outlet) further gated by `adminGuard`, with children `'' ` (groups), `users`, `users/:id`. |
 | `guards/auth.guard.ts` | Confirms a session via `GET /api/me`; redirects to `/` otherwise. UX only — the server API is the real auth boundary. |
+| `guards/admin.guard.ts` | Loads `GET /api/me` and allows only when `isAdmin`, else redirects to `/dashboard`. UX only — the server's `requireAdmin` is the boundary. |
 | `models/api.types.ts` | Client shapes of the server responses; reuses `@mishna/domain` value types, redefines anything carrying a `Date` (arrives as ISO string). |
 | `services/` | One thin service per API area (see below). |
 | `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-list`, `today-card`, `join-form`. |
-| `pages/` | Routed screens: `landing`, `dashboard`, `review`, `admin`. |
+| `pages/` | Routed screens: `landing`, `dashboard`, `review`, `settings`, and the admin shell `admin` + `admin-groups`, `admin-users`, `admin-user-detail`. |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
 
 ## Services → API
 
 | Service | Calls |
 |---------|-------|
-| `AuthService` | `GET /api/me` (session + join status), better-auth `sign-in/social` + `sign-out`. Holds a `me` signal. |
+| `AuthService` | `GET /api/me` (session + join status + identity + `isAdmin`), better-auth `sign-in/social` + `sign-out`. Holds a `me` signal; `isAdmin()` reads it. |
 | `CycleService` | `GET /api/cycle` (public). |
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
-| `AdminService` | `GET /api/admin/groups`. |
+| `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `DELETE /api/admin/users/:id`. |
 
 All calls use **relative `/api/*`** (no `environment.ts`), which works in both
 environments because the API is always same-origin:
@@ -65,8 +66,6 @@ environments because the API is always same-origin:
 - **Completion tracking**: `TodayCardComponent` persists checked mishnayot to
   `localStorage` keyed by date. There's no server completions endpoint yet; when
   one lands (`POST /api/assignments/done`), the card should sync to it instead.
-- **Admin role**: the Admin link/page is shown to every authenticated user — the
-  server doesn't distinguish admins yet.
 - **Review**: currently the date-picker browser (any day's assignment). The
   per-perek completion view in the UI plan is deferred (needs completions data).
 

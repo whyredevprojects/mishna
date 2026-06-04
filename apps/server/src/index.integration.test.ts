@@ -47,7 +47,7 @@ describe('server API integration', () => {
   it('runs the full join -> me -> assignment -> admin -> leave flow', async () => {
     // Not joined yet.
     let me = await SELF.fetch('https://server/api/me', { headers: as('alice') });
-    expect(await me.json()).toEqual({ joined: false, commitment: null });
+    expect(await me.json()).toMatchObject({ joined: false, commitment: null });
 
     // Join with a commitment of 1/day.
     const join = await SELF.fetch('https://server/api/join', {
@@ -60,7 +60,7 @@ describe('server API integration', () => {
 
     // /me now reflects the commitment.
     me = await SELF.fetch('https://server/api/me', { headers: as('alice') });
-    expect(await me.json()).toEqual({ joined: true, commitment: 1 });
+    expect(await me.json()).toMatchObject({ joined: true, commitment: 1 });
 
     // On day 0 of the cycle, the first joiner's first mishna is the corpus head.
     const cycleStart = calendar.cycleStart(new Date());
@@ -86,7 +86,7 @@ describe('server API integration', () => {
 
     // Admin view shows the group, alice as a member, and partial progress.
     const admin = await SELF.fetch('https://server/api/admin/groups', {
-      headers: as('alice'),
+      headers: as('admin'),
     });
     const adminBody = (await admin.json()) as {
       count: number;
@@ -107,7 +107,89 @@ describe('server API integration', () => {
     expect(await leave.json()).toMatchObject({ joined: false });
 
     me = await SELF.fetch('https://server/api/me', { headers: as('alice') });
-    expect(await me.json()).toEqual({ joined: false, commitment: null });
+    expect(await me.json()).toMatchObject({ joined: false, commitment: null });
+  });
+
+  it('/api/me carries identity and the admin flag', async () => {
+    const mine = await SELF.fetch('https://server/api/me', { headers: as('alice') });
+    expect(await mine.json()).toMatchObject({
+      user: { id: 'alice', name: 'alice name', email: 'alice@example.com' },
+      isAdmin: false,
+    });
+
+    const adminMe = await SELF.fetch('https://server/api/me', { headers: as('admin') });
+    expect(await adminMe.json()).toMatchObject({ isAdmin: true });
+  });
+
+  it('gates /api/admin/users behind admin', async () => {
+    const denied = await SELF.fetch('https://server/api/admin/users', {
+      headers: as('alice'),
+    });
+    expect(denied.status).toBe(403);
+
+    const ok = await SELF.fetch('https://server/api/admin/users', {
+      headers: as('admin'),
+    });
+    expect(ok.status).toBe(200);
+  });
+
+  it('admin can list users, view one, remove assignments, and delete', async () => {
+    // alice joins so she has assignments to inspect/remove.
+    await SELF.fetch('https://server/api/join', {
+      method: 'POST',
+      headers: { ...as('alice'), 'content-type': 'application/json' },
+      body: JSON.stringify({ commitment: 1 }),
+    });
+
+    // List merges the auth directory with join status.
+    const list = await SELF.fetch('https://server/api/admin/users', {
+      headers: as('admin'),
+    });
+    const { users } = (await list.json()) as {
+      users: { id: string; joined: boolean; commitment: number | null }[];
+    };
+    const alice = users.find((u) => u.id === 'alice');
+    expect(alice).toMatchObject({ joined: true, commitment: 1 });
+    expect(users.find((u) => u.id === 'bob')).toMatchObject({ joined: false });
+
+    // Detail shows her group membership.
+    const detailRes = await SELF.fetch('https://server/api/admin/users/alice', {
+      headers: as('admin'),
+    });
+    const detail = (await detailRes.json()) as {
+      id: string;
+      groups: { id: string; blockSize: number }[];
+    };
+    expect(detail.id).toBe('alice');
+    expect(detail.groups.length).toBeGreaterThanOrEqual(1);
+
+    // Remove assignments leaves the participant row gone but doesn't delete auth.
+    const removed = await SELF.fetch(
+      'https://server/api/admin/users/alice/remove-assignments',
+      { method: 'POST', headers: as('admin') },
+    );
+    expect(removed.status).toBe(200);
+    const afterMe = await SELF.fetch('https://server/api/me', { headers: as('alice') });
+    expect(await afterMe.json()).toMatchObject({ joined: false });
+
+    // Delete cascades: bob joins, then admin deletes him.
+    await SELF.fetch('https://server/api/join', {
+      method: 'POST',
+      headers: { ...as('bob'), 'content-type': 'application/json' },
+      body: JSON.stringify({ commitment: 2 }),
+    });
+    const del = await SELF.fetch('https://server/api/admin/users/bob', {
+      method: 'DELETE',
+      headers: as('admin'),
+    });
+    expect(del.status).toBe(200);
+    expect(await del.json()).toMatchObject({ deleted: true });
+    const bobRow = await env.DB.prepare(
+      'SELECT 1 FROM participants WHERE user_id = ?',
+    )
+      .bind('bob')
+      .first();
+    expect(bobRow).toBeNull();
   });
 
   it('rejects an invalid commitment and a double-join', async () => {

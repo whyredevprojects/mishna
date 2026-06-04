@@ -7,6 +7,10 @@ interface __BaseEnv_Env {
 	BETTER_AUTH_URL: string;
 	GOOGLE_CLIENT_ID: string;
 	GOOGLE_CLIENT_SECRET: string;
+	// Comma-separated better-auth user ids granted admin. Supplied as a secret
+	// (`.dev.vars` / `wrangler secret`), so re-run `wrangler types` with it set
+	// in .dev.vars to keep this entry.
+	ADMIN_USER_IDS?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

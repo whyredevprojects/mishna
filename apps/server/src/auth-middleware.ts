@@ -1,45 +1,70 @@
 import { createMiddleware } from 'hono/factory';
 
 // ---------------------------------------------------------------------------
-// requireAuth
+// Auth middleware
 //
 // Authenticates against the apps/login better-auth worker via the AUTH service
 // binding. better-auth exposes a built-in `/api/auth/get-session` endpoint that
-// reads the session cookie and returns `{ user, session }` (or null). We simply
-// forward the incoming `cookie` header to it and trust the result.
+// reads the session cookie and returns `{ user, session }` (or null). We forward
+// the incoming `cookie` header to it and trust the result.
 //
-// On success the user id is stashed on the context (`c.get("userId")`); on any
-// failure the request is rejected with 401.
+// `requireAuth` stashes the user on the context (`c.get("userId")` / `c.get("user")`)
+// or rejects with 401. `requireAdmin` additionally requires the session to be
+// flagged `isAdmin` — apps/login stamps that onto the get-session response (via its
+// customSession plugin) from its `ADMIN_USER_IDS`, so the login worker is the single
+// source of truth and this worker needs no admin config of its own. Else 403.
 // ---------------------------------------------------------------------------
 
-export type AuthVariables = { userId: string };
-
-interface SessionResponse {
-  user?: { id?: string } | null;
+export interface SessionUser {
+  id: string;
+  name?: string;
+  email?: string;
+  role?: string | null;
+  isAdmin?: boolean;
 }
 
-export const requireAuth = createMiddleware<{
-  Bindings: Env;
-  Variables: AuthVariables;
-}>(async (c, next) => {
-  const cookie = c.req.header('cookie');
-  if (!cookie) {
-    return c.json({ error: 'unauthorized' }, 401);
-  }
+export type AuthVariables = { userId: string; user: SessionUser };
 
-  const res = await c.env.AUTH.fetch('https://login/api/auth/get-session', {
+interface SessionResponse {
+  user?: SessionUser | null;
+}
+
+type AuthContext = { Bindings: Env; Variables: AuthVariables };
+
+/** Resolves the session user from the forwarded cookie, or null. */
+async function sessionUser(cookie: string | undefined, env: Env): Promise<SessionUser | null> {
+  if (!cookie) {
+    return null;
+  }
+  const res = await env.AUTH.fetch('https://login/api/auth/get-session', {
     headers: { cookie },
   });
   if (!res.ok) {
-    return c.json({ error: 'unauthorized' }, 401);
+    return null;
   }
-
   const session = (await res.json()) as SessionResponse | null;
-  const userId = session?.user?.id;
-  if (!userId) {
+  return session?.user?.id ? session.user : null;
+}
+
+export const requireAuth = createMiddleware<AuthContext>(async (c, next) => {
+  const user = await sessionUser(c.req.header('cookie'), c.env);
+  if (!user) {
     return c.json({ error: 'unauthorized' }, 401);
   }
+  c.set('userId', user.id);
+  c.set('user', user);
+  await next();
+});
 
-  c.set('userId', userId);
+export const requireAdmin = createMiddleware<AuthContext>(async (c, next) => {
+  const user = await sessionUser(c.req.header('cookie'), c.env);
+  if (!user) {
+    return c.json({ error: 'unauthorized' }, 401);
+  }
+  if (user.isAdmin !== true) {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+  c.set('userId', user.id);
+  c.set('user', user);
   await next();
 });

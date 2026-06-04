@@ -86,9 +86,14 @@ import { GroupService } from '../services/group.service';
         <a routerLink="/review" (click)="drawerOpen.set(false)">
           <wa-icon name="magnifying-glass"></wa-icon> Review
         </a>
-        <a routerLink="/admin" (click)="drawerOpen.set(false)">
-          <wa-icon name="gear"></wa-icon> Admin
+        <a routerLink="/settings" (click)="drawerOpen.set(false)">
+          <wa-icon name="user"></wa-icon> Settings
         </a>
+        @if (auth.isAdmin()) {
+          <a routerLink="/admin" (click)="drawerOpen.set(false)">
+            <wa-icon name="gear"></wa-icon> Admin
+          </a>
+        }
       </nav>
 
       <wa-button
@@ -130,7 +135,7 @@ import { GroupService } from '../services/group.service';
 })
 export class AppShellComponent {
   private readonly groups = inject(GroupService);
-  private readonly auth = inject(AuthService);
+  protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
   protected readonly drawerOpen = signal(false);

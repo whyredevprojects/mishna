@@ -5,10 +5,20 @@ import type { Commitment, MishnaRef } from '@mishna/domain';
 
 export type { Commitment, MishnaRef };
 
+/** The signed-in user's identity, as carried on GET /api/me. */
+export interface UserInfo {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+}
+
 /** GET /api/me */
 export interface Me {
   joined: boolean;
   commitment: Commitment | null;
+  user: UserInfo;
+  isAdmin: boolean;
 }
 
 /** GET /api/cycle */
@@ -39,4 +49,25 @@ export interface AdminGroup {
 export interface AdminGroups {
   count: number;
   groups: AdminGroup[];
+}
+
+/** One user's row in GET /api/admin/users */
+export interface AdminUser {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  joined: boolean;
+  commitment: Commitment | null;
+}
+
+/** GET /api/admin/users */
+export interface AdminUsers {
+  users: AdminUser[];
+  total: number;
+}
+
+/** GET /api/admin/users/:id */
+export interface AdminUserDetail extends AdminUser {
+  groups: { id: string; blockSize: number }[];
 }
