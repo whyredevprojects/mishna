@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  isDevMode,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
@@ -8,6 +9,7 @@ import {
   provideTanStackQuery,
   QueryClient,
 } from '@tanstack/angular-query-experimental';
+import { provideServiceWorker } from '@angular/service-worker';
 import { appRoutes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -29,5 +31,9 @@ export const appConfig: ApplicationConfig = {
         },
       }),
     ),
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000',
+    }),
   ],
 };

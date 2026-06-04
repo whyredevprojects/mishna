@@ -1,11 +1,16 @@
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  DestroyRef,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { filter } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
 
 /** Authenticated layout: a top bar with a burger that opens a navigation drawer, and a router-outlet for the page. */
 @Component({
@@ -116,8 +121,31 @@ import { AuthService } from '../services/auth.service';
 export class AppShellComponent {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
+  private readonly swUpdate = inject(SwUpdate);
 
   protected readonly drawerOpen = signal(false);
+
+  constructor() {
+    // When a freshly deployed version finishes downloading in the background,
+    // prompt the user to reload onto it (no-op in dev, where the SW is off).
+    if (this.swUpdate.isEnabled) {
+      this.swUpdate.versionUpdates
+        .pipe(
+          filter(
+            (e): e is VersionReadyEvent => e.type === 'VERSION_READY',
+          ),
+          takeUntilDestroyed(inject(DestroyRef)),
+        )
+        .subscribe(() => {
+          this.toast.action(
+            'A new version is available.',
+            'Reload',
+            () => document.location.reload(),
+          );
+        });
+    }
+  }
 
   protected logout(): void {
     this.auth.signOut().subscribe(() => this.router.navigate(['/']));

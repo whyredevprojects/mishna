@@ -70,6 +70,7 @@
     "@angular/forms": "~21.2.0",
     "@angular/platform-browser": "~21.2.0",
     "@angular/router": "~21.2.0",
+    "@angular/service-worker": "~21.2.0",
     "@fontsource/frank-ruhl-libre": "^5.2.8",
     "@hebcal/core": "^6.5.2",
     "hono": "^4.8.9",
