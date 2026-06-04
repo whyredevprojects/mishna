@@ -29,4 +29,14 @@ export class AdminService {
   deleteUser(id: string): Observable<unknown> {
     return this.http.delete(`/api/admin/users/${id}`);
   }
+
+  /** Queues an extra weekly mishnayos email for the user (bypasses dedup). */
+  sendWeekly(id: string): Observable<unknown> {
+    return this.http.post(`/api/admin/users/${id}/send-weekly`, {});
+  }
+
+  /** Queues an extra reminder email for the user (bypasses dedup). */
+  sendReminder(id: string): Observable<unknown> {
+    return this.http.post(`/api/admin/users/${id}/send-reminder`, {});
+  }
 }

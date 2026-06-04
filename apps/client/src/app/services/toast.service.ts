@@ -10,11 +10,20 @@ import { Injectable } from '@angular/core';
 export class ToastService {
   /** Shows a danger toast in the corner for `ms` milliseconds. */
   error(message: string, ms = 5000): void {
+    this.show(message, 'danger', ms);
+  }
+
+  /** Shows a success toast in the corner for `ms` milliseconds. */
+  success(message: string, ms = 4000): void {
+    this.show(message, 'success', ms);
+  }
+
+  private show(message: string, variant: 'danger' | 'success', ms: number): void {
     if (typeof document === 'undefined') {
       return;
     }
     const el = document.createElement('wa-callout');
-    el.setAttribute('variant', 'danger');
+    el.setAttribute('variant', variant);
     el.textContent = message;
     Object.assign(el.style, {
       position: 'fixed',

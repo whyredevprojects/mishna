@@ -7,6 +7,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminService } from '../services/admin.service';
 import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
 import { AdminUserDetail } from '../models/api.types';
 
 /** One user's info, with admin actions: remove assignments and delete account. */
@@ -72,6 +73,22 @@ import { AdminUserDetail } from '../models/api.types';
         </wa-card>
 
         <div class="actions">
+          <wa-button
+            appearance="outlined"
+            [attr.disabled]="!u.joined || sending() ? '' : null"
+            (click)="send('weekly')"
+          >
+            <wa-icon slot="start" name="envelope"></wa-icon>
+            Send weekly email
+          </wa-button>
+          <wa-button
+            appearance="outlined"
+            [attr.disabled]="!u.joined || sending() ? '' : null"
+            (click)="send('reminder')"
+          >
+            <wa-icon slot="start" name="bell"></wa-icon>
+            Send reminder email
+          </wa-button>
           <wa-button
             variant="warning"
             appearance="outlined"
@@ -142,6 +159,7 @@ export class AdminUserDetailComponent {
   private readonly router = inject(Router);
   private readonly admin = inject(AdminService);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
 
@@ -151,6 +169,7 @@ export class AdminUserDetailComponent {
   protected readonly removeOpen = signal(false);
   protected readonly deleteOpen = signal(false);
   protected readonly working = signal(false);
+  protected readonly sending = signal(false);
 
   constructor() {
     this.load();
@@ -174,6 +193,26 @@ export class AdminUserDetailComponent {
       error: () => {
         this.error.set('Could not load this user.');
         this.loading.set(false);
+      },
+    });
+  }
+
+  protected send(kind: 'weekly' | 'reminder'): void {
+    this.sending.set(true);
+    const req =
+      kind === 'weekly'
+        ? this.admin.sendWeekly(this.id)
+        : this.admin.sendReminder(this.id);
+    req.subscribe({
+      next: () => {
+        this.sending.set(false);
+        this.toast.success(
+          kind === 'weekly' ? 'Weekly email queued.' : 'Reminder email queued.',
+        );
+      },
+      error: () => {
+        this.sending.set(false);
+        this.toast.error('Could not queue the email.');
       },
     });
   }

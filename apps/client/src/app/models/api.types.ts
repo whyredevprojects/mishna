@@ -21,6 +21,19 @@ export interface Me {
   isAdmin: boolean;
 }
 
+/** Day of week, 0=Sunday … 6=Saturday (matches the server + JS getUTCDay). */
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/** GET/PUT /api/me/preferences — the user's email settings. */
+export interface EmailPrefs {
+  /** IANA timezone; emails fire at 08:00 in this zone. */
+  timezone: string;
+  weeklyEmailDow: DayOfWeek;
+  reminderEmailDow: DayOfWeek;
+  weeklyEnabled: boolean;
+  reminderEnabled: boolean;
+}
+
 /** GET /api/cycle */
 export interface Cycle {
   cycleStart: string;

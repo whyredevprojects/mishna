@@ -38,6 +38,20 @@ export class AssignmentEngine {
     return { userId, date, mishnas };
   }
 
+  /**
+   * Every mishna due across `days` consecutive days starting at `weekStart`
+   * (inclusive). The per-day slices never overlap, so this is their concatenation
+   * in corpus order — the "quota" for a week, used by the email reminders.
+   */
+  getWeekAssignment(blocks: Block[], weekStart: Date, days = 7): MishnaRef[] {
+    const out: MishnaRef[] = [];
+    for (let d = 0; d < days; d++) {
+      const date = new Date(weekStart.getTime() + d * 86_400_000);
+      out.push(...this.getAssignment(blocks, date).mishnas);
+    }
+    return out;
+  }
+
   /** Blocks sorted by the corpus position of their first range. */
   private orderBlocks(blocks: Block[]): Block[] {
     return [...blocks].sort(

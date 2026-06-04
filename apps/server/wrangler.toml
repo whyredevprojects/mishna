@@ -36,6 +36,13 @@ migrations_dir = "migrations"
 name = "ALLOCATOR"
 class_name = "AllocatorDO"
 
+# Producer side of the email queue. The admin "send now" endpoints enqueue an
+# EmailJob here; the apps/email worker is the queue's consumer (and also produces
+# from its cron). Create once: `wrangler queues create mishna-email`.
+[[queues.producers]]
+queue = "mishna-email"
+binding = "EMAIL_QUEUE"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["AllocatorDO"]

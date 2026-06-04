@@ -4,8 +4,43 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
-# Reminder-email cron: fire every 3 hours. The handler dedupes so each user gets
-# at most one email per day.
+# Fire hourly. The orchestrator only acts on a user when it's 08:00 in that user's
+# timezone, so an hourly tick covers every zone exactly once per local day. The
+# email_log table makes each (user, kind, week) send happen at most once.
 [triggers]
-crons = ["0 */3 * * *"]
+crons = ["0 * * * *"]
 
+# App data: participants, user_email_prefs, completions, groups/group_members, and
+# email_log. Same `mishna-app` DB the server owns (migrations live in apps/server).
+[[d1_databases]]
+binding = "DB"
+database_name = "mishna-app"
+database_id = "c7b07846-05d0-497b-82d8-89ae41557ed8"
+
+# Better-auth users (email + name), read-only. The `mishna-auth` DB owned by
+# apps/login — separate DB, so user identity is merged in memory (no cross-DB JOIN).
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "mishna-auth"
+database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
+
+# The email queue. This worker both produces (from the cron orchestrator) and
+# consumes (the sender). The server worker is also a producer (admin "send now").
+# Create once: `wrangler queues create mishna-email`.
+[[queues.producers]]
+queue = "mishna-email"
+binding = "EMAIL_QUEUE"
+
+[[queues.consumers]]
+queue = "mishna-email"
+max_batch_size = 50
+max_batch_timeout = 30
+max_retries = 3
+
+[vars]
+# The deployed client origin, which serves mishna-text's tractate JSON (its
+# `data/` is copied into the client's assets). The sender fetches Hebrew text from
+# here. Override locally via .dev.vars if needed.
+APP_ORIGIN = "https://getchevrasmishnayos.com"
+# Verified Resend sender. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
+RESEND_FROM_EMAIL = "Chevra Mishnayos <reminders@getchevrasmishnayos.com>"

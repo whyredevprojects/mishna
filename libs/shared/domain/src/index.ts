@@ -11,3 +11,9 @@ export { AssignmentEngine } from './lib/assignment-engine';
 export type { GroupRepository } from './lib/group-repository';
 export { InMemoryGroupRepository } from './lib/group-repository';
 export { GroupManager } from './lib/group-manager';
+export {
+  localParts,
+  weekStartOnOrBefore,
+  weekStartToDate,
+} from './lib/email-schedule';
+export type { EmailKind, EmailJob, LocalParts } from './lib/email-schedule';

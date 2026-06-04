@@ -1,6 +1,16 @@
 import { Hono } from 'hono';
 import { poweredBy } from 'hono/powered-by';
-import { Block, Commitment, Group, MishnaRef, mishnahDataset } from '@mishna/domain';
+import {
+  Block,
+  Commitment,
+  EmailJob,
+  EmailKind,
+  Group,
+  MishnaRef,
+  localParts,
+  mishnahDataset,
+  weekStartOnOrBefore,
+} from '@mishna/domain';
 import { AllocatorDO } from './allocator';
 import { assignmentEngine, calendar, idGen, structure } from './domain';
 import { D1GroupRepository } from './repository';
@@ -204,6 +214,112 @@ app.get('/api/me', requireAuth, async (c) => {
       role: user.role ?? null,
     },
     isAdmin: user.isAdmin === true,
+  });
+});
+
+// -- email preferences ------------------------------------------------------
+// Per-user email settings (timezone + which weekday each email lands on). Stored
+// in user_email_prefs; users without a row get DEFAULT_PREFS. The email worker
+// reads the same table.
+
+const DEFAULT_PREFS = {
+  timezone: 'America/New_York',
+  weeklyEmailDow: 0,
+  reminderEmailDow: 4,
+  weeklyEnabled: true,
+  reminderEnabled: true,
+};
+type EmailPrefs = typeof DEFAULT_PREFS;
+
+interface PrefsRow {
+  timezone: string;
+  weekly_email_dow: number;
+  reminder_email_dow: number;
+  weekly_enabled: number;
+  reminder_enabled: number;
+}
+
+function rowToPrefs(row: PrefsRow | null): EmailPrefs {
+  if (!row) return { ...DEFAULT_PREFS };
+  return {
+    timezone: row.timezone,
+    weeklyEmailDow: row.weekly_email_dow,
+    reminderEmailDow: row.reminder_email_dow,
+    weeklyEnabled: row.weekly_enabled === 1,
+    reminderEnabled: row.reminder_enabled === 1,
+  };
+}
+
+function loadPrefs(env: Env, userId: string): Promise<PrefsRow | null> {
+  return env.DB.prepare(
+    `SELECT timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled
+       FROM user_email_prefs WHERE user_id = ?`,
+  )
+    .bind(userId)
+    .first<PrefsRow>();
+}
+
+/** A real IANA timezone (Intl throws RangeError on an unknown one). */
+function isValidTimeZone(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || tz === '') return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isDow(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 6;
+}
+
+// The caller's email preferences (defaults if they've never saved any).
+app.get('/api/me/preferences', requireAuth, async (c) => {
+  return c.json(rowToPrefs(await loadPrefs(c.env, c.get('userId'))));
+});
+
+// Upsert the caller's email preferences.
+app.put('/api/me/preferences', requireAuth, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled } =
+    body as Partial<EmailPrefs>;
+  if (!isValidTimeZone(timezone)) {
+    return c.json({ error: 'timezone must be a valid IANA zone' }, 400);
+  }
+  if (!isDow(weeklyEmailDow) || !isDow(reminderEmailDow)) {
+    return c.json({ error: 'weekday must be an integer 0-6' }, 400);
+  }
+  const weekly = weeklyEnabled !== false ? 1 : 0;
+  const reminder = reminderEnabled !== false ? 1 : 0;
+  await c.env.DB.prepare(
+    `INSERT INTO user_email_prefs
+       (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       timezone = excluded.timezone,
+       weekly_email_dow = excluded.weekly_email_dow,
+       reminder_email_dow = excluded.reminder_email_dow,
+       weekly_enabled = excluded.weekly_enabled,
+       reminder_enabled = excluded.reminder_enabled,
+       updated_at = excluded.updated_at`,
+  )
+    .bind(
+      c.get('userId'),
+      timezone,
+      weeklyEmailDow,
+      reminderEmailDow,
+      weekly,
+      reminder,
+      Date.now(),
+    )
+    .run();
+  return c.json({
+    timezone,
+    weeklyEmailDow,
+    reminderEmailDow,
+    weeklyEnabled: weekly === 1,
+    reminderEnabled: reminder === 1,
   });
 });
 
@@ -454,6 +570,30 @@ app.post('/api/admin/users/:id/remove-assignments', requireAdmin, async (c) => {
   });
   return new Response(res.body, res);
 });
+
+// Admin "send now": enqueue an extra weekly or reminder email for a user, bypassing
+// the once-per-week dedup. Reuses the user's prefs to anchor the week (so the email
+// covers the same quota the scheduled one would). The apps/email worker consumes it.
+async function enqueueEmail(
+  env: Env,
+  userId: string,
+  kind: EmailKind,
+): Promise<Response> {
+  const prefs = rowToPrefs(await loadPrefs(env, userId));
+  const parts = localParts(new Date(), prefs.timezone);
+  const weekStart = weekStartOnOrBefore(parts, prefs.weeklyEmailDow);
+  const job: EmailJob = { userId, kind, weekStart };
+  await env.EMAIL_QUEUE.send(job);
+  return Response.json({ queued: true, kind, weekStart });
+}
+
+app.post('/api/admin/users/:id/send-weekly', requireAdmin, (c) =>
+  enqueueEmail(c.env, c.req.param('id'), 'weekly'),
+);
+
+app.post('/api/admin/users/:id/send-reminder', requireAdmin, (c) =>
+  enqueueEmail(c.env, c.req.param('id'), 'reminder'),
+);
 
 // Hard-delete a user. Removes their assignments first (so mishna-app holds no
 // orphaned blocks/participants), then removes the better-auth account.

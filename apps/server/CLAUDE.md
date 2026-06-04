@@ -36,6 +36,15 @@ Separate from the better-auth `mishna-auth` DB owned by `apps/login`.
   rollups are a plain `GROUP BY group_id` (no join, exact under overflow) and rows are
   cycle-scoped (groups are recreated each cycle). `completed_at` (epoch ms) seeds a future
   offline last-write-wins sync.
+- `user_email_prefs(user_id, timezone, weekly_email_dow, reminder_email_dow,
+  weekly_enabled, reminder_enabled, updated_at)` — per-user email settings (`0003`). A
+  missing row means defaults (`America/New_York`, weekly=Sun, reminder=Thu, both on);
+  `GET /api/me/preferences` synthesizes them and the email worker treats a missing row
+  the same way. Read+written here, read by `apps/email`.
+- `email_log(user_id, kind, week_start, sent_at)` — one row per email actually sent
+  (`0004`), so each (user, kind, week) goes out at most once even though the cron fires
+  hourly. Written by `apps/email`; the server only references the table name when
+  describing the dedup that admin "send now" bypasses.
 
 `save()` upserts the group row and replaces its membership rows in one `db.batch()`
 so the row and its members never drift apart.
@@ -68,6 +77,8 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/corpus` | The static `MishnahDataset` (public; lets the client skip bundling it). |
 | `GET /api/cycle` | `{ cycleStart, cycleEnd, daysElapsed, daysRemaining, totalDays }` for the current cycle (public; powers the landing-page progress bar without shipping `@hebcal/core` to the client). |
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
+| `GET /api/me/preferences` | The caller's email prefs, defaults if no row (auth). |
+| `PUT /api/me/preferences` `{ timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled }` | Validate (IANA tz via `Intl`, dow 0-6) + upsert (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |
 | `GET /api/assignments/today` | Today's mishnayot for the caller, plus the `groupId` they belong to (auth). |
@@ -79,6 +90,8 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/admin/users` | `{ users: [{ id, name, email, role, joined, commitment }], total }` — better-auth `list-users` merged with `participants` (**admin**). |
 | `GET /api/admin/users/:id` | One user: identity + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
+| `POST /api/admin/users/:id/send-weekly` | Enqueue an extra weekly `EmailJob` on `EMAIL_QUEUE` (bypasses dedup) (**admin**). |
+| `POST /api/admin/users/:id/send-reminder` | Enqueue an extra reminder `EmailJob` (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
 
 `groupId` on assignments is resolved by `buildAssignment`: it finds the group whose block
@@ -86,6 +99,11 @@ range contains the day's mishnayot. Completions reuse this id rather than re-der
 on every write. (On the single overflow-boundary day a user's mishnayot can span two
 groups; they're all attributed to the first's group — accepted noise for a progress
 rollup.)
+
+The admin "send now" routes enqueue an `EmailJob` (`{ userId, kind, weekStart }`, from
+`@mishna/domain`) on the `mishna-email` queue via the `EMAIL_QUEUE` producer binding;
+`apps/email` consumes and sends it. The week is anchored from the user's prefs
+(`localParts` + `weekStartOnOrBefore`).
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin

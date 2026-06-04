@@ -48,7 +48,8 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `CycleService` | `GET /api/cycle` (public). |
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
-| `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `DELETE /api/admin/users/:id`. |
+| `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
+| `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `DELETE /api/admin/users/:id`. |
 
 All calls use **relative `/api/*`** (no `environment.ts`), which works in both
 environments because the API is always same-origin:
@@ -71,6 +72,15 @@ environments because the API is always same-origin:
   component). Offline check-off + reconnect sync is deferred — see root `TODO.md`.
 - **Review**: currently the date-picker browser (any day's assignment). The
   per-perek completion view in the UI plan is deferred (needs completions data).
+- **Settings**: `settings.component.ts` edits email prefs — timezone (`wa-select`
+  populated from `Intl.supportedValuesOf('timeZone')`, with a "Detect" button using
+  `Intl.DateTimeFormat().resolvedOptions().timeZone`), the weekly/reminder weekday
+  selects, and enable checkboxes. Save → `SettingsService.updatePreferences` + a toast.
+- **Admin send-now**: `admin-user-detail.component.ts` has "Send weekly"/"Send reminder"
+  buttons (`AdminService.sendWeekly`/`sendReminder`) that queue an extra email, with a
+  success/error toast. `ToastService` now has `success()` alongside `error()`.
+- **Weekly-goal (commitment) editing** is intentionally **not** offered yet: changing it
+  mid-cycle would require re-allocation (a new block). Deferred until requested.
 
 ## Verify
 
