@@ -115,8 +115,10 @@ export class JoinComponent {
       .signUpWithEmail(this.name(), this.email(), this.password())
       .subscribe({
         next: async () => {
-          // New session — drop the cached (signed-out) `me` so the guard re-fetches.
-          await this.queryClient.invalidateQueries({ queryKey: queryKeys.me });
+          // New session — refetch `me` now so the route guard sees the signed-in user
+          // (invalidateQueries only marks stale; ensureQueryData would still read the
+          // cached signed-out value).
+          await this.queryClient.refetchQueries({ queryKey: queryKeys.me });
           this.loading.set(false);
           this.router.navigate(['/dashboard']);
         },
