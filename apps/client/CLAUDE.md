@@ -13,6 +13,42 @@ interactive, authenticated app built on Web Awesome custom elements: no
 prerender-time API calls (no cookies/server at build) and no shadow-DOM hydration
 mismatches.
 
+## PWA / offline
+
+Installable PWA backed by the Angular service worker (NGSW). The goal is that a
+user who has opened the app once can reopen it later — even fully offline — and
+still see their last-seen quota, settings, today's assignment and any mishna text
+they've already viewed. Offline is **read-only**: NGSW only intercepts `GET`, so
+check-off / join / leave (`POST`/`DELETE`) just fail offline (optimistic UI
+reverts + danger toast), which is the intended behavior.
+
+- **Manual wiring (no `ng add @angular/pwa`)** — the `@angular/pwa` schematic
+  targets `angular.json`, not this Nx `project.json` workspace, so its six steps
+  were replicated by hand.
+- `provideServiceWorker('ngsw-worker.js', { enabled: !isDevMode(), registrationStrategy: 'registerWhenStable:30000' })`
+  in `app.config.ts` — **disabled under `nx serve`**, on only in production builds.
+  Build emits the SW via the `serviceWorker` option in `project.json`'s
+  `production` config.
+- `ngsw-config.json` (project root): `assetGroups` prefetch the app shell
+  (`index.html`/CSS/JS/`manifest`), lazily cache `/icons` + media, and lazily
+  cache the 64 `mishna-text` tractate JSONs (`/*.json`) — cache-on-view so only
+  opened tractates are stored (the full set is ~7 MB). The `api-data` `dataGroup`
+  caches the read endpoints (`/api/me`, `/api/cycle`, `/api/assignments[?...]`,
+  `/api/completions`) with `strategy: freshness`, `timeout: 3s`, `maxAge: 30d`:
+  network-first when online, last snapshot when offline. **`/api/auth/*` is
+  deliberately not cached.**
+- `public/manifest.webmanifest` + `public/icons/*` (placeholder brand book icon,
+  `#8a5a2b`; replace with real art by overwriting the PNGs). Head tags
+  (`manifest`, `theme-color`, `apple-touch-icon`) live in `index.html`.
+- `public/_headers` sets `Cache-Control: no-cache` on `ngsw.json` /
+  `ngsw-worker.js` / `manifest.webmanifest` so Cloudflare Pages rolls out deploys
+  promptly (hashed bundles keep the default long cache).
+- `AppShellComponent` subscribes to `SwUpdate.versionUpdates` (`VERSION_READY`)
+  and shows a "new version available — Reload" toast via `ToastService.action(...)`.
+- **Testing**: NGSW does not run under `nx serve`. Build, then serve the
+  `dist/apps/client/browser` output statically (e.g. `python3 -m http.server`)
+  and open in an incognito window; toggle DevTools → Network → Offline to verify.
+
 ## Web Awesome
 
 UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
@@ -68,7 +104,8 @@ environments because the API is always same-origin:
   optimistically updating and reverting on failure. `DashboardComponent` seeds the
   initial state from `GET /api/completions`. A failed sync surfaces a transient danger
   toast via `ToastService` (an imperative `wa-callout`, since Web Awesome has no toast
-  component). Offline check-off + reconnect sync is deferred — see root `TODO.md`.
+  component). Reads are offline-capable (see **PWA / offline**), but offline
+  check-off + reconnect sync is deferred — see root `TODO.md`.
 - **Review**: currently the date-picker browser (any day's assignment). The
   per-perek completion view in the UI plan is deferred (needs completions data).
 
@@ -76,3 +113,5 @@ environments because the API is always same-origin:
 
 - `nx build client`, `nx lint client`, `nx test client`.
 - `nx serve client` (depends on `server:serve`) → http://localhost:4200.
+- Service worker / offline: build, then serve `dist/apps/client/browser`
+  statically (NGSW is off under `nx serve`) and test in an incognito window.
