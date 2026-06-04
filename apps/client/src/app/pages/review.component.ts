@@ -1,13 +1,15 @@
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
+import { injectQuery } from '@tanstack/angular-query-experimental';
 import { AssignmentService } from '../services/assignment.service';
-import { Assignment } from '../models/api.types';
 import { MishnaListComponent } from '../components/mishna-list.component';
 import { formatLongDate, toIsoDate } from '../util/format';
+import { assignmentByDateQueryOptions } from '../queries/queries';
 
 /** Browse the caller's assignment for any chosen day. */
 @Component({
@@ -42,12 +44,12 @@ import { formatLongDate, toIsoDate } from '../util/format';
 
       <wa-card>
         <strong slot="header">{{ longDate() }}</strong>
-        @if (loading()) {
+        @if (query.isPending()) {
           <wa-spinner></wa-spinner>
-        } @else if (assignment(); as a) {
+        } @else if (query.data(); as a) {
           <app-mishna-list [mishnas]="a.mishnas"></app-mishna-list>
-        } @else if (error()) {
-          <wa-callout variant="danger">{{ error() }}</wa-callout>
+        } @else if (query.isError()) {
+          <wa-callout variant="danger">Could not load that day’s assignment.</wa-callout>
         }
       </wa-card>
     </div>
@@ -57,37 +59,18 @@ export class ReviewComponent {
   private readonly assignments = inject(AssignmentService);
 
   protected readonly date = signal(toIsoDate(new Date()));
-  protected readonly longDate = signal(formatLongDate(toIsoDate(new Date())));
-  protected readonly assignment = signal<Assignment | null>(null);
-  protected readonly loading = signal(false);
-  protected readonly error = signal<string | null>(null);
+  protected readonly longDate = computed(() => formatLongDate(this.date()));
 
-  constructor() {
-    this.load(this.date());
-  }
+  // Keyed by date: switching dates re-keys the query (cache hit on revisit), and
+  // each day's assignment is retained in the cache.
+  protected readonly query = injectQuery(() =>
+    assignmentByDateQueryOptions(this.assignments, this.date()),
+  );
 
   protected onDate(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     if (value) {
       this.date.set(value);
-      this.load(value);
     }
-  }
-
-  private load(date: string): void {
-    this.loading.set(true);
-    this.error.set(null);
-    this.longDate.set(formatLongDate(date));
-    this.assignments.forDate(date).subscribe({
-      next: (a) => {
-        this.assignment.set(a);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Could not load that day’s assignment.');
-        this.assignment.set(null);
-        this.loading.set(false);
-      },
-    });
   }
 }

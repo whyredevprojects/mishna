@@ -5,8 +5,10 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { QueryClient } from '@tanstack/angular-query-experimental';
 import { AuthService } from '../services/auth.service';
 import { SiteHeaderComponent } from '../components/site-header.component';
+import { queryKeys } from '../queries/query-keys';
 
 /** Public signup page. Creates an account via email/password or Google, then
  * lands on the dashboard where the commitment picker (JoinFormComponent) runs. */
@@ -97,6 +99,7 @@ import { SiteHeaderComponent } from '../components/site-header.component';
 export class JoinComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly queryClient = inject(QueryClient);
 
   protected readonly name = signal('');
   protected readonly email = signal('');
@@ -111,11 +114,11 @@ export class JoinComponent {
     this.auth
       .signUpWithEmail(this.name(), this.email(), this.password())
       .subscribe({
-        next: () => {
-          this.auth.loadSession().subscribe(() => {
-            this.loading.set(false);
-            this.router.navigate(['/dashboard']);
-          });
+        next: async () => {
+          // New session — drop the cached (signed-out) `me` so the guard re-fetches.
+          await this.queryClient.invalidateQueries({ queryKey: queryKeys.me });
+          this.loading.set(false);
+          this.router.navigate(['/dashboard']);
         },
         error: () => {
           this.loading.set(false);

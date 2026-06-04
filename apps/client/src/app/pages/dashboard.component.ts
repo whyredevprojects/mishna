@@ -1,18 +1,30 @@
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  computed,
   inject,
-  signal,
 } from '@angular/core';
+import {
+  injectMutation,
+  injectQuery,
+  QueryClient,
+} from '@tanstack/angular-query-experimental';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { AssignmentService } from '../services/assignment.service';
 import { CycleService } from '../services/cycle.service';
 import { GroupService } from '../services/group.service';
-import { Assignment, Commitment, Cycle } from '../models/api.types';
+import { Commitment } from '../models/api.types';
 import { TodayCardComponent } from '../components/today-card.component';
 import { JoinFormComponent } from '../components/join-form.component';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
 import { formatLongDate, formatRef } from '../util/format';
+import { queryKeys } from '../queries/query-keys';
+import {
+  cycleQueryOptions,
+  meQueryOptions,
+  todayAssignmentQueryOptions,
+} from '../queries/queries';
 
 /** Logged-in home: today's mishnayot when joined, otherwise the join card. */
 @Component({
@@ -72,63 +84,64 @@ export class DashboardComponent {
   private readonly assignments = inject(AssignmentService);
   private readonly cycleService = inject(CycleService);
   private readonly groups = inject(GroupService);
+  private readonly queryClient = inject(QueryClient);
 
-  protected readonly loading = signal(true);
-  protected readonly joining = signal(false);
-  protected readonly error = signal<string | null>(null);
-  protected readonly joined = signal(false);
-  protected readonly assignment = signal<Assignment | null>(null);
-  protected readonly completed = signal<Set<string>>(new Set());
-  protected readonly cycle = signal<Cycle | null>(null);
-  protected readonly today = signal('');
+  private readonly meQuery = injectQuery(() => meQueryOptions(this.auth));
+  protected readonly cycleQuery = injectQuery(() =>
+    cycleQueryOptions(this.cycleService),
+  );
+  protected readonly joined = computed(
+    () => this.meQuery.data()?.joined ?? false,
+  );
+  // Only fetched once the user is known to have joined.
+  private readonly assignmentQuery = injectQuery(() => ({
+    ...todayAssignmentQueryOptions(this.assignments),
+    enabled: this.joined(),
+  }));
 
-  constructor() {
-    this.cycleService.getCycle().subscribe({ next: (c) => this.cycle.set(c) });
-    this.refresh();
-  }
+  protected readonly joinMutation = injectMutation(() => ({
+    mutationFn: (commitment: Commitment) =>
+      firstValueFrom(this.groups.join(commitment)),
+    // Membership changed → re-derive /api/me and today's assignment from the server.
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.me });
+      this.queryClient.invalidateQueries({
+        queryKey: queryKeys.assignmentToday,
+      });
+    },
+  }));
 
-  private refresh(): void {
-    this.loading.set(true);
-    this.auth.loadSession().subscribe((me) => {
-      const isJoined = me?.joined ?? false;
-      this.joined.set(isJoined);
-      if (isJoined) {
-        this.loadToday();
-      } else {
-        this.loading.set(false);
-      }
-    });
-  }
+  // `me` is typically already cached by the route guard, so the dashboard renders
+  // without a spinner; only the (joined-only) assignment fetch can still be loading.
+  protected readonly loading = computed(
+    () =>
+      this.meQuery.isLoading() ||
+      (this.joined() && this.assignmentQuery.isLoading()),
+  );
+  protected readonly error = computed(() => {
+    if (this.assignmentQuery.isError()) {
+      return 'Could not load today’s assignment.';
+    }
+    if (this.joinMutation.isError()) {
+      return 'Could not join the cycle. Please try again.';
+    }
+    return null;
+  });
+  protected readonly joining = computed(() => this.joinMutation.isPending());
 
-  private loadToday(): void {
-    this.assignments.today().subscribe({
-      next: (a) => {
-        this.assignment.set(a);
-        this.today.set(formatLongDate(a.date));
-        // The assignment carries its own completion state, so the checks render
-        // from the same response (no separate, separately-failing fetch).
-        this.completed.set(new Set(a.completed.map((r) => formatRef(r))));
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Could not load today’s assignment.');
-        this.loading.set(false);
-      },
-    });
-  }
+  protected readonly assignment = computed(() => this.assignmentQuery.data());
+  protected readonly cycle = computed(() => this.cycleQuery.data());
+  protected readonly today = computed(() => {
+    const a = this.assignmentQuery.data();
+    return a ? formatLongDate(a.date) : '';
+  });
+  // The assignment carries its own completion state, so the checks render from the
+  // same response (no separate, separately-failing fetch).
+  protected readonly completed = computed(
+    () => new Set((this.assignment()?.completed ?? []).map((r) => formatRef(r))),
+  );
 
   protected onJoin(commitment: Commitment): void {
-    this.joining.set(true);
-    this.error.set(null);
-    this.groups.join(commitment).subscribe({
-      next: () => {
-        this.joining.set(false);
-        this.refresh();
-      },
-      error: () => {
-        this.joining.set(false);
-        this.error.set('Could not join the cycle. Please try again.');
-      },
-    });
+    this.joinMutation.mutate(commitment);
   }
 }

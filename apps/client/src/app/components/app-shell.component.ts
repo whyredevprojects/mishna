@@ -1,11 +1,16 @@
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  DestroyRef,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { filter } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
 
 /** Authenticated layout: a top bar with a burger that opens a navigation drawer, and a router-outlet for the page. */
 @Component({
@@ -42,19 +47,6 @@ import { AuthService } from '../services/auth.service';
         flex-direction: column;
         gap: var(--wa-space-2xs, 0.125rem);
       }
-      nav a {
-        display: flex;
-        align-items: center;
-        gap: var(--wa-space-s, 0.5rem);
-        padding: var(--wa-space-s, 0.5rem) var(--wa-space-m, 0.75rem);
-        border-radius: var(--wa-border-radius-m, 0.5rem);
-        color: inherit;
-        text-decoration: none;
-        font-size: var(--wa-font-size-l, 1.125rem);
-      }
-      nav a:hover {
-        background: var(--wa-color-neutral-fill-quiet, #f0ece6);
-      }
       /* Inline topbar nav (tablet+) */
       .topbar-nav {
         display: none;
@@ -70,19 +62,6 @@ import { AuthService } from '../services/auth.service';
           flex-direction: row;
           align-items: center;
           gap: var(--wa-space-2xs);
-
-          a {
-            display: flex;
-            align-items: center;
-            gap: var(--wa-space-2xs);
-            padding: var(--wa-space-2xs) var(--wa-space-s);
-            border-radius: var(--wa-border-radius-m);
-            color: inherit;
-            text-decoration: none;
-          }
-          a:hover {
-            background: var(--wa-color-neutral-fill-quiet);
-          }
         }
       }
     `,
@@ -95,13 +74,13 @@ import { AuthService } from '../services/auth.service';
       <h1>Chevras Mishnayos</h1>
       <span class="spacer"></span>
       <nav class="topbar-nav">
-        <a routerLink="/dashboard"><wa-icon name="calendar-day"></wa-icon> Today</a>
-        <a routerLink="/review"><wa-icon name="magnifying-glass"></wa-icon> Review</a>
-        <a routerLink="/settings"><wa-icon name="user"></wa-icon> Settings</a>
+        <wa-button routerLink="/dashboard" appearance="plain"><wa-icon slot="start" name="calendar-day"></wa-icon> Today</wa-button>
+        <wa-button routerLink="/review" appearance="plain"><wa-icon slot="start" name="magnifying-glass"></wa-icon> Review</wa-button>
+        <wa-button routerLink="/settings" appearance="plain"><wa-icon slot="start" name="user"></wa-icon> Settings</wa-button>
         @if (auth.isAdmin()) {
-          <a routerLink="/admin"><wa-icon name="gear"></wa-icon> Admin</a>
+          <wa-button routerLink="/admin" appearance="plain"><wa-icon slot="start" name="gear"></wa-icon> Admin</wa-button>
         }
-        <wa-button appearance="plain" size="small" (click)="logout()">
+        <wa-button appearance="plain" (click)="logout()">
           <wa-icon slot="start" name="right-from-bracket"></wa-icon>
           Log out
         </wa-button>
@@ -119,19 +98,11 @@ import { AuthService } from '../services/auth.service';
       (wa-after-hide)="drawerOpen.set(false)"
     >
       <nav>
-        <a routerLink="/dashboard" (click)="drawerOpen.set(false)">
-          <wa-icon name="calendar-day"></wa-icon> Today
-        </a>
-        <a routerLink="/review" (click)="drawerOpen.set(false)">
-          <wa-icon name="magnifying-glass"></wa-icon> Review
-        </a>
-        <a routerLink="/settings" (click)="drawerOpen.set(false)">
-          <wa-icon name="user"></wa-icon> Settings
-        </a>
+        <wa-button routerLink="/dashboard" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="calendar-day"></wa-icon> Today</wa-button>
+        <wa-button routerLink="/review" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="magnifying-glass"></wa-icon> Review</wa-button>
+        <wa-button routerLink="/settings" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="user"></wa-icon> Settings</wa-button>
         @if (auth.isAdmin()) {
-          <a routerLink="/admin" (click)="drawerOpen.set(false)">
-            <wa-icon name="gear"></wa-icon> Admin
-          </a>
+          <wa-button routerLink="/admin" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="gear"></wa-icon> Admin</wa-button>
         }
       </nav>
 
@@ -150,8 +121,31 @@ import { AuthService } from '../services/auth.service';
 export class AppShellComponent {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
+  private readonly swUpdate = inject(SwUpdate);
 
   protected readonly drawerOpen = signal(false);
+
+  constructor() {
+    // When a freshly deployed version finishes downloading in the background,
+    // prompt the user to reload onto it (no-op in dev, where the SW is off).
+    if (this.swUpdate.isEnabled) {
+      this.swUpdate.versionUpdates
+        .pipe(
+          filter(
+            (e): e is VersionReadyEvent => e.type === 'VERSION_READY',
+          ),
+          takeUntilDestroyed(inject(DestroyRef)),
+        )
+        .subscribe(() => {
+          this.toast.action(
+            'A new version is available.',
+            'Reload',
+            () => document.location.reload(),
+          );
+        });
+    }
+  }
 
   protected logout(): void {
     this.auth.signOut().subscribe(() => this.router.navigate(['/']));

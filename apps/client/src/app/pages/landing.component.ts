@@ -5,11 +5,16 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import {
+  injectQuery,
+  QueryClient,
+} from '@tanstack/angular-query-experimental';
 import { AuthService } from '../services/auth.service';
 import { CycleService } from '../services/cycle.service';
-import { Cycle } from '../models/api.types';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
 import { SiteHeaderComponent } from '../components/site-header.component';
+import { queryKeys } from '../queries/query-keys';
+import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
 /** Public landing page: site header + sign-in. Redirects to the dashboard if a
  * session already exists. New users follow the "Join here" link to /join. */
@@ -55,7 +60,7 @@ import { SiteHeaderComponent } from '../components/site-header.component';
             mishna at a time.
           </p>
 
-          @if (cycle(); as c) {
+          @if (cycleQuery.data(); as c) {
             <app-cycle-progress [cycle]="c"></app-cycle-progress>
           }
 
@@ -108,20 +113,20 @@ export class LandingComponent {
   private readonly auth = inject(AuthService);
   private readonly cycleService = inject(CycleService);
   private readonly router = inject(Router);
+  private readonly queryClient = inject(QueryClient);
 
-  protected readonly cycle = signal<Cycle | null>(null);
+  protected readonly cycleQuery = injectQuery(() =>
+    cycleQueryOptions(this.cycleService),
+  );
   protected readonly email = signal('');
   protected readonly password = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly loading = signal(false);
 
   constructor() {
-    this.cycleService.getCycle().subscribe({
-      next: (c) => this.cycle.set(c),
-      error: () => this.cycle.set(null),
-    });
-    // If already signed in, skip the landing page.
-    this.auth.loadSession().subscribe((me) => {
+    // If already signed in, skip the landing page. `fetchQuery` also warms the
+    // `me` cache so the route guard reuses it instead of re-fetching.
+    this.queryClient.fetchQuery(meQueryOptions(this.auth)).then((me) => {
       if (me) {
         this.router.navigate(['/dashboard']);
       }
@@ -133,11 +138,11 @@ export class LandingComponent {
     this.error.set(null);
     this.loading.set(true);
     this.auth.signInWithEmail(this.email(), this.password()).subscribe({
-      next: () => {
-        this.auth.loadSession().subscribe(() => {
-          this.loading.set(false);
-          this.router.navigate(['/dashboard']);
-        });
+      next: async () => {
+        // New session — drop the cached (signed-out) `me` so the guard re-fetches.
+        await this.queryClient.invalidateQueries({ queryKey: queryKeys.me });
+        this.loading.set(false);
+        this.router.navigate(['/dashboard']);
       },
       error: () => {
         this.loading.set(false);

@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of, tap } from 'rxjs';
+import { QueryClient } from '@tanstack/angular-query-experimental';
 import { Me } from '../models/api.types';
 
 /**
@@ -11,6 +12,7 @@ import { Me } from '../models/api.types';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly queryClient = inject(QueryClient);
 
   /** Latest /api/me result, or null while unknown/unauthenticated. */
   readonly me = signal<Me | null>(null);
@@ -82,12 +84,17 @@ export class AuthService {
       });
   }
 
-  /** Ends the better-auth session and clears local state. */
+  /** Ends the better-auth session and clears local + cached state. */
   signOut(): Observable<unknown> {
+    const clear = () => {
+      this.me.set(null);
+      // Wipe every cached query so the next user never sees the prior session's data.
+      this.queryClient.clear();
+    };
     return this.http.post('/api/auth/sign-out', {}).pipe(
-      tap(() => this.me.set(null)),
+      tap(() => clear()),
       catchError(() => {
-        this.me.set(null);
+        clear();
         return of(null);
       }),
     );

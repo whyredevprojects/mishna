@@ -13,6 +13,42 @@ interactive, authenticated app built on Web Awesome custom elements: no
 prerender-time API calls (no cookies/server at build) and no shadow-DOM hydration
 mismatches.
 
+## PWA / offline
+
+Installable PWA backed by the Angular service worker (NGSW). The goal is that a
+user who has opened the app once can reopen it later — even fully offline — and
+still see their last-seen quota, settings, today's assignment and any mishna text
+they've already viewed. Offline is **read-only**: NGSW only intercepts `GET`, so
+check-off / join / leave (`POST`/`DELETE`) just fail offline (optimistic UI
+reverts + danger toast), which is the intended behavior.
+
+- **Manual wiring (no `ng add @angular/pwa`)** — the `@angular/pwa` schematic
+  targets `angular.json`, not this Nx `project.json` workspace, so its six steps
+  were replicated by hand.
+- `provideServiceWorker('ngsw-worker.js', { enabled: !isDevMode(), registrationStrategy: 'registerWhenStable:30000' })`
+  in `app.config.ts` — **disabled under `nx serve`**, on only in production builds.
+  Build emits the SW via the `serviceWorker` option in `project.json`'s
+  `production` config.
+- `ngsw-config.json` (project root): `assetGroups` prefetch the app shell
+  (`index.html`/CSS/JS/`manifest`), lazily cache `/icons` + media, and lazily
+  cache the 64 `mishna-text` tractate JSONs (`/*.json`) — cache-on-view so only
+  opened tractates are stored (the full set is ~7 MB). The `api-data` `dataGroup`
+  caches the read endpoints (`/api/me`, `/api/cycle`, `/api/assignments[?...]`,
+  `/api/completions`) with `strategy: freshness`, `timeout: 3s`, `maxAge: 30d`:
+  network-first when online, last snapshot when offline. **`/api/auth/*` is
+  deliberately not cached.**
+- `public/manifest.webmanifest` + `public/icons/*` (placeholder brand book icon,
+  `#8a5a2b`; replace with real art by overwriting the PNGs). Head tags
+  (`manifest`, `theme-color`, `apple-touch-icon`) live in `index.html`.
+- `public/_headers` sets `Cache-Control: no-cache` on `ngsw.json` /
+  `ngsw-worker.js` / `manifest.webmanifest` so Cloudflare Pages rolls out deploys
+  promptly (hashed bundles keep the default long cache).
+- `AppShellComponent` subscribes to `SwUpdate.versionUpdates` (`VERSION_READY`)
+  and shows a "new version available — Reload" toast via `ToastService.action(...)`.
+- **Testing**: NGSW does not run under `nx serve`. Build, then serve the
+  `dist/apps/client/browser` output statically (e.g. `python3 -m http.server`)
+  and open in an incognito window; toggle DevTools → Network → Offline to verify.
+
 ## Web Awesome
 
 UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
@@ -35,7 +71,8 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `guards/auth.guard.ts` | Confirms a session via `GET /api/me`; redirects to `/` otherwise. UX only — the server API is the real auth boundary. |
 | `guards/admin.guard.ts` | Loads `GET /api/me` and allows only when `isAdmin`, else redirects to `/dashboard`. UX only — the server's `requireAdmin` is the boundary. |
 | `models/api.types.ts` | Client shapes of the server responses; reuses `@mishna/domain` value types, redefines anything carrying a `Date` (arrives as ISO string). |
-| `services/` | One thin service per API area (see below). |
+| `services/` | One thin service per API area (see below) — they own the URLs only. |
+| `queries/` | TanStack Query layer: `query-keys.ts` (cache-key registry) + `queries.ts` (`queryOptions` factories that wrap the service observables). See **Data caching** below. |
 | `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-list`, `today-card`, `join-form`. |
 | `pages/` | Routed screens: `landing`, `dashboard`, `review`, `settings`, and the admin shell `admin` + `admin-groups`, `admin-users`, `admin-user-detail`. |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
@@ -50,6 +87,31 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
 | `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `DELETE /api/admin/users/:id`. |
+
+## Data caching (TanStack Query)
+
+Reads go through [`@tanstack/angular-query-experimental`](https://tanstack.com/query)
+for in-memory caching + request dedup, so navigating between routes reuses data
+instead of re-fetching. The `QueryClient` is provided in `app.config.ts` (defaults:
+`staleTime` 30s, `gcTime` 5min); per-query overrides live in `queries/queries.ts`
+(e.g. `cycle` 1h, admin views 0).
+
+- **Services stay thin** — they only know URLs. The `queries/` factories wrap each
+  service observable as a `queryFn` (via `firstValueFrom`). Add a new endpoint by
+  adding a key in `query-keys.ts` and a factory in `queries.ts`, then consume it.
+- **Reads**: components call `injectQuery(() => xQueryOptions(svc, ...))` and read the
+  result signals (`q.data()`, `q.isPending()`/`isLoading()`, `q.isError()`). For
+  reactive params (e.g. Review's date) the key is a function of a signal.
+- **Guards** resolve `me` via `queryClient.ensureQueryData(meQueryOptions(auth))`, so
+  `authGuard` + `adminGuard` + the dashboard dedup to one `GET /api/me` per nav burst.
+- **Writes** use `injectMutation` and invalidate the affected keys in `onSuccess`
+  (join/leave → `me` + `assignmentToday`; completions toggle → `assignmentToday`,
+  optimistic via `onMutate`/`onError`; admin actions → the admin keys).
+- **Cache coherence**: anything that changes auth state must update the `me` cache —
+  sign-in/sign-up invalidate `me` (so the guard re-fetches), and `AuthService.signOut()`
+  calls `queryClient.clear()` so the next user never sees the prior session's data.
+- `AuthService.me` signal is still populated as a side effect of `loadSession()`'s
+  `tap`, so `isAdmin()` and `auth.me()` keep working off the cached fetch.
 
 All calls use **relative `/api/*`** (no `environment.ts`), which works in both
 environments because the API is always same-origin:
@@ -69,7 +131,8 @@ environments because the API is always same-origin:
   optimistically updating and reverting on failure. `DashboardComponent` seeds the
   initial state from `GET /api/completions`. A failed sync surfaces a transient danger
   toast via `ToastService` (an imperative `wa-callout`, since Web Awesome has no toast
-  component). Offline check-off + reconnect sync is deferred — see root `TODO.md`.
+  component). Reads are offline-capable (see **PWA / offline**), but offline
+  check-off + reconnect sync is deferred — see root `TODO.md`.
 - **Review**: currently the date-picker browser (any day's assignment). The
   per-perek completion view in the UI plan is deferred (needs completions data).
 - **Settings**: `settings.component.ts` edits email prefs — timezone (`wa-select`
@@ -86,3 +149,5 @@ environments because the API is always same-origin:
 
 - `nx build client`, `nx lint client`, `nx test client`.
 - `nx serve client` (depends on `server:serve`) → http://localhost:4200.
+- Service worker / offline: build, then serve `dist/apps/client/browser`
+  statically (NGSW is off under `nx serve`) and test in an incognito window.
