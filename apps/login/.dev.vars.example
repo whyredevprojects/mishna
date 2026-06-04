@@ -5,3 +5,4 @@
 # generate one with e.g. `openssl rand -base64 24`.
 # For production set it with: wrangler secret put BETTER_AUTH_SECRET
 BETTER_AUTH_SECRET=replace-me
+ADMIN_USER_IDS=VMKlNiYicMtSHfSypa4NiSwJjTJri5WO
