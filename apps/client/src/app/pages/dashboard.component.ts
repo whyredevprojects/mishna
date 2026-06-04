@@ -12,7 +12,7 @@ import { Assignment, Commitment, Cycle } from '../models/api.types';
 import { TodayCardComponent } from '../components/today-card.component';
 import { JoinFormComponent } from '../components/join-form.component';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
-import { formatLongDate } from '../util/format';
+import { formatLongDate, formatRef } from '../util/format';
 
 /** Logged-in home: today's mishnayot when joined, otherwise the join card. */
 @Component({
@@ -43,7 +43,12 @@ import { formatLongDate } from '../util/format';
         @if (joined()) {
           <p class="today-date muted">{{ today() }}</p>
           @if (assignment(); as a) {
-            <app-today-card [mishnas]="a.mishnas" [date]="a.date"></app-today-card>
+            <app-today-card
+              [mishnas]="a.mishnas"
+              [date]="a.date"
+              [groupId]="a.groupId"
+              [completed]="completed()"
+            ></app-today-card>
           }
           @if (cycle(); as c) {
             <wa-divider></wa-divider>
@@ -73,6 +78,7 @@ export class DashboardComponent {
   protected readonly error = signal<string | null>(null);
   protected readonly joined = signal(false);
   protected readonly assignment = signal<Assignment | null>(null);
+  protected readonly completed = signal<Set<string>>(new Set());
   protected readonly cycle = signal<Cycle | null>(null);
   protected readonly today = signal('');
 
@@ -99,6 +105,9 @@ export class DashboardComponent {
       next: (a) => {
         this.assignment.set(a);
         this.today.set(formatLongDate(a.date));
+        // The assignment carries its own completion state, so the checks render
+        // from the same response (no separate, separately-failing fetch).
+        this.completed.set(new Set(a.completed.map((r) => formatRef(r))));
         this.loading.set(false);
       },
       error: () => {

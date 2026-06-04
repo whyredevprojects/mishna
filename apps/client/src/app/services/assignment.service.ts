@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Assignment } from '../models/api.types';
+import { Assignment, MishnaRef } from '../models/api.types';
 
-/** Reads the caller's daily mishnayot from apps/server. */
+/** Reads the caller's daily mishnayot and completion state from apps/server. */
 @Injectable({ providedIn: 'root' })
 export class AssignmentService {
   private readonly http = inject(HttpClient);
@@ -17,6 +17,18 @@ export class AssignmentService {
   forDate(date: string): Observable<Assignment> {
     return this.http.get<Assignment>('/api/assignments', {
       params: new HttpParams().set('date', date),
+    });
+  }
+
+  /** Mark a mishna learned. `groupId` comes from the assignment it belongs to. */
+  markLearned(ref: MishnaRef, groupId: string): Observable<unknown> {
+    return this.http.post('/api/completions', { ref, groupId });
+  }
+
+  /** Unmark a mishna previously marked learned. */
+  markUnlearned(ref: MishnaRef, groupId: string): Observable<unknown> {
+    return this.http.request('DELETE', '/api/completions', {
+      body: { ref, groupId },
     });
   }
 }

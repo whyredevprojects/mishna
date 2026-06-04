@@ -1,0 +1,18 @@
+[
+  {
+    "label": "Build",
+    "env": {
+      "NX_NON_INTERACTIVE": "true"
+    },
+    "hooks": ["create_worktree"],
+    "command": "npm run :build"
+  },
+  {
+    "label": "Setup local db",
+    "env": {
+      "NX_NON_INTERACTIVE": "true"
+    },
+    "hooks": ["create_worktree"],
+    "command": "npm run db:init:local"
+  }
+]

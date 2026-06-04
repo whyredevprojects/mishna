@@ -46,7 +46,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 |---------|-------|
 | `AuthService` | `GET /api/me` (session + join status + identity + `isAdmin`), better-auth `sign-in/social` + `sign-out`. Holds a `me` signal; `isAdmin()` reads it. |
 | `CycleService` | `GET /api/cycle` (public). |
-| `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`. |
+| `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `DELETE /api/admin/users/:id`. |
 
@@ -63,9 +63,12 @@ environments because the API is always same-origin:
 - **Auth**: `signInWithGoogle()` posts to better-auth's `sign-in/social`. The
   `google` provider is **not yet configured** in `apps/login` (and dev only
   proxies one worker), so sign-in won't complete end-to-end until that's wired.
-- **Completion tracking**: `TodayCardComponent` persists checked mishnayot to
-  `localStorage` keyed by date. There's no server completions endpoint yet; when
-  one lands (`POST /api/assignments/done`), the card should sync to it instead.
+- **Completion tracking**: `TodayCardComponent` syncs each "learned" toggle to
+  `apps/server` (`POST`/`DELETE /api/completions`, with the assignment's `groupId`),
+  optimistically updating and reverting on failure. `DashboardComponent` seeds the
+  initial state from `GET /api/completions`. A failed sync surfaces a transient danger
+  toast via `ToastService` (an imperative `wa-callout`, since Web Awesome has no toast
+  component). Offline check-off + reconnect sync is deferred — see root `TODO.md`.
 - **Review**: currently the date-picker browser (any day's assignment). The
   per-perek completion view in the UI plan is deferred (needs completions data).
 

@@ -15,7 +15,8 @@ allocation writes so concurrent joins can't corrupt a group.
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `schema.sql` | D1 schema for the `mishna-app` database. |
+| `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
+| `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
 ## Data model (D1 binding `DB`, database `mishna-app`)
 
@@ -29,6 +30,12 @@ Separate from the better-auth `mishna-auth` DB owned by `apps/login`.
   indexed join.
 - `participants(user_id, commitment, joined_at)` — who joined and their commitment;
   drives `/api/me` and rejects double-joins.
+- `completions(user_id, group_id, mesechta, perek, mishna, completed_at)` — one row per
+  mishna a user has marked learned, within a specific group. `group_id` is resolved
+  server-side from the user's block and handed down with the assignment, so per-group
+  rollups are a plain `GROUP BY group_id` (no join, exact under overflow) and rows are
+  cycle-scoped (groups are recreated each cycle). `completed_at` (epoch ms) seeds a future
+  offline last-write-wins sync.
 
 `save()` upserts the group row and replaces its membership rows in one `db.batch()`
 so the row and its members never drift apart.
@@ -63,13 +70,22 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |
-| `GET /api/assignments/today` | Today's mishnayot for the caller (auth). |
+| `GET /api/assignments/today` | Today's mishnayot for the caller, plus the `groupId` they belong to (auth). |
 | `GET /api/assignments?date=YYYY-MM-DD` | Same for an explicit UTC date (auth). |
+| `GET /api/completions` | `{ completed: MishnaRef[] }` — every mishna the caller has marked learned (auth). |
+| `POST /api/completions` `{ ref, groupId }` | Mark a mishna learned; validates the ref + the caller's membership of `groupId`, then upserts (auth). |
+| `DELETE /api/completions` `{ ref, groupId }` | Unmark a mishna; idempotent, scoped to the caller's rows (auth). |
 | `GET /api/admin/groups` | Per group: `id`, `progress`, `members` (userIds) + `memberCount` (**admin**). |
 | `GET /api/admin/users` | `{ users: [{ id, name, email, role, joined, commitment }], total }` — better-auth `list-users` merged with `participants` (**admin**). |
 | `GET /api/admin/users/:id` | One user: identity + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
+
+`groupId` on assignments is resolved by `buildAssignment`: it finds the group whose block
+range contains the day's mishnayot. Completions reuse this id rather than re-deriving it
+on every write. (On the single overflow-boundary day a user's mishnayot can span two
+groups; they're all attributed to the first's group — accepted noise for a progress
+rollup.)
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin
@@ -77,28 +93,52 @@ user-management routes proxy better-auth's admin plugin
 (`/api/auth/admin/*` on the login worker) for identity, merging in join/group data
 this worker owns. `/api/admin/groups` still returns `userId`s only.
 
+## Migrations
+
+The `mishna-app` schema is a set of numbered D1 migrations in `migrations/`, tracked by
+D1 in a `d1_migrations` table (so each runs exactly once per database). `wrangler.toml`
+points at them via `migrations_dir = "migrations"`.
+
+**Add a change:** create the next file with
+`wrangler d1 migrations create mishna-app <name> --config apps/server/wrangler.toml`
+(or hand-write `NNNN_name.sql`), then apply it. The tests pick up new files automatically
+(see Testing), so no test wiring is needed.
+
+**Apply** (from the repo root):
+
+```sh
+npm run db:migrate:local     # local D1 (the one `npm run dev` uses)
+npm run db:migrate:remote    # production D1 — run as part of deploy
+```
+
+Both wrap `wrangler d1 migrations apply mishna-app …` and only run the pending files.
+The existing `0001`/`0002` use `IF NOT EXISTS` so adopting migrations was safe on the
+already-provisioned databases; new migrations can be plain DDL (they only ever run once).
+
 ## One-time setup
 
 ```sh
 wrangler d1 create mishna-app          # paste the id into wrangler.toml database_id
-wrangler d1 execute mishna-app --file src/schema.sql
+npm run db:migrate:remote              # apply migrations to the new remote DB
 wrangler types                         # regenerate worker-configuration.d.ts after binding changes
 ```
 
-For **local dev**, apply both apps' schemas to the local D1 before `npm run dev`:
+For **local dev**, seed both apps' local D1 before `npm run dev`:
 
 ```sh
-npm run db:init:local                  # initializes mishna-auth + mishna-app local D1
+npm run db:init:local                  # mishna-auth schema + mishna-app migrations
 ```
 
-If the local `mishna-app` schema is missing, sign-in succeeds but `GET /api/me` returns an
-opaque **500** (D1 throws on `SELECT ... FROM participants`), and the client treats it as
-unauthenticated — looking like login is broken.
+If the local `mishna-app` schema is missing/stale, sign-in succeeds but `GET /api/me`
+returns an opaque **500** (D1 throws on `SELECT ... FROM participants`), and the client
+treats it as unauthenticated — looking like login is broken. Re-run `db:migrate:local`.
 
 ## Testing
 
 `nx test server`. Tests run on `@cloudflare/vitest-pool-workers` (real D1 + DO
-bindings); `schema.sql` is applied in `beforeAll` and tables are cleared in
+bindings); `applyMigrations` (in `apply-migrations.ts`) eager-loads every
+`migrations/*.sql` and runs them in `beforeAll`, so the test schema can never drift from
+what ships — adding a migration file is all that's needed. Tables are cleared in
 `beforeEach`. The `AUTH` service binding is stubbed in `vitest.config.mts`:
 `get-session` treats the forwarded `cookie` value as the user id (so a test
 authenticates as whoever its `Cookie:` header names) and flags cookie `'admin'` as

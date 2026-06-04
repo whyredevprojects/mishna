@@ -91,7 +91,7 @@ import { formatRef, formatRefHe } from '../util/format';
         </wa-button>
         <wa-checkbox
           [attr.checked]="done() ? '' : null"
-          (wa-change)="learned.emit()"
+          (change)="learned.emit()"
         >I Learned This Baal Peh</wa-checkbox>
       </div>
     </wa-card>

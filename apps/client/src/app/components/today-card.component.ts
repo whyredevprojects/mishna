@@ -3,21 +3,27 @@ import {
   Component,
   computed,
   effect,
+  inject,
   input,
   signal,
 } from '@angular/core';
 import { MishnaRef } from '../models/api.types';
 import { formatRef } from '../util/format';
 import { MishnaCardComponent } from './mishna-card.component';
+import { AssignmentService } from '../services/assignment.service';
+import { ToastService } from '../services/toast.service';
+
+const SYNC_ERROR =
+  "We weren't able to update your progress. Please try again later.";
 
 /**
  * Today's mishnayot — one {@link MishnaCardComponent} per mishna, with a
  * completion banner when all are learned.
  *
- * This component owns completion state for the day so the cards share one source
- * of truth. It's persisted to localStorage keyed by date — a stand-in until the
- * server grows a completions endpoint (`POST /api/assignments/done`), at which
- * point this should sync instead.
+ * This component owns the day's completion state so the cards share one source of
+ * truth. The initial state comes from the parent (server-loaded), and each toggle
+ * is optimistically applied and synced to apps/server; a failed sync reverts the
+ * checkbox and shows an error toast.
  */
 @Component({
   selector: 'app-today-card',
@@ -47,7 +53,7 @@ import { MishnaCardComponent } from './mishna-card.component';
           <app-mishna-card
             [ref]="ref"
             [done]="isChecked(key(ref))"
-            (learned)="toggle(key(ref))"
+            (learned)="toggle(ref)"
           ></app-mishna-card>
         }
       </div>
@@ -65,17 +71,25 @@ import { MishnaCardComponent } from './mishna-card.component';
 })
 export class TodayCardComponent {
   readonly mishnas = input.required<MishnaRef[]>();
-  /** ISO date the assignment belongs to; namespaces the saved checked state. */
+  /** ISO date the assignment belongs to. */
   readonly date = input.required<string>();
+  /** Completed-mishna keys ({@link formatRef}) for the caller, from the server. */
+  readonly completed = input.required<Set<string>>();
+  /** The group these mishnayot belong to; null (empty day) disables toggling. */
+  readonly groupId = input.required<string | null>();
 
   protected readonly key = formatRef;
+
+  private readonly assignments = inject(AssignmentService);
+  private readonly toast = inject(ToastService);
 
   private readonly checked = signal<Set<string>>(new Set());
 
   constructor() {
-    // Restore saved checks whenever the date changes.
+    // Seed local checks from the server-provided set; re-seeds if it changes.
+    // Optimistic toggles mutate the local set only, so they don't trigger this.
     effect(() => {
-      this.checked.set(this.load(this.date()));
+      this.checked.set(new Set(this.completed()));
     });
   }
 
@@ -90,41 +104,32 @@ export class TodayCardComponent {
     );
   });
 
-  protected toggle(refKey: string): void {
-    const next = new Set(this.checked());
-    if (next.has(refKey)) {
-      next.delete(refKey);
-    } else {
-      next.add(refKey);
-    }
-    this.checked.set(next);
-    this.save(this.date(), next);
-  }
-
-  private storageKey(date: string): string {
-    return `mishna:done:${date}`;
-  }
-
-  private load(date: string): Set<string> {
-    if (typeof localStorage === 'undefined') {
-      return new Set();
-    }
-    try {
-      const raw = localStorage.getItem(this.storageKey(date));
-      return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
-    } catch {
-      return new Set();
-    }
-  }
-
-  private save(date: string, refs: Set<string>): void {
-    if (typeof localStorage === 'undefined') {
+  /** Optimistically toggle a mishna, syncing to the server and reverting on failure. */
+  protected toggle(ref: MishnaRef): void {
+    const groupId = this.groupId();
+    if (groupId === null) {
       return;
     }
-    try {
-      localStorage.setItem(this.storageKey(date), JSON.stringify([...refs]));
-    } catch {
-      // Storage may be unavailable (private mode); checks just won't persist.
+    const refKey = formatRef(ref);
+    const before = this.checked();
+    const willCheck = !before.has(refKey);
+
+    const next = new Set(before);
+    if (willCheck) {
+      next.add(refKey);
+    } else {
+      next.delete(refKey);
     }
+    this.checked.set(next);
+
+    const request = willCheck
+      ? this.assignments.markLearned(ref, groupId)
+      : this.assignments.markUnlearned(ref, groupId);
+    request.subscribe({
+      error: () => {
+        this.checked.set(before);
+        this.toast.error(SYNC_ERROR);
+      },
+    });
   }
 }
