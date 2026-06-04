@@ -5,6 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   injectMutation,
@@ -226,12 +227,16 @@ export class AdminUserDetailComponent {
       next: () => {
         this.sending.set(false);
         this.toast.success(
-          kind === 'weekly' ? 'Weekly email queued.' : 'Reminder email queued.',
+          kind === 'weekly' ? 'Weekly email sent.' : 'Reminder email sent.',
         );
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.sending.set(false);
-        this.toast.error('Could not queue the email.');
+        const detail =
+          typeof err.error?.detail === 'string' ? err.error.detail : null;
+        this.toast.error(
+          detail ? `Could not send the email: ${detail}` : 'Could not send the email.',
+        );
       },
     });
   }

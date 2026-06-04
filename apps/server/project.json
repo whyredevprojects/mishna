@@ -34,7 +34,8 @@
       "continuous": true,
       "executor": "@naxodev/nx-cloudflare:serve",
       "options": {
-        "port": 8787
+        "port": 8787,
+        "persistTo": "../../.wrangler/state"
       }
     },
     "deploy": {
