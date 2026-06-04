@@ -35,7 +35,8 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `guards/auth.guard.ts` | Confirms a session via `GET /api/me`; redirects to `/` otherwise. UX only — the server API is the real auth boundary. |
 | `guards/admin.guard.ts` | Loads `GET /api/me` and allows only when `isAdmin`, else redirects to `/dashboard`. UX only — the server's `requireAdmin` is the boundary. |
 | `models/api.types.ts` | Client shapes of the server responses; reuses `@mishna/domain` value types, redefines anything carrying a `Date` (arrives as ISO string). |
-| `services/` | One thin service per API area (see below). |
+| `services/` | One thin service per API area (see below) — they own the URLs only. |
+| `queries/` | TanStack Query layer: `query-keys.ts` (cache-key registry) + `queries.ts` (`queryOptions` factories that wrap the service observables). See **Data caching** below. |
 | `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-list`, `today-card`, `join-form`. |
 | `pages/` | Routed screens: `landing`, `dashboard`, `review`, `settings`, and the admin shell `admin` + `admin-groups`, `admin-users`, `admin-user-detail`. |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
@@ -49,6 +50,31 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `DELETE /api/admin/users/:id`. |
+
+## Data caching (TanStack Query)
+
+Reads go through [`@tanstack/angular-query-experimental`](https://tanstack.com/query)
+for in-memory caching + request dedup, so navigating between routes reuses data
+instead of re-fetching. The `QueryClient` is provided in `app.config.ts` (defaults:
+`staleTime` 30s, `gcTime` 5min); per-query overrides live in `queries/queries.ts`
+(e.g. `cycle` 1h, admin views 0).
+
+- **Services stay thin** — they only know URLs. The `queries/` factories wrap each
+  service observable as a `queryFn` (via `firstValueFrom`). Add a new endpoint by
+  adding a key in `query-keys.ts` and a factory in `queries.ts`, then consume it.
+- **Reads**: components call `injectQuery(() => xQueryOptions(svc, ...))` and read the
+  result signals (`q.data()`, `q.isPending()`/`isLoading()`, `q.isError()`). For
+  reactive params (e.g. Review's date) the key is a function of a signal.
+- **Guards** resolve `me` via `queryClient.ensureQueryData(meQueryOptions(auth))`, so
+  `authGuard` + `adminGuard` + the dashboard dedup to one `GET /api/me` per nav burst.
+- **Writes** use `injectMutation` and invalidate the affected keys in `onSuccess`
+  (join/leave → `me` + `assignmentToday`; completions toggle → `assignmentToday`,
+  optimistic via `onMutate`/`onError`; admin actions → the admin keys).
+- **Cache coherence**: anything that changes auth state must update the `me` cache —
+  sign-in/sign-up invalidate `me` (so the guard re-fetches), and `AuthService.signOut()`
+  calls `queryClient.clear()` so the next user never sees the prior session's data.
+- `AuthService.me` signal is still populated as a side effect of `loadSession()`'s
+  `tap`, so `isAdmin()` and `auth.me()` keep working off the cached fetch.
 
 All calls use **relative `/api/*`** (no `environment.ts`), which works in both
 environments because the API is always same-origin:

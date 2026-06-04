@@ -7,11 +7,17 @@ import {
   input,
   signal,
 } from '@angular/core';
+import {
+  injectMutation,
+  QueryClient,
+} from '@tanstack/angular-query-experimental';
+import { firstValueFrom } from 'rxjs';
 import { MishnaRef } from '../models/api.types';
 import { formatRef } from '../util/format';
 import { MishnaCardComponent } from './mishna-card.component';
 import { AssignmentService } from '../services/assignment.service';
 import { ToastService } from '../services/toast.service';
+import { queryKeys } from '../queries/query-keys';
 
 const SYNC_ERROR =
   "We weren't able to update your progress. Please try again later.";
@@ -82,8 +88,49 @@ export class TodayCardComponent {
 
   private readonly assignments = inject(AssignmentService);
   private readonly toast = inject(ToastService);
+  private readonly queryClient = inject(QueryClient);
 
   private readonly checked = signal<Set<string>>(new Set());
+
+  // Syncs a single toggle to the server. Optimistic update happens in `onMutate`,
+  // rolls back in `onError`, and `onSettled` refreshes the cached assignment so its
+  // completion state stays authoritative (and survives navigation).
+  private readonly toggleMutation = injectMutation<
+    unknown,
+    Error,
+    { ref: MishnaRef; groupId: string; learn: boolean },
+    { before: Set<string> }
+  >(() => ({
+    mutationFn: (vars) =>
+      firstValueFrom(
+        vars.learn
+          ? this.assignments.markLearned(vars.ref, vars.groupId)
+          : this.assignments.markUnlearned(vars.ref, vars.groupId),
+      ),
+    onMutate: (vars) => {
+      const before = this.checked();
+      const refKey = formatRef(vars.ref);
+      const next = new Set(before);
+      if (vars.learn) {
+        next.add(refKey);
+      } else {
+        next.delete(refKey);
+      }
+      this.checked.set(next);
+      return { before };
+    },
+    onError: (_err, _vars, context) => {
+      if (context) {
+        this.checked.set(context.before);
+      }
+      this.toast.error(SYNC_ERROR);
+    },
+    onSettled: () => {
+      this.queryClient.invalidateQueries({
+        queryKey: queryKeys.assignmentToday,
+      });
+    },
+  }));
 
   constructor() {
     // Seed local checks from the server-provided set; re-seeds if it changes.
@@ -110,26 +157,7 @@ export class TodayCardComponent {
     if (groupId === null) {
       return;
     }
-    const refKey = formatRef(ref);
-    const before = this.checked();
-    const willCheck = !before.has(refKey);
-
-    const next = new Set(before);
-    if (willCheck) {
-      next.add(refKey);
-    } else {
-      next.delete(refKey);
-    }
-    this.checked.set(next);
-
-    const request = willCheck
-      ? this.assignments.markLearned(ref, groupId)
-      : this.assignments.markUnlearned(ref, groupId);
-    request.subscribe({
-      error: () => {
-        this.checked.set(before);
-        this.toast.error(SYNC_ERROR);
-      },
-    });
+    const learn = !this.checked().has(formatRef(ref));
+    this.toggleMutation.mutate({ ref, groupId, learn });
   }
 }

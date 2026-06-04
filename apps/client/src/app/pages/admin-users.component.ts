@@ -1,12 +1,8 @@
-import {
-  CUSTOM_ELEMENTS_SCHEMA,
-  Component,
-  inject,
-  signal,
-} from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { injectQuery } from '@tanstack/angular-query-experimental';
 import { AdminService } from '../services/admin.service';
-import { AdminUser } from '../models/api.types';
+import { adminUsersQueryOptions } from '../queries/queries';
 
 /** Lists every user; each row links to that user's detail page. */
 @Component({
@@ -39,15 +35,15 @@ import { AdminUser } from '../models/api.types';
   ],
   template: `
     <div class="stack">
-      @if (loading()) {
+      @if (query.isPending()) {
         <wa-spinner style="font-size: 2rem"></wa-spinner>
-      } @else if (error()) {
-        <wa-callout variant="danger">{{ error() }}</wa-callout>
-      } @else {
+      } @else if (query.isError()) {
+        <wa-callout variant="danger">Could not load users.</wa-callout>
+      } @else if (query.data()?.users; as users) {
         <p class="muted">
-          {{ users().length }} {{ users().length === 1 ? 'user' : 'users' }}
+          {{ users.length }} {{ users.length === 1 ? 'user' : 'users' }}
         </p>
-        @for (user of users(); track user.id) {
+        @for (user of users; track user.id) {
           <a class="user" [routerLink]="['/admin/users', user.id]">
             <span class="name">{{ user.name || '(no name)' }}</span>
             <span class="email muted">{{ user.email }}</span>
@@ -67,20 +63,7 @@ import { AdminUser } from '../models/api.types';
 export class AdminUsersComponent {
   private readonly admin = inject(AdminService);
 
-  protected readonly loading = signal(true);
-  protected readonly error = signal<string | null>(null);
-  protected readonly users = signal<AdminUser[]>([]);
-
-  constructor() {
-    this.admin.users().subscribe({
-      next: (res) => {
-        this.users.set(res.users);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Could not load users.');
-        this.loading.set(false);
-      },
-    });
-  }
+  protected readonly query = injectQuery(() =>
+    adminUsersQueryOptions(this.admin),
+  );
 }

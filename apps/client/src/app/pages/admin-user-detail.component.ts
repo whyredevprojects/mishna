@@ -1,13 +1,22 @@
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import {
+  injectMutation,
+  injectQuery,
+  QueryClient,
+} from '@tanstack/angular-query-experimental';
+import { firstValueFrom } from 'rxjs';
 import { AdminService } from '../services/admin.service';
 import { AuthService } from '../services/auth.service';
 import { AdminUserDetail } from '../models/api.types';
+import { queryKeys } from '../queries/query-keys';
+import { adminUserQueryOptions } from '../queries/queries';
 
 /** One user's info, with admin actions: remove assignments and delete account. */
 @Component({
@@ -41,11 +50,11 @@ import { AdminUserDetail } from '../models/api.types';
   ],
   template: `
     <div class="stack">
-      @if (loading()) {
+      @if (query.isPending()) {
         <wa-spinner style="font-size: 2rem"></wa-spinner>
-      } @else if (error()) {
-        <wa-callout variant="danger">{{ error() }}</wa-callout>
-      } @else if (user(); as u) {
+      } @else if (query.isError()) {
+        <wa-callout variant="danger">Could not load this user.</wa-callout>
+      } @else if (query.data(); as u) {
         <wa-card>
           <strong slot="header">{{ u.name || '(no name)' }}</strong>
           <dl>
@@ -142,19 +151,43 @@ export class AdminUserDetailComponent {
   private readonly router = inject(Router);
   private readonly admin = inject(AdminService);
   private readonly auth = inject(AuthService);
+  private readonly queryClient = inject(QueryClient);
 
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
 
-  protected readonly loading = signal(true);
-  protected readonly error = signal<string | null>(null);
-  protected readonly user = signal<AdminUserDetail | null>(null);
   protected readonly removeOpen = signal(false);
   protected readonly deleteOpen = signal(false);
-  protected readonly working = signal(false);
 
-  constructor() {
-    this.load();
-  }
+  protected readonly query = injectQuery(() =>
+    adminUserQueryOptions(this.admin, this.id),
+  );
+
+  protected readonly removeMutation = injectMutation(() => ({
+    mutationFn: () => firstValueFrom(this.admin.removeAssignments(this.id)),
+    onSuccess: () => {
+      this.removeOpen.set(false);
+      // Freed ranges change this user, their groups, and the joined flag in lists.
+      this.queryClient.invalidateQueries({
+        queryKey: queryKeys.adminUser(this.id),
+      });
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.adminGroups });
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers });
+    },
+  }));
+
+  protected readonly deleteMutation = injectMutation(() => ({
+    mutationFn: () => firstValueFrom(this.admin.deleteUser(this.id)),
+    onSuccess: () => {
+      this.deleteOpen.set(false);
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers });
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.adminGroups });
+      this.router.navigate(['/admin/users']);
+    },
+  }));
+
+  protected readonly working = computed(
+    () => this.removeMutation.isPending() || this.deleteMutation.isPending(),
+  );
 
   protected isSelf(): boolean {
     return this.auth.me()?.user.id === this.id;
@@ -164,41 +197,11 @@ export class AdminUserDetailComponent {
     return u.groups.reduce((sum, g) => sum + g.blockSize, 0);
   }
 
-  private load(): void {
-    this.loading.set(true);
-    this.admin.user(this.id).subscribe({
-      next: (u) => {
-        this.user.set(u);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Could not load this user.');
-        this.loading.set(false);
-      },
-    });
-  }
-
   protected removeAssignments(): void {
-    this.working.set(true);
-    this.admin.removeAssignments(this.id).subscribe({
-      next: () => {
-        this.working.set(false);
-        this.removeOpen.set(false);
-        this.load();
-      },
-      error: () => this.working.set(false),
-    });
+    this.removeMutation.mutate();
   }
 
   protected deleteUser(): void {
-    this.working.set(true);
-    this.admin.deleteUser(this.id).subscribe({
-      next: () => {
-        this.working.set(false);
-        this.deleteOpen.set(false);
-        this.router.navigate(['/admin/users']);
-      },
-      error: () => this.working.set(false),
-    });
+    this.deleteMutation.mutate();
   }
 }

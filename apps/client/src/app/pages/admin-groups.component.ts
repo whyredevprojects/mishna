@@ -1,11 +1,8 @@
-import {
-  CUSTOM_ELEMENTS_SCHEMA,
-  Component,
-  inject,
-  signal,
-} from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, Component, inject } from '@angular/core';
+import { injectQuery } from '@tanstack/angular-query-experimental';
 import { AdminService } from '../services/admin.service';
 import { AdminGroup } from '../models/api.types';
+import { adminGroupsQueryOptions } from '../queries/queries';
 
 /** Group stats: how many groups, and each group's fill + progress. */
 @Component({
@@ -29,14 +26,14 @@ import { AdminGroup } from '../models/api.types';
   ],
   template: `
     <div class="stack">
-      @if (loading()) {
+      @if (query.isPending()) {
         <wa-spinner style="font-size: 2rem"></wa-spinner>
-      } @else if (error()) {
-        <wa-callout variant="danger">{{ error() }}</wa-callout>
-      } @else {
-        <p class="muted">{{ count() }} active {{ count() === 1 ? 'group' : 'groups' }}</p>
+      } @else if (query.isError()) {
+        <wa-callout variant="danger">Could not load group stats.</wa-callout>
+      } @else if (query.data(); as res) {
+        <p class="muted">{{ res.count }} active {{ res.count === 1 ? 'group' : 'groups' }}</p>
 
-        @for (group of groups(); track group.id; let i = $index) {
+        @for (group of res.groups; track group.id; let i = $index) {
           <wa-card>
             <div slot="header" class="group-head">
               <strong>Group {{ i + 1 }}</strong>
@@ -58,24 +55,9 @@ import { AdminGroup } from '../models/api.types';
 export class AdminGroupsComponent {
   private readonly admin = inject(AdminService);
 
-  protected readonly loading = signal(true);
-  protected readonly error = signal<string | null>(null);
-  protected readonly count = signal(0);
-  protected readonly groups = signal<AdminGroup[]>([]);
-
-  constructor() {
-    this.admin.groups().subscribe({
-      next: (res) => {
-        this.count.set(res.count);
-        this.groups.set(res.groups);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Could not load group stats.');
-        this.loading.set(false);
-      },
-    });
-  }
+  protected readonly query = injectQuery(() =>
+    adminGroupsQueryOptions(this.admin),
+  );
 
   protected pct(group: AdminGroup): number {
     return Math.round(group.progress * 100);
