@@ -18,6 +18,8 @@ import { GroupService } from '../services/group.service';
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
+      @use 'breakpoints' as bp;
+
       .topbar {
         position: sticky;
         top: 0;
@@ -37,6 +39,8 @@ import { GroupService } from '../services/group.service';
       .spacer {
         flex: 1;
       }
+
+      /* Drawer nav (mobile) */
       nav {
         display: flex;
         flex-direction: column;
@@ -58,15 +62,65 @@ import { GroupService } from '../services/group.service';
       .leave {
         margin-block-start: var(--wa-space-l, 1rem);
       }
+      .logout {
+        margin-block-start: var(--wa-space-s, 0.5rem);
+      }
+
+      /* Inline topbar nav (tablet+) */
+      .topbar-nav {
+        display: none;
+      }
+
+      @media (min-width: bp.$tablet) {
+        .burger {
+          display: none;
+        }
+
+        .topbar-nav {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: var(--wa-space-2xs);
+
+          a {
+            display: flex;
+            align-items: center;
+            gap: var(--wa-space-2xs);
+            padding: var(--wa-space-2xs) var(--wa-space-s);
+            border-radius: var(--wa-border-radius-m);
+            color: inherit;
+            text-decoration: none;
+          }
+          a:hover {
+            background: var(--wa-color-neutral-fill-quiet);
+          }
+        }
+      }
     `,
   ],
   template: `
     <header class="topbar">
-      <wa-button appearance="plain" (click)="drawerOpen.set(true)">
+      <wa-button class="burger" appearance="plain" (click)="drawerOpen.set(true)">
         <wa-icon name="bars" label="Menu"></wa-icon>
       </wa-button>
       <h1>Chevras Mishnayos</h1>
       <span class="spacer"></span>
+      <nav class="topbar-nav">
+        <a routerLink="/dashboard"><wa-icon name="calendar-day"></wa-icon> Today</a>
+        <a routerLink="/review"><wa-icon name="magnifying-glass"></wa-icon> Review</a>
+        <a routerLink="/settings"><wa-icon name="user"></wa-icon> Settings</a>
+        @if (auth.isAdmin()) {
+          <a routerLink="/admin"><wa-icon name="gear"></wa-icon> Admin</a>
+        }
+        <wa-button appearance="outlined" variant="danger" size="small" (click)="confirmOpen.set(true)">
+          <wa-icon slot="start" name="right-from-bracket"></wa-icon>
+          Leave
+        </wa-button>
+        <wa-button appearance="plain" size="small" (click)="logout()">
+          <wa-icon slot="start" name="right-from-bracket"></wa-icon>
+          Log out
+        </wa-button>
+      </nav>
     </header>
 
     <main class="page">
@@ -106,6 +160,15 @@ import { GroupService } from '../services/group.service';
         <wa-icon slot="start" name="right-from-bracket"></wa-icon>
         Leave group
       </wa-button>
+      <wa-button
+        slot="footer"
+        class="logout"
+        appearance="outlined"
+        (click)="logout()"
+      >
+        <wa-icon slot="start" name="right-from-bracket"></wa-icon>
+        Log out
+      </wa-button>
     </wa-drawer>
 
     <wa-dialog
@@ -141,6 +204,10 @@ export class AppShellComponent {
   protected readonly drawerOpen = signal(false);
   protected readonly confirmOpen = signal(false);
   protected readonly leaving = signal(false);
+
+  protected logout(): void {
+    this.auth.signOut().subscribe(() => this.router.navigate(['/']));
+  }
 
   protected leave(): void {
     this.leaving.set(true);
