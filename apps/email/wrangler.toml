@@ -4,6 +4,12 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
+# Local dev: distinct port + debugger/inspector port so `npm run dev:email` doesn't
+# collide with the server (8787/9229) or login (8788/9230) workers.
+[dev]
+port = 8789
+inspector_port = 9231
+
 # Fire hourly. The orchestrator only acts on a user when it's 08:00 in that user's
 # timezone, so an hourly tick covers every zone exactly once per local day. The
 # email_log table makes each (user, kind, week) send happen at most once.

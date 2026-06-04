@@ -18,6 +18,7 @@ login directly.
 | `apps/client` (Angular) | **4200** | `proxy.conf.json` forwards `/api` → `:8787`. |
 | `apps/server` (Hono API) | **8787** | The single API surface the client talks to. |
 | `apps/login` (better-auth) | **8788** | Reached via the `AUTH` service binding, not directly. |
+| `apps/email` (cron + queue) | **8789** | Background worker; **not** part of `npm run dev`. Run separately with `npm run dev:email`. |
 
 > There are intentionally **no Angular `environment.ts` files** — the dev proxy +
 > relative URLs behave the same in production (same-origin API).
@@ -61,6 +62,33 @@ wrangler's dev registry wires the `AUTH` service binding across the processes.
 
 To run a single piece on its own: `npx nx serve server`, `npx nx serve login`, or
 `npx nx serve client` (the client always pulls in the two workers).
+
+### Email worker
+
+`apps/email` (the cron + queue worker that sends the weekly/reminder emails) is a
+**background** worker — it's not in the request path, so `npm run dev` does **not**
+start it. Run it on its own when you're working on emails:
+
+```sh
+npm run dev:email    # alias for: npx nx serve email  (port 8789, inspector 9231)
+```
+
+It does nothing until its cron fires or a job is queued. To exercise it locally:
+
+- **Cron orchestrator:** `curl "http://localhost:8789/cdn-cgi/handler/scheduled"`.
+- **Queue/admin send:** an admin "send now" (or any enqueue) triggers the `queue()`
+  consumer.
+
+A real send needs `RESEND_API_KEY` in `apps/email/.dev.vars` (copy the example and
+fill it in — `.dev.vars` is gitignored):
+
+```sh
+cp apps/email/.dev.vars.example apps/email/.dev.vars
+# then set RESEND_API_KEY
+```
+
+Without it the Resend call errors and the batch retries. The worker reads the same
+local D1 databases as the server/login (`npm run db:init:local`).
 
 ### Notes
 
