@@ -1,9 +1,0 @@
-{
-  "name": "email",
-  "private": true,
-  "dependencies": {
-    "@mishna/domain": "*",
-    "mishna-text": "^1.0.8",
-    "resend": "^6.12.4"
-  }
-}
