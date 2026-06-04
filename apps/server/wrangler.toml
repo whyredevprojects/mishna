@@ -36,12 +36,13 @@ migrations_dir = "migrations"
 name = "ALLOCATOR"
 class_name = "AllocatorDO"
 
-# Producer side of the email queue. The admin "send now" endpoints enqueue an
-# EmailJob here; the apps/email worker is the queue's consumer (and also produces
-# from its cron). Create once: `wrangler queues create mishna-email`.
-[[queues.producers]]
-queue = "mishna-email"
-binding = "EMAIL_QUEUE"
+# The apps/email worker, reached via this service binding. The admin "send now"
+# endpoints POST a single EmailJob to its /internal/send route synchronously (so the
+# admin sees the real result). The cron/bulk fan-out still goes through the queue,
+# which only the email worker produces to — the server is no longer a queue producer.
+[[services]]
+binding = "EMAIL"
+service = "email"
 
 [[migrations]]
 tag = "v1"

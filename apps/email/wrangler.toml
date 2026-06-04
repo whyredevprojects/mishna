@@ -4,6 +4,11 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
+# No public URL: this worker is cron + queue-consumer + a service-binding target
+# (the server's admin "send now" hits its /internal/send fetch handler via the EMAIL
+# binding). Disabling workers.dev keeps /internal/send off the public internet.
+workers_dev = false
+
 # Local dev: distinct port + debugger/inspector port so `npm run dev:email` doesn't
 # collide with the server (8787/9229) or login (8788/9230) workers.
 [dev]
@@ -31,8 +36,8 @@ database_name = "mishna-auth"
 database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
 
 # The email queue. This worker both produces (from the cron orchestrator) and
-# consumes (the sender). The server worker is also a producer (admin "send now").
-# Create once: `wrangler queues create mishna-email`.
+# consumes (the sender). It is the only producer — the server's admin "send now"
+# uses the EMAIL service binding instead. Create once: `wrangler queues create mishna-email`.
 [[queues.producers]]
 queue = "mishna-email"
 binding = "EMAIL_QUEUE"

@@ -571,10 +571,13 @@ app.post('/api/admin/users/:id/remove-assignments', requireAdmin, async (c) => {
   return new Response(res.body, res);
 });
 
-// Admin "send now": enqueue an extra weekly or reminder email for a user, bypassing
-// the once-per-week dedup. Reuses the user's prefs to anchor the week (so the email
-// covers the same quota the scheduled one would). The apps/email worker consumes it.
-async function enqueueEmail(
+// Admin "send now": send an extra weekly or reminder email for a user, bypassing the
+// once-per-week dedup. Reuses the user's prefs to anchor the week (so the email covers
+// the same quota the scheduled one would). Unlike the cron path (which fans out to the
+// queue), this is a *synchronous* call to the apps/email worker via the EMAIL service
+// binding — volume is 1 and the admin needs the real success/failure back (the queue
+// can't report it, and cross-process queues aren't delivered in local dev).
+async function sendEmailNow(
   env: Env,
   userId: string,
   kind: EmailKind,
@@ -583,16 +586,24 @@ async function enqueueEmail(
   const parts = localParts(new Date(), prefs.timezone);
   const weekStart = weekStartOnOrBefore(parts, prefs.weeklyEmailDow);
   const job: EmailJob = { userId, kind, weekStart };
-  await env.EMAIL_QUEUE.send(job);
-  return Response.json({ queued: true, kind, weekStart });
+  const res = await env.EMAIL.fetch('https://email/internal/send', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(job),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    return Response.json({ error: 'email send failed', detail }, { status: 502 });
+  }
+  return Response.json({ sent: true, kind, weekStart });
 }
 
 app.post('/api/admin/users/:id/send-weekly', requireAdmin, (c) =>
-  enqueueEmail(c.env, c.req.param('id'), 'weekly'),
+  sendEmailNow(c.env, c.req.param('id'), 'weekly'),
 );
 
 app.post('/api/admin/users/:id/send-reminder', requireAdmin, (c) =>
-  enqueueEmail(c.env, c.req.param('id'), 'reminder'),
+  sendEmailNow(c.env, c.req.param('id'), 'reminder'),
 );
 
 // Hard-delete a user. Removes their assignments first (so mishna-app holds no

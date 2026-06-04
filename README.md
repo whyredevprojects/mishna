@@ -73,11 +73,17 @@ start it. Run it on its own when you're working on emails:
 npm run dev:email    # alias for: npx nx serve email  (port 8789, inspector 9231)
 ```
 
-It does nothing until its cron fires or a job is queued. To exercise it locally:
+It does nothing until its cron fires, a job is queued, or the server calls it. To
+exercise it locally:
 
-- **Cron orchestrator:** `curl "http://localhost:8789/cdn-cgi/handler/scheduled"`.
-- **Queue/admin send:** an admin "send now" (or any enqueue) triggers the `queue()`
-  consumer.
+- **Cron orchestrator (bulk):** `curl "http://localhost:8789/cdn-cgi/handler/scheduled"`
+  — the orchestrator queues jobs and the in-process `queue()` consumer sends them.
+- **Admin "send now":** the admin button hits the server, which calls this worker's
+  `/internal/send` route synchronously via the `EMAIL` service binding (works
+  cross-process locally, like `AUTH`→login; the cron's queue does **not** bridge across
+  separate `wrangler dev` processes, which is why admin-send uses a binding). You'll see
+  the real success/error in the UI — so the email worker must be running, and
+  `RESEND_API_KEY` set, for it to succeed.
 
 A real send needs `RESEND_API_KEY` in `apps/email/.dev.vars` (copy the example and
 fill it in — `.dev.vars` is gitignored):

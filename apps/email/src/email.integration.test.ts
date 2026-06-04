@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:test';
+import { SELF, env } from 'cloudflare:test';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Group, createMishnaStructure } from '@mishna/domain';
 import { loadBlocks } from './data';
@@ -209,6 +209,42 @@ describe('email worker', () => {
         n: number;
       }>();
       expect(log?.n).toBe(0);
+    });
+  });
+
+  // The /internal/send route is the admin "send now" entry (reached via the server's
+  // EMAIL service binding). Its routing + validation are exercised here; the actual
+  // build/send is the same processJobs path covered above. The success path itself
+  // hits Resend + the network, so it isn't driven through SELF here.
+  describe('fetch (admin send-now)', () => {
+    const post = (path: string, body?: unknown) =>
+      SELF.fetch(`https://email${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+
+    it('404s for an unknown path', async () => {
+      expect((await post('/nope', {})).status).toBe(404);
+    });
+
+    it('404s for a non-POST on /internal/send', async () => {
+      const res = await SELF.fetch('https://email/internal/send');
+      expect(res.status).toBe(404);
+    });
+
+    it('400s on an invalid JSON body', async () => {
+      const res = await SELF.fetch('https://email/internal/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: 'not json',
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('400s when the job is missing required fields', async () => {
+      const res = await post('/internal/send', { userId: 'alice' });
+      expect(res.status).toBe(400);
     });
   });
 });

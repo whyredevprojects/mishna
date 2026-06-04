@@ -44,7 +44,8 @@ Separate from the better-auth `mishna-auth` DB owned by `apps/login`.
 - `email_log(user_id, kind, week_start, sent_at)` — one row per email actually sent
   (`0004`), so each (user, kind, week) goes out at most once even though the cron fires
   hourly. Written by `apps/email`; the server only references the table name when
-  describing the dedup that admin "send now" bypasses.
+  describing the dedup that admin "send now" bypasses (it sends synchronously via the
+  `EMAIL` binding rather than through the cron orchestrator).
 
 `save()` upserts the group row and replaces its membership rows in one `db.batch()`
 so the row and its members never drift apart.
@@ -90,8 +91,8 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/admin/users` | `{ users: [{ id, name, email, role, joined, commitment }], total }` — better-auth `list-users` merged with `participants` (**admin**). |
 | `GET /api/admin/users/:id` | One user: identity + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
-| `POST /api/admin/users/:id/send-weekly` | Enqueue an extra weekly `EmailJob` on `EMAIL_QUEUE` (bypasses dedup) (**admin**). |
-| `POST /api/admin/users/:id/send-reminder` | Enqueue an extra reminder `EmailJob` (**admin**). |
+| `POST /api/admin/users/:id/send-weekly` | Synchronously send an extra weekly email via the `EMAIL` service binding (bypasses dedup); `502` if the send fails (**admin**). |
+| `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
 
 `groupId` on assignments is resolved by `buildAssignment`: it finds the group whose block
@@ -100,10 +101,14 @@ on every write. (On the single overflow-boundary day a user's mishnayot can span
 groups; they're all attributed to the first's group — accepted noise for a progress
 rollup.)
 
-The admin "send now" routes enqueue an `EmailJob` (`{ userId, kind, weekStart }`, from
-`@mishna/domain`) on the `mishna-email` queue via the `EMAIL_QUEUE` producer binding;
-`apps/email` consumes and sends it. The week is anchored from the user's prefs
-(`localParts` + `weekStartOnOrBefore`).
+The admin "send now" routes build an `EmailJob` (`{ userId, kind, weekStart }`, from
+`@mishna/domain`) and POST it to `apps/email`'s `/internal/send` route via the `EMAIL`
+service binding — **synchronously**, so the admin gets the real result (and a `502` on
+failure). This is deliberately *not* the queue: volume is 1, the queue can't report
+success/failure back, and cross-process queues aren't delivered in local `wrangler dev`
+(service bindings are, via the dev registry, like `AUTH`→login). The scheduled/bulk path
+still fans out through the queue — only the email worker produces to it now. The week is
+anchored from the user's prefs (`localParts` + `weekStartOnOrBefore`).
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin
