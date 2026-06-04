@@ -3,7 +3,6 @@ import { poweredBy } from 'hono/powered-by';
 import {
   Block,
   Commitment,
-  EmailJob,
   EmailKind,
   Group,
   MishnaRef,
@@ -16,7 +15,7 @@ import { assignmentEngine, calendar, idGen, structure } from './domain';
 import { D1GroupRepository } from './repository';
 import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
-import { processJobs } from './email/sender';
+import { prepareOne, processJobs } from './email/sender';
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
 
@@ -587,9 +586,9 @@ async function sendEmailNow(
   const prefs = rowToPrefs(await loadPrefs(env, userId));
   const parts = localParts(new Date(), prefs.timezone);
   const weekStart = weekStartOnOrBefore(parts, prefs.weeklyEmailDow);
-  const job: EmailJob = { userId, kind, weekStart };
   try {
-    await processJobs(env, [job], senderDeps(env));
+    const prepared = await prepareOne(env, userId, kind, weekStart);
+    await processJobs(env, prepared ? [prepared] : [], senderDeps(env));
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     return Response.json({ error: 'email send failed', detail }, { status: 502 });

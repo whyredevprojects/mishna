@@ -1,17 +1,19 @@
 import { env } from 'cloudflare:test';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Group, createMishnaStructure } from '@mishna/domain';
+import { Group, MishnaRef, createMishnaStructure } from '@mishna/domain';
 import { applyMigrations } from '../apply-migrations';
 import { loadBlocks } from './data';
 import { planSends } from './orchestrator';
 import { weekRefs } from './quota';
-import { OutgoingEmail, processJobs } from './sender';
+import { OutgoingEmail, PreparedEmail, processJobs } from './sender';
 
 const structure = createMishnaStructure();
 const idGen = () => crypto.randomUUID();
 
 // NY (EDT, UTC-4) on this instant is Wednesday 2026-06-03 08:00. dow=3 (Wed).
 const NOW_NY_WED_8AM = new Date('2026-06-03T12:00:00Z');
+
+const REF: MishnaRef = { mesechta: 'Berachos', perek: 1, mishna: 1 };
 
 const APP_TABLES = [
   'participants',
@@ -82,6 +84,21 @@ async function seedGroupFor(userId: string): Promise<void> {
     .run();
 }
 
+/** A `SenderDeps` whose `send` records the emails + idempotency key it was given. */
+function recordingDeps(sink: { emails: OutgoingEmail[][]; keys: string[] }) {
+  return {
+    resolveText: vi.fn(async (refs: MishnaRef[]) =>
+      refs.map((ref) => ({ ref, tractateHebrew: 'ברכות', hebrew: 'טקסט' })),
+    ),
+    send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
+      sink.emails.push(emails);
+      sink.keys.push(idempotencyKey);
+    },
+    from: 'test@example.com',
+    appOrigin: 'https://app.test',
+  };
+}
+
 describe('email path', () => {
   beforeAll(createTables);
   beforeEach(async () => {
@@ -95,8 +112,8 @@ describe('email path', () => {
     it('queues a weekly email when it is 08:00 on the weekly weekday', async () => {
       await seedParticipant({ userId: 'alice', weeklyDow: 3, reminderDow: 5 });
       const jobs = await planSends(env, NOW_NY_WED_8AM);
-      expect(jobs).toEqual([
-        { userId: 'alice', kind: 'weekly', weekStart: '2026-06-03' },
+      expect(jobs).toMatchObject([
+        { userId: 'alice', kind: 'weekly', weekStart: '2026-06-03', to: 'alice@example.com' },
       ]);
     });
 
@@ -109,6 +126,11 @@ describe('email path', () => {
 
     it('respects the weekly_enabled flag', async () => {
       await seedParticipant({ userId: 'alice', weeklyDow: 3, weeklyEnabled: 0 });
+      expect(await planSends(env, NOW_NY_WED_8AM)).toEqual([]);
+    });
+
+    it('skips a participant with no email address', async () => {
+      await seedParticipant({ userId: 'ghost', weeklyDow: 3, email: null });
       expect(await planSends(env, NOW_NY_WED_8AM)).toEqual([]);
     });
 
@@ -127,9 +149,10 @@ describe('email path', () => {
       await seedParticipant({ userId: 'bob', weeklyDow: 0, reminderDow: 3 });
       await seedGroupFor('bob');
       const jobs = await planSends(env, NOW_NY_WED_8AM);
-      expect(jobs).toEqual([
+      expect(jobs).toMatchObject([
         { userId: 'bob', kind: 'reminder', weekStart: '2026-05-31' },
       ]);
+      expect(jobs[0].refs.length).toBeGreaterThan(0);
     });
 
     it('skips the reminder when nothing is pending', async () => {
@@ -148,35 +171,37 @@ describe('email path', () => {
       }
       expect(await planSends(env, NOW_NY_WED_8AM)).toEqual([]);
     });
+
+    it('plans many due users from batched reads', async () => {
+      // Several participants all due the same weekly email this hour: exercises the
+      // set-based reads (one IN query each) rather than per-user lookups.
+      for (const id of ['u1', 'u2', 'u3']) {
+        await seedParticipant({ userId: id, weeklyDow: 3 });
+      }
+      const jobs = await planSends(env, NOW_NY_WED_8AM);
+      expect(jobs.map((j) => j.userId).sort()).toEqual(['u1', 'u2', 'u3']);
+      expect(jobs.every((j) => j.kind === 'weekly')).toBe(true);
+    });
   });
 
   describe('processJobs (sender)', () => {
     it('builds, sends, and logs a weekly email', async () => {
-      await seedParticipant({ userId: 'alice', weeklyDow: 3 });
-      await seedGroupFor('alice');
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      const deps = recordingDeps(sink);
+      const job: PreparedEmail = {
+        userId: 'alice',
+        kind: 'weekly',
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+      };
+      await processJobs(env, [job], deps);
 
-      const sent: OutgoingEmail[][] = [];
-      const resolveText = vi.fn(async (refs) =>
-        refs.map((ref) => ({ ref, tractateHebrew: 'ברכות', hebrew: 'טקסט' })),
-      );
-      await processJobs(
-        env,
-        [{ userId: 'alice', kind: 'weekly', weekStart: '2026-06-03' }],
-        {
-          resolveText,
-          send: async (emails) => {
-            sent.push(emails);
-          },
-          from: 'test@example.com',
-          appOrigin: 'https://app.test',
-        },
-      );
-
-      expect(sent).toHaveLength(1);
-      expect(sent[0]).toHaveLength(1);
-      expect(sent[0][0].to).toBe('alice@example.com');
-      expect(sent[0][0].subject).toContain('המשניות');
-      expect(resolveText).toHaveBeenCalledOnce();
+      expect(sink.emails).toHaveLength(1);
+      expect(sink.emails[0]).toHaveLength(1);
+      expect(sink.emails[0][0].to).toBe('alice@example.com');
+      expect(sink.emails[0][0].subject).toContain('המשניות');
+      expect(deps.resolveText).toHaveBeenCalledOnce();
 
       const log = await env.DB.prepare(
         'SELECT kind, week_start FROM email_log WHERE user_id = ?',
@@ -186,20 +211,29 @@ describe('email path', () => {
       expect(log).toMatchObject({ kind: 'weekly', week_start: '2026-06-03' });
     });
 
-    it('does not log when there is no sendable recipient', async () => {
-      // No auth user row -> unsendable.
-      await processJobs(
-        env,
-        [{ userId: 'ghost', kind: 'weekly', weekStart: '2026-06-03' }],
-        {
-          resolveText: async () => [],
-          send: async () => {
-            throw new Error('should not send');
-          },
-          from: 'test@example.com',
-          appOrigin: 'https://app.test',
-        },
-      );
+    it('passes a deterministic idempotency key, stable across retries', async () => {
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      const job: PreparedEmail = {
+        userId: 'alice',
+        kind: 'weekly',
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+      };
+      // Same batch twice (a retry) -> same key. A different batch -> different key.
+      await processJobs(env, [job], recordingDeps(sink));
+      await processJobs(env, [job], recordingDeps(sink));
+      await processJobs(env, [{ ...job, userId: 'carol', to: 'c@e.com' }], recordingDeps(sink));
+
+      expect(sink.keys[0]).toMatch(/^reminder-batch-/);
+      expect(sink.keys[1]).toBe(sink.keys[0]);
+      expect(sink.keys[2]).not.toBe(sink.keys[0]);
+    });
+
+    it('does nothing for an empty batch', async () => {
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      await processJobs(env, [], recordingDeps(sink));
+      expect(sink.emails).toEqual([]);
       const log = await env.DB.prepare('SELECT COUNT(*) AS n FROM email_log').first<{
         n: number;
       }>();
@@ -207,22 +241,23 @@ describe('email path', () => {
     });
 
     it('propagates a send failure and does not log (so the caller can retry / 502)', async () => {
-      await seedParticipant({ userId: 'alice', weeklyDow: 3 });
-      await seedGroupFor('alice');
+      const job: PreparedEmail = {
+        userId: 'alice',
+        kind: 'weekly',
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+      };
       await expect(
-        processJobs(
-          env,
-          [{ userId: 'alice', kind: 'weekly', weekStart: '2026-06-03' }],
-          {
-            resolveText: async (refs) =>
-              refs.map((ref) => ({ ref, tractateHebrew: 'ברכות', hebrew: 'טקסט' })),
-            send: async () => {
-              throw new Error('Resend batch failed: boom');
-            },
-            from: 'test@example.com',
-            appOrigin: 'https://app.test',
+        processJobs(env, [job], {
+          resolveText: async (refs) =>
+            refs.map((ref) => ({ ref, tractateHebrew: 'ברכות', hebrew: 'טקסט' })),
+          send: async () => {
+            throw new Error('Resend batch failed: boom');
           },
-        ),
+          from: 'test@example.com',
+          appOrigin: 'https://app.test',
+        }),
       ).rejects.toThrow('boom');
       const log = await env.DB.prepare('SELECT COUNT(*) AS n FROM email_log').first<{
         n: number;

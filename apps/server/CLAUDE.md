@@ -15,7 +15,7 @@ allocation writes so concurrent joins can't corrupt a group.
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps`), `orchestrator.ts` (`planSends` — who is due at 08:00 local), `sender.ts` (`processJobs` — build → Resend batch → log), `data.ts` (recipients/blocks/completions/`email_log` over `DB` + `AUTH_DB`), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates.ts` (RTL HTML). |
+| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics), `orchestrator.ts` (`planSends` — who is due at 08:00 local, fully resolved via batched reads → `PreparedEmail[]`), `sender.ts` (`PreparedEmail`, `processJobs` — render → Resend batch w/ idempotency key → log, plus `prepareOne` for admin), `data.ts` (`loadCandidates` + batched `loadEmailsFor`/`alreadySentSet`/`loadBlocksFor`/`loadCompletedFor` over `DB` + `AUTH_DB`; single-user `loadRecipient`/`loadBlocks`/`pendingRefs` for the admin path), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates.ts` (RTL HTML). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
@@ -110,19 +110,33 @@ fires on an **hourly cron** and creates one `ReminderWorkflow` instance per tick
 derived from `controller.scheduledTime`, so a double cron fire — cron is at-least-once —
 dedupes to one run). The Workflow (`email/workflow.ts`) calls `planSends` to find who is
 due an email *now* (08:00 in the user's own timezone; weekly on their weekly weekday,
-reminder on their reminder weekday when something's still unlearned), then sends in
-Resend-batch-sized chunks — each chunk a durable `step.do`, with a free `step.sleep`
-between to stay under Resend's rate limit. `processJobs` records each send in `email_log`,
-and `alreadySent`/`recordSent` make a retried batch idempotent. It reads recipient
-addresses from `AUTH_DB` (the `mishna-auth` `user` table, read-only) merged in memory with
-`participants`/`user_email_prefs` from `DB`, and Hebrew text from `mishna-text`'s tractate
-JSON served at `APP_ORIGIN`. The Resend key is the `RESEND_API_KEY` secret.
+reminder on their reminder weekday when something's still unlearned), then sends the fully
+resolved `PreparedEmail`s in Resend-batch-sized chunks — each chunk a durable `step.do`,
+with a free `step.sleep` between to stay under Resend's rate limit. It closes with a
+`run-metrics` step logging one `{ evt: 'reminder_run', durationMs, planned, sent, batches }`
+line — the early-warning for the per-invocation ceiling.
 
-The admin "send now" routes build an `EmailJob` (`{ userId, kind, weekStart }`, from
-`@mishna/domain`) and send it **inline and synchronously** via the same `processJobs` path
+**Scalability — batched reads.** `planSends` does **not** do a per-user query loop. It
+loads all participants+prefs once (`loadCandidates`, addresses excluded), filters to those
+at 08:00 local, then resolves the survivors with a handful of set-based `IN (...)` reads
+(chunked under D1's 100-param ceiling): `alreadySentSet` (dedup), `loadBlocksFor`,
+`loadCompletedFor` (reminders only), and `loadEmailsFor` (addresses for the due subset
+only — not the whole `user` table every hour). So a run is O(due/100) subrequests, not
+O(due); the ceiling is users-due-in-one-hour, kept well inside budget. `planSends` returns
+`PreparedEmail`s (address + the exact mishnayot to render), so `processJobs` does no
+further per-user DB reads — it renders, sends, and `recordSent`s.
+
+**Idempotency is layered.** `email_log` dedups across runs/days (`recordSent` after a
+successful send; `alreadySentSet` before). *Within* a run, each batch carries a
+deterministic Resend `Idempotency-Key` (`reminder-batch-<sha256-of-the-batch>`), so if a
+batch sends but the `email_log` write then throws and the `step.do` retries, Resend
+collapses the re-send instead of double-mailing. The `httpTextResolver` cache lives on the
+resolver (per batch), so 100 users needing one tractate fetch it once.
+
+The admin "send now" routes resolve one `PreparedEmail` via `prepareOne` (per-user reads —
+fine at volume 1) and send it **inline and synchronously** via the same `processJobs` path
 (bypassing the dedup), so the admin gets the real result — a `502` on a Resend failure.
-Volume is 1, so there's nothing to fan out. The week is anchored from the user's prefs
-(`localParts` + `weekStartOnOrBefore`).
+The week is anchored from the user's prefs (`localParts` + `weekStartOnOrBefore`).
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin

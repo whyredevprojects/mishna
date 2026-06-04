@@ -23,8 +23,8 @@ export function senderDeps(env: Env): SenderDeps {
     resolveText: httpTextResolver(env.APP_ORIGIN),
     from: env.RESEND_FROM_EMAIL,
     appOrigin: env.APP_ORIGIN,
-    send: async (emails: OutgoingEmail[]) => {
-      const { error } = await resend.batch.send(emails);
+    send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
+      const { error } = await resend.batch.send(emails, { idempotencyKey });
       if (error) {
         throw new Error(`Resend batch failed: ${error.message}`);
       }
@@ -46,17 +46,37 @@ export class ReminderWorkflow extends WorkflowEntrypoint<Env, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const now = new Date(event.payload.scheduledTime);
 
+    // Capture the start in a step so the duration survives workflow replays.
+    const startedAt = await step.do('started-at', async () => Date.now());
     const jobs = await step.do('plan-sends', () => planSends(this.env, now));
 
+    let sent = 0;
     for (let i = 0; i < jobs.length; i += BATCH) {
       const chunk = jobs.slice(i, i + BATCH);
       const n = i / BATCH;
       await step.do(`send-batch-${n}`, () =>
         processJobs(this.env, chunk, senderDeps(this.env)),
       );
+      sent += chunk.length;
       if (i + BATCH < jobs.length) {
         await step.sleep(`throttle-${n}`, '1 second');
       }
     }
+
+    // One structured line per run — the early-warning for the per-invocation
+    // subrequest/wall-clock ceiling. Watch `durationMs` and `planned` over time.
+    await step.do('run-metrics', async () => {
+      console.log(
+        JSON.stringify({
+          evt: 'reminder_run',
+          scheduledTime: event.payload.scheduledTime,
+          durationMs: Date.now() - startedAt,
+          planned: jobs.length,
+          sent,
+          batches: Math.ceil(jobs.length / BATCH),
+        }),
+      );
+      return null;
+    });
   }
 }

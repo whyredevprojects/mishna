@@ -19,13 +19,14 @@ export type TextResolver = (refs: MishnaRef[]) => Promise<ResolvedMishna[]>;
 
 /**
  * The production resolver: fetches each tractate's text once from `base` (the
- * origin serving mishna-text's `data/*.json`, i.e. APP_ORIGIN) and caches it for
- * the run. `getTractate` keys on the English masechet name, which equals
- * `MishnaRef.mesechta`.
+ * origin serving mishna-text's `data/*.json`, i.e. APP_ORIGIN) and caches it.
+ * The cache lives on the resolver, not the call, so every job in a batch shares it
+ * — a batch where 100 users all need the same tractate fetches it once, not 100×.
+ * `getTractate` keys on the English masechet name, which equals `MishnaRef.mesechta`.
  */
 export function httpTextResolver(base: string): TextResolver {
+  const cache = new Map<string, Awaited<ReturnType<typeof getTractate>>>();
   return async (refs) => {
-    const cache = new Map<string, Awaited<ReturnType<typeof getTractate>>>();
     const out: ResolvedMishna[] = [];
     for (const ref of refs) {
       let tractate = cache.get(ref.mesechta);

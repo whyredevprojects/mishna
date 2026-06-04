@@ -20,6 +20,36 @@ export interface Recipient {
   reminderEnabled: boolean;
 }
 
+/**
+ * A participant + their email preferences, *without* the email address. The bulk
+ * email path resolves who is due from these (timezone math needs every prefs row),
+ * then fetches addresses only for the due subset — so we don't load the whole
+ * `AUTH_DB` user table every hour.
+ */
+export interface Candidate {
+  userId: string;
+  timezone: string;
+  weeklyEmailDow: number;
+  reminderEmailDow: number;
+  weeklyEnabled: boolean;
+  reminderEnabled: boolean;
+}
+
+/**
+ * Split `items` into runs of at most `size`, so `IN (?, ?, …)` lookups stay under
+ * D1's 100-bind-parameter ceiling. `size` defaults to 100; callers that bind extra
+ * params alongside the chunk pass a smaller size.
+ */
+export function chunked<T>(items: T[], size = 100): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+function placeholders(n: number): string {
+  return new Array(n).fill('?').join(',');
+}
+
 const DEFAULTS = {
   timezone: 'America/New_York',
   weeklyEmailDow: 0,
@@ -46,11 +76,14 @@ interface UserRow {
 }
 
 /**
- * Every joined participant who has a usable email, merged with their preferences
- * (defaults where no prefs row exists). One query per table, joined in memory.
+ * Every joined participant with their email preferences (defaults where no prefs
+ * row exists), but *without* addresses. Two full-table queries, merged in memory —
+ * cheap regardless of headcount (a few MB of small rows). The bulk path filters
+ * these to the ones due at 08:00 local and only then resolves emails for that
+ * subset (`loadEmailsFor`), instead of loading the whole user table every hour.
  */
-export async function loadRecipients(env: Env): Promise<Recipient[]> {
-  const [participants, prefs, users] = await Promise.all([
+export async function loadCandidates(env: Env): Promise<Candidate[]> {
+  const [participants, prefs] = await Promise.all([
     env.DB.prepare('SELECT user_id FROM participants').all<ParticipantRow>(),
     env.DB
       .prepare(
@@ -58,19 +91,106 @@ export async function loadRecipients(env: Env): Promise<Recipient[]> {
                 weekly_enabled, reminder_enabled FROM user_email_prefs`,
       )
       .all<PrefsRow>(),
-    env.AUTH_DB.prepare('SELECT id, email, name FROM "user"').all<UserRow>(),
   ]);
 
   const prefsByUser = new Map(prefs.results.map((p) => [p.user_id, p]));
-  const userById = new Map(users.results.map((u) => [u.id, u]));
+  return participants.results.map(({ user_id }) =>
+    buildCandidate(user_id, prefsByUser.get(user_id)),
+  );
+}
 
-  const recipients: Recipient[] = [];
-  for (const { user_id } of participants.results) {
-    const user = userById.get(user_id);
-    if (!user?.email) continue; // no address to send to
-    recipients.push(buildRecipient(user_id, user, prefsByUser.get(user_id)));
+/**
+ * Addresses for the given user ids, as `userId → email` (users with no usable
+ * address are omitted). Chunked under D1's 100-param ceiling. Read from `AUTH_DB`.
+ */
+export async function loadEmailsFor(
+  env: Env,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const byId = new Map<string, string>();
+  for (const chunk of chunked(userIds)) {
+    const { results } = await env.AUTH_DB.prepare(
+      `SELECT id, email FROM "user" WHERE id IN (${placeholders(chunk.length)})`,
+    )
+      .bind(...chunk)
+      .all<{ id: string; email: string | null }>();
+    for (const r of results) if (r.email) byId.set(r.id, r.email);
   }
-  return recipients;
+  return byId;
+}
+
+/**
+ * The set of `${userId}|${kind}|${weekStart}` already in `email_log`, for the given
+ * users. Bounded to `sinceWeekStart` onward so each user matches at most this week's
+ * rows (not their whole cycle of history); chunked to 99 ids to leave room for the
+ * `sinceWeekStart` bind. Used to drop already-sent jobs in one pass.
+ */
+export async function alreadySentSet(
+  env: Env,
+  userIds: string[],
+  sinceWeekStart: string,
+): Promise<Set<string>> {
+  const sent = new Set<string>();
+  for (const chunk of chunked(userIds, 99)) {
+    const { results } = await env.DB.prepare(
+      `SELECT user_id, kind, week_start FROM email_log
+        WHERE week_start >= ? AND user_id IN (${placeholders(chunk.length)})`,
+    )
+      .bind(sinceWeekStart, ...chunk)
+      .all<{ user_id: string; kind: string; week_start: string }>();
+    for (const r of results) sent.add(`${r.user_id}|${r.kind}|${r.week_start}`);
+  }
+  return sent;
+}
+
+/** Blocks per user across their groups, as `userId → Block[]`. Chunked. The batched
+ *  mirror of `loadBlocks`. */
+export async function loadBlocksFor(
+  env: Env,
+  userIds: string[],
+): Promise<Map<string, Block[]>> {
+  const byUser = new Map<string, Block[]>();
+  for (const chunk of chunked(userIds)) {
+    const { results } = await env.DB.prepare(
+      `SELECT m.user_id AS user_id, g.state AS state
+         FROM groups g
+         JOIN group_members m ON g.id = m.group_id
+        WHERE m.user_id IN (${placeholders(chunk.length)})`,
+    )
+      .bind(...chunk)
+      .all<{ user_id: string; state: string }>();
+    for (const r of results) {
+      const blocks = Group.fromState(structure, idGen, JSON.parse(r.state)).toState()
+        .blocks;
+      const existing = byUser.get(r.user_id);
+      if (existing) existing.push(...blocks);
+      else byUser.set(r.user_id, [...blocks]);
+    }
+  }
+  return byUser;
+}
+
+/** Completed `refKey`s per user, as `userId → Set<refKey>`. Chunked. The batched
+ *  mirror of the completions read in `pendingRefs`. */
+export async function loadCompletedFor(
+  env: Env,
+  userIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const byUser = new Map<string, Set<string>>();
+  for (const chunk of chunked(userIds)) {
+    const { results } = await env.DB.prepare(
+      `SELECT user_id, mesechta, perek, mishna FROM completions
+        WHERE user_id IN (${placeholders(chunk.length)})`,
+    )
+      .bind(...chunk)
+      .all<{ user_id: string } & MishnaRef>();
+    for (const r of results) {
+      let done = byUser.get(r.user_id);
+      if (!done) byUser.set(r.user_id, (done = new Set()));
+      done.add(refKey(r));
+    }
+  }
+  return byUser;
 }
 
 /** One recipient by id (for admin "send now" jobs), or null if unsendable. */
@@ -91,6 +211,17 @@ export async function loadRecipient(
   ]);
   if (!user?.email) return null;
   return buildRecipient(userId, user, prefs ?? undefined);
+}
+
+function buildCandidate(userId: string, prefs: PrefsRow | undefined): Candidate {
+  return {
+    userId,
+    timezone: prefs?.timezone ?? DEFAULTS.timezone,
+    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULTS.weeklyEmailDow,
+    reminderEmailDow: prefs?.reminder_email_dow ?? DEFAULTS.reminderEmailDow,
+    weeklyEnabled: prefs ? prefs.weekly_enabled === 1 : DEFAULTS.weeklyEnabled,
+    reminderEnabled: prefs ? prefs.reminder_enabled === 1 : DEFAULTS.reminderEnabled,
+  };
 }
 
 function buildRecipient(
@@ -129,7 +260,7 @@ export async function loadBlocks(env: Env, userId: string): Promise<Block[]> {
 }
 
 /** `mesechta|perek|mishna` identity, matching the server's completions key. */
-function refKey(ref: MishnaRef): string {
+export function refKey(ref: MishnaRef): string {
   return `${ref.mesechta}|${ref.perek}|${ref.mishna}`;
 }
 
@@ -147,21 +278,6 @@ export async function pendingRefs(
     .all<MishnaRef>();
   const done = new Set(results.map(refKey));
   return refs.filter((ref) => !done.has(refKey(ref)));
-}
-
-/** Whether an email of this kind for this week was already sent to the user. */
-export async function alreadySent(
-  env: Env,
-  userId: string,
-  kind: string,
-  weekStart: string,
-): Promise<boolean> {
-  const row = await env.DB.prepare(
-    'SELECT 1 FROM email_log WHERE user_id = ? AND kind = ? AND week_start = ?',
-  )
-    .bind(userId, kind, weekStart)
-    .first();
-  return row !== null;
 }
 
 /** Record a successful send (idempotent upsert on the (user, kind, week) key). */
