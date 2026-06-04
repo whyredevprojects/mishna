@@ -18,7 +18,6 @@ login directly.
 | `apps/client` (Angular) | **4200** | `proxy.conf.json` forwards `/api` → `:8787`. |
 | `apps/server` (Hono API) | **8787** | The single API surface the client talks to. |
 | `apps/login` (better-auth) | **8788** | Reached via the `AUTH` service binding, not directly. |
-| `apps/email` (cron + queue) | **8789** | Background worker; **not** part of `npm run dev`. Run separately with `npm run dev:email`. |
 
 > There are intentionally **no Angular `environment.ts` files** — the dev proxy +
 > relative URLs behave the same in production (same-origin API).
@@ -63,38 +62,26 @@ wrangler's dev registry wires the `AUTH` service binding across the processes.
 To run a single piece on its own: `npx nx serve server`, `npx nx serve login`, or
 `npx nx serve client` (the client always pulls in the two workers).
 
-### Email worker
+### Email (in `apps/server`)
 
-`apps/email` (the cron + queue worker that sends the weekly/reminder emails) is a
-**background** worker — it's not in the request path, so `npm run dev` does **not**
-start it. Run it on its own when you're working on emails:
+Email lives inside the server worker — there's no separate worker to start. An hourly
+cron triggers the `ReminderWorkflow` (a Cloudflare Workflow), which decides who is due an
+email right now (08:00 in each user's timezone) and sends the weekly/reminder emails via
+Resend in batches. Admin "send now" sends one email inline from the request handler.
 
-```sh
-npm run dev:email    # alias for: npx nx serve email  (port 8789, inspector 9231)
-```
+To exercise it locally (after `npm run db:init:local`):
 
-It does nothing until its cron fires, a job is queued, or the server calls it. To
-exercise it locally:
+- **Cron → Workflow (bulk):** run the server with `npx nx serve server` and trigger the
+  scheduled handler, e.g. `curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*"`. It
+  creates a workflow instance; inspect it with
+  `npx wrangler workflows instances list mishna-reminders` /
+  `... instances describe mishna-reminders <id>`.
+- **Admin "send now":** the admin button hits the server, which builds and sends the one
+  email inline and returns the real success/error to the UI.
 
-- **Cron orchestrator (bulk):** `curl "http://localhost:8789/cdn-cgi/handler/scheduled"`
-  — the orchestrator queues jobs and the in-process `queue()` consumer sends them.
-- **Admin "send now":** the admin button hits the server, which calls this worker's
-  `/internal/send` route synchronously via the `EMAIL` service binding (works
-  cross-process locally, like `AUTH`→login; the cron's queue does **not** bridge across
-  separate `wrangler dev` processes, which is why admin-send uses a binding). You'll see
-  the real success/error in the UI — so the email worker must be running, and
-  `RESEND_API_KEY` set, for it to succeed.
-
-A real send needs `RESEND_API_KEY` in `apps/email/.dev.vars` (copy the example and
-fill it in — `.dev.vars` is gitignored):
-
-```sh
-cp apps/email/.dev.vars.example apps/email/.dev.vars
-# then set RESEND_API_KEY
-```
-
-Without it the Resend call errors and the batch retries. The worker reads the same
-local D1 databases as the server/login (`npm run db:init:local`).
+A real send needs `RESEND_API_KEY` as a secret (`wrangler secret put RESEND_API_KEY` for
+deploys) or in `apps/server/.dev.vars` locally (gitignored). Without it the Resend client
+throws and the send surfaces as a `502` (admin send-now) or a retried workflow step.
 
 ### Notes
 

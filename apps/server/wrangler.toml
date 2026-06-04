@@ -1,5 +1,6 @@
 name = "server"
-compatibility_date = "2024-01-01"
+# >= 2024-10-22 is required for Workflows bindings.
+compatibility_date = "2024-10-22"
 compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
@@ -36,14 +37,39 @@ migrations_dir = "migrations"
 name = "ALLOCATOR"
 class_name = "AllocatorDO"
 
-# The apps/email worker, reached via this service binding. The admin "send now"
-# endpoints POST a single EmailJob to its /internal/send route synchronously (so the
-# admin sees the real result). The cron/bulk fan-out still goes through the queue,
-# which only the email worker produces to — the server is no longer a queue producer.
-[[services]]
-binding = "EMAIL"
-service = "email"
+# Better-auth users (email + name), read-only. The `mishna-auth` DB owned by
+# apps/login — separate DB, so recipient identity is merged in memory (no cross-DB
+# JOIN). The email path (ReminderWorkflow + admin "send now") reads it for addresses.
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "mishna-auth"
+database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
+
+# The bulk reminder/weekly send, as a durable Workflow run inside this worker. The
+# cron `scheduled` handler creates one instance per fire; it sends via Resend in batches.
+[[workflows]]
+name = "mishna-reminders"
+binding = "REMINDER_WORKFLOW"
+class_name = "ReminderWorkflow"
+
+# Fire hourly. The workflow only emails a user when it's 08:00 in that user's timezone,
+# so an hourly tick covers every zone exactly once per local day. The email_log table
+# makes each (user, kind, week) send happen at most once.
+[triggers]
+crons = ["0 * * * *"]
+
+[vars]
+# The deployed client origin, which serves mishna-text's tractate JSON (its `data/` is
+# copied into the client's assets). The sender fetches Hebrew text from here. Override
+# locally via .dev.vars if needed.
+APP_ORIGIN = "https://getchevrasmishnayos.com"
+# Verified Resend sender. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
+RESEND_FROM_EMAIL = "Chevra Mishnayos <reminders@getchevrasmishnayos.com>"
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["AllocatorDO"]
+
+# Structured logs + the Workflows dashboard for instance/step inspection.
+[observability]
+enabled = true

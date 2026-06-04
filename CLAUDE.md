@@ -11,17 +11,16 @@ NX monorepo. All apps are Cloudflare Workers/Pages unless noted.
 | Path | Description |
 |------|-------------|
 | `apps/client/` | Angular frontend — landing page, login/signup, user dashboard, admin pages |
-| `apps/email/` | Cloudflare Worker with cron trigger (every 3h) — builds and queues daily reminder emails via Resend; queue handler sends in batches of 50; each user receives at most one email per day |
 | `apps/login/` | Cloudflare Worker — authentication via better-auth (Google OAuth, magic links, etc.) |
-| `apps/server/` | Cloudflare Worker — main REST API using Hono; serves the Angular app's data needs |
+| `apps/server/` | Cloudflare Worker — main REST API using Hono; serves the Angular app's data needs. Also owns email: an hourly cron triggers the `ReminderWorkflow` (a Cloudflare Workflow) that sends weekly/reminder emails via Resend, and admin "send now" sends one inline. |
 | `libs/shared/domain/` | Core domain models and logic (framework-free) |
 
 ## Tech Stack
 
-- **Runtime**: Cloudflare Workers (email, login, server), Cloudflare Pages (client)
+- **Runtime**: Cloudflare Workers (login, server), Cloudflare Pages (client)
 - **API framework**: Hono (`apps/server`)
 - **Auth**: better-auth (`apps/login`)
-- **Email**: Resend (`apps/email`)
+- **Email**: Resend, sent from a Cloudflare Workflow in `apps/server`
 - **Frontend**: Angular
 - **Language**: TypeScript throughout
 

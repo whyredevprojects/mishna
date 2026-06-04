@@ -6,7 +6,6 @@
     ":build": "npx nx run-many -t lint test build",
     ":test": "npx nx run-many -t lint test build",
     "dev": "npx nx serve client",
-    "dev:email": "npx nx serve email",
     "db:init:local": "npx wrangler d1 migrations apply mishna-auth --local --config apps/login/wrangler.toml ; npm run db:migrate:local",
     "db:migrate:local": "npx wrangler d1 migrations apply mishna-app --local --config apps/server/wrangler.toml",
     "db:migrate:remote": "npx wrangler d1 migrations apply mishna-app --remote --config apps/server/wrangler.toml"

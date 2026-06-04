@@ -55,23 +55,6 @@ export default defineConfig(() => ({
             }
             return json(null);
           },
-          // The apps/email worker isn't running in tests, so stub its /internal/send
-          // route (hit by admin "send now"). It echoes a successful send, except for
-          // user 'sendfail', for which it returns 500 so the server's 502 path is testable.
-          EMAIL: async (request: Request) => {
-            const job = (await request.json().catch(() => ({}))) as {
-              userId?: string;
-            };
-            if (job.userId === 'sendfail') {
-              return new Response(
-                JSON.stringify({ error: 'Resend batch failed: boom' }),
-                { status: 500, headers: { 'content-type': 'application/json' } },
-              );
-            }
-            return new Response(JSON.stringify({ sent: 1, job }), {
-              headers: { 'content-type': 'application/json' },
-            });
-          },
         },
       },
     }),

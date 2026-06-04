@@ -1,20 +1,19 @@
 // ---------------------------------------------------------------------------
 // Email scheduling contract + helpers
 //
-// Shared by apps/server (admin "send now" producer) and apps/email (cron
-// orchestrator producer + queue consumer). Pure: timezone math uses the built-in
-// `Intl` API, day numbers are computed on UTC dates, so results don't depend on
-// the host timezone. No storage, no framework — same discipline as the rest of
-// the domain.
+// Used by apps/server's email path (the cron-triggered ReminderWorkflow and the
+// admin "send now" route). Pure: timezone math uses the built-in `Intl` API, day
+// numbers are computed on UTC dates, so results don't depend on the host timezone.
+// No storage, no framework — same discipline as the rest of the domain.
 // ---------------------------------------------------------------------------
 
 /** Which email a job sends. */
 export type EmailKind = 'weekly' | 'reminder';
 
 /**
- * A unit of email work on the `mishna-email` queue. The orchestrator/admin enqueue
- * it; the consumer loads the user's blocks, derives the week's quota from
- * `weekStart`, and sends. Kept minimal so the producer/consumer contract is stable.
+ * A unit of email work. `planSends` (or admin "send now") produces it; the sender
+ * loads the user's blocks, derives the week's quota from `weekStart`, and sends.
+ * Kept minimal so the producer/consumer contract is stable.
  */
 export interface EmailJob {
   userId: string;

@@ -10,17 +10,20 @@ allocation writes so concurrent joins can't corrupt a group.
 
 | File | Role |
 |------|------|
-| `index.ts` | Hono app + routes. Exports `default app` and `{ AllocatorDO }`. |
+| `index.ts` | Hono app + routes + the worker entry. Default export is `{ fetch, scheduled }` (the cron handler kicks off the `ReminderWorkflow`); also exports `{ AllocatorDO, ReminderWorkflow }`. |
 | `domain.ts` | Module-scope domain singletons (`structure`, `calendar`, `assignmentEngine`, `idGen`), built once per isolate. |
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
+| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps`), `orchestrator.ts` (`planSends` — who is due at 08:00 local), `sender.ts` (`processJobs` — build → Resend batch → log), `data.ts` (recipients/blocks/completions/`email_log` over `DB` + `AUTH_DB`), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates.ts` (RTL HTML). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
 ## Data model (D1 binding `DB`, database `mishna-app`)
 
-Separate from the better-auth `mishna-auth` DB owned by `apps/login`.
+Separate from the better-auth `mishna-auth` DB owned by `apps/login` — which this worker
+also binds **read-only** as `AUTH_DB` (for recipient email/name on the email path; merged
+in memory, no cross-DB JOIN).
 
 - `groups(id, state, exhausted, capacity_left, updated_at)` — `state` is the JSON
   `GroupState` from `Group.toState()`; `exhausted`/`capacity_left` are denormalized
@@ -39,13 +42,12 @@ Separate from the better-auth `mishna-auth` DB owned by `apps/login`.
 - `user_email_prefs(user_id, timezone, weekly_email_dow, reminder_email_dow,
   weekly_enabled, reminder_enabled, updated_at)` — per-user email settings (`0003`). A
   missing row means defaults (`America/New_York`, weekly=Sun, reminder=Thu, both on);
-  `GET /api/me/preferences` synthesizes them and the email worker treats a missing row
-  the same way. Read+written here, read by `apps/email`.
+  `GET /api/me/preferences` synthesizes them and the email path (`email/orchestrator.ts`)
+  treats a missing row the same way.
 - `email_log(user_id, kind, week_start, sent_at)` — one row per email actually sent
   (`0004`), so each (user, kind, week) goes out at most once even though the cron fires
-  hourly. Written by `apps/email`; the server only references the table name when
-  describing the dedup that admin "send now" bypasses (it sends synchronously via the
-  `EMAIL` binding rather than through the cron orchestrator).
+  hourly. Written by the email path (`email/sender.ts` after a successful send), consulted
+  by `planSends` before sending. Admin "send now" deliberately bypasses this dedup.
 
 `save()` upserts the group row and replaces its membership rows in one `db.batch()`
 so the row and its members never drift apart.
@@ -91,7 +93,7 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/admin/users` | `{ users: [{ id, name, email, role, joined, commitment }], total }` — better-auth `list-users` merged with `participants` (**admin**). |
 | `GET /api/admin/users/:id` | One user: identity + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
-| `POST /api/admin/users/:id/send-weekly` | Synchronously send an extra weekly email via the `EMAIL` service binding (bypasses dedup); `502` if the send fails (**admin**). |
+| `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails (**admin**). |
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
 
@@ -101,14 +103,26 @@ on every write. (On the single overflow-boundary day a user's mishnayot can span
 groups; they're all attributed to the first's group — accepted noise for a progress
 rollup.)
 
+## Email (cron + Workflow)
+
+Email is owned here, not in a separate worker. The default export's `scheduled` handler
+fires on an **hourly cron** and creates one `ReminderWorkflow` instance per tick (its id is
+derived from `controller.scheduledTime`, so a double cron fire — cron is at-least-once —
+dedupes to one run). The Workflow (`email/workflow.ts`) calls `planSends` to find who is
+due an email *now* (08:00 in the user's own timezone; weekly on their weekly weekday,
+reminder on their reminder weekday when something's still unlearned), then sends in
+Resend-batch-sized chunks — each chunk a durable `step.do`, with a free `step.sleep`
+between to stay under Resend's rate limit. `processJobs` records each send in `email_log`,
+and `alreadySent`/`recordSent` make a retried batch idempotent. It reads recipient
+addresses from `AUTH_DB` (the `mishna-auth` `user` table, read-only) merged in memory with
+`participants`/`user_email_prefs` from `DB`, and Hebrew text from `mishna-text`'s tractate
+JSON served at `APP_ORIGIN`. The Resend key is the `RESEND_API_KEY` secret.
+
 The admin "send now" routes build an `EmailJob` (`{ userId, kind, weekStart }`, from
-`@mishna/domain`) and POST it to `apps/email`'s `/internal/send` route via the `EMAIL`
-service binding — **synchronously**, so the admin gets the real result (and a `502` on
-failure). This is deliberately *not* the queue: volume is 1, the queue can't report
-success/failure back, and cross-process queues aren't delivered in local `wrangler dev`
-(service bindings are, via the dev registry, like `AUTH`→login). The scheduled/bulk path
-still fans out through the queue — only the email worker produces to it now. The week is
-anchored from the user's prefs (`localParts` + `weekStartOnOrBefore`).
+`@mishna/domain`) and send it **inline and synchronously** via the same `processJobs` path
+(bypassing the dedup), so the admin gets the real result — a `502` on a Resend failure.
+Volume is 1, so there's nothing to fan out. The week is anchored from the user's prefs
+(`localParts` + `weekStartOnOrBefore`).
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin
@@ -167,9 +181,16 @@ what ships — adding a migration file is all that's needed. Tables are cleared 
 authenticates as whoever its `Cookie:` header names) and flags cookie `'admin'` as
 `isAdmin` (mirroring apps/login's `customSession`), so only `as('admin')` clears
 `requireAdmin`. The better-auth admin endpoints (`list-users`/`get-user`/
-`remove-user`) are stubbed with a fixed user directory.
+`remove-user`) are stubbed with a fixed user directory. `AUTH_DB` is a real (empty) local
+D1, auto-provisioned from `wrangler.toml`; the email tests create its `user` table and seed
+it themselves.
 
 - `repository.test.ts` — the `D1GroupRepository` against the same scenarios as the
   domain's `InMemoryGroupRepository`.
 - `index.integration.test.ts` — full flow via `SELF.fetch`: join → me → assignment →
   admin → leave.
+- `email/email.integration.test.ts` — `planSends` (who's due) and `processJobs` (build →
+  send → log) directly, with an injected `send` so it runs offline.
+- `preferences.integration.test.ts` — email prefs + admin send-now. The send path has no
+  `RESEND_API_KEY` in tests, so `senderDeps()` throws and send-now surfaces as a `502`
+  (the real build/send is covered offline in the email test above).

@@ -87,35 +87,27 @@ describe('email preferences + admin send-now', () => {
     expect(res.status).toBe(401);
   });
 
-  it('admin can send a weekly/reminder now; non-admins get 403', async () => {
+  it('only admins reach send-now; non-admins get 403', async () => {
+    // RESEND_API_KEY isn't set in tests, so senderDeps() (and thus the inline send)
+    // throws — exercising the route's 502 path. The actual build/send is covered
+    // offline in email.integration.test.ts via processJobs with an injected sender.
     const weekly = await SELF.fetch(
       'https://server/api/admin/users/bob/send-weekly',
       { method: 'POST', headers: as('admin') },
     );
-    expect(weekly.status).toBe(200);
-    expect(await weekly.json()).toMatchObject({ sent: true, kind: 'weekly' });
+    expect(weekly.status).toBe(502);
+    expect(await weekly.json()).toMatchObject({ error: 'email send failed' });
 
     const reminder = await SELF.fetch(
       'https://server/api/admin/users/bob/send-reminder',
       { method: 'POST', headers: as('admin') },
     );
-    expect(reminder.status).toBe(200);
-    expect(await reminder.json()).toMatchObject({ sent: true, kind: 'reminder' });
+    expect(reminder.status).toBe(502);
 
     const forbidden = await SELF.fetch(
       'https://server/api/admin/users/bob/send-weekly',
       { method: 'POST', headers: as('alice') },
     );
     expect(forbidden.status).toBe(403);
-  });
-
-  it('surfaces a failing email send as a 502', async () => {
-    // The stubbed EMAIL binding (vitest.config.mts) returns 500 for user 'sendfail'.
-    const res = await SELF.fetch(
-      'https://server/api/admin/users/sendfail/send-weekly',
-      { method: 'POST', headers: as('admin') },
-    );
-    expect(res.status).toBe(502);
-    expect(await res.json()).toMatchObject({ error: 'email send failed' });
   });
 });

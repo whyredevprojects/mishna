@@ -15,6 +15,8 @@ import { AllocatorDO } from './allocator';
 import { assignmentEngine, calendar, idGen, structure } from './domain';
 import { D1GroupRepository } from './repository';
 import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
+import { ReminderWorkflow, senderDeps } from './email/workflow';
+import { processJobs } from './email/sender';
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
 
@@ -573,10 +575,10 @@ app.post('/api/admin/users/:id/remove-assignments', requireAdmin, async (c) => {
 
 // Admin "send now": send an extra weekly or reminder email for a user, bypassing the
 // once-per-week dedup. Reuses the user's prefs to anchor the week (so the email covers
-// the same quota the scheduled one would). Unlike the cron path (which fans out to the
-// queue), this is a *synchronous* call to the apps/email worker via the EMAIL service
-// binding — volume is 1 and the admin needs the real success/failure back (the queue
-// can't report it, and cross-process queues aren't delivered in local dev).
+// the same quota the scheduled one would). Unlike the scheduled path (the ReminderWorkflow,
+// kicked off by the cron), this builds and sends the one email *inline* and synchronously,
+// so the admin gets the real success/failure back (a 502 on a Resend error). Volume is 1,
+// so there's nothing to fan out.
 async function sendEmailNow(
   env: Env,
   userId: string,
@@ -586,13 +588,10 @@ async function sendEmailNow(
   const parts = localParts(new Date(), prefs.timezone);
   const weekStart = weekStartOnOrBefore(parts, prefs.weeklyEmailDow);
   const job: EmailJob = { userId, kind, weekStart };
-  const res = await env.EMAIL.fetch('https://email/internal/send', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(job),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
+  try {
+    await processJobs(env, [job], senderDeps(env));
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
     return Response.json({ error: 'email send failed', detail }, { status: 502 });
   }
   return Response.json({ sent: true, kind, weekStart });
@@ -636,5 +635,18 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
   return c.json({ deleted: true });
 });
 
-export default app;
-export { AllocatorDO };
+// The worker entry point. `fetch` serves the Hono API; `scheduled` fires on the cron
+// (hourly) and kicks off the ReminderWorkflow — a durable, multi-step bulk send. The
+// instance id is derived from the cron's scheduledTime, so a double cron fire (cron has
+// at-least-once semantics) dedupes to a single workflow run rather than two campaigns.
+export default {
+  fetch: (req: Request, env: Env, ctx: ExecutionContext) => app.fetch(req, env, ctx),
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    await env.REMINDER_WORKFLOW.create({
+      id: `reminder-${controller.scheduledTime}`,
+      params: { scheduledTime: controller.scheduledTime },
+    });
+  },
+} satisfies ExportedHandler<Env>;
+
+export { AllocatorDO, ReminderWorkflow };
