@@ -115,6 +115,21 @@ import { adminUserQueryOptions } from '../queries/queries';
             <wa-icon slot="start" name="eraser"></wa-icon>
             Remove assignments
           </wa-button>
+          @if (u.role === 'admin') {
+            <wa-button
+              variant="warning"
+              appearance="outlined"
+              (click)="openRole('user')"
+            >
+              <wa-icon slot="start" name="shield-halved"></wa-icon>
+              Revoke admin
+            </wa-button>
+          } @else {
+            <wa-button appearance="outlined" (click)="openRole('admin')">
+              <wa-icon slot="start" name="shield-halved"></wa-icon>
+              Make admin
+            </wa-button>
+          }
           <wa-button
             variant="danger"
             [attr.disabled]="isSelf() ? '' : null"
@@ -151,6 +166,34 @@ import { adminUserQueryOptions } from '../queries/queries';
     </wa-dialog>
 
     <wa-dialog
+      [attr.label]="
+        roleTarget() === 'admin'
+          ? 'Make this user an admin?'
+          : 'Revoke admin access?'
+      "
+      [attr.open]="roleOpen() ? '' : null"
+      (wa-after-hide)="roleOpen.set(false)"
+    >
+      @if (roleTarget() === 'admin') {
+        Admins can manage all users, groups, and assignments — and can promote or
+        remove other admins. Grant this only to people you trust.
+      } @else {
+        This removes the user's admin access. Their account and assignments are kept.
+      }
+      <wa-button slot="footer" appearance="plain" (click)="roleOpen.set(false)">
+        Cancel
+      </wa-button>
+      <wa-button
+        slot="footer"
+        [attr.variant]="roleTarget() === 'admin' ? 'brand' : 'warning'"
+        [attr.loading]="working() ? '' : null"
+        (click)="setRole()"
+      >
+        {{ roleTarget() === 'admin' ? 'Make admin' : 'Revoke admin' }}
+      </wa-button>
+    </wa-dialog>
+
+    <wa-dialog
       label="Delete this account?"
       [attr.open]="deleteOpen() ? '' : null"
       (wa-after-hide)="deleteOpen.set(false)"
@@ -183,6 +226,9 @@ export class AdminUserDetailComponent {
 
   protected readonly removeOpen = signal(false);
   protected readonly deleteOpen = signal(false);
+  protected readonly roleOpen = signal(false);
+  /** The role the confirm dialog will apply: 'admin' = promote, 'user' = revoke. */
+  protected readonly roleTarget = signal<'admin' | 'user'>('admin');
   protected readonly sending = signal(false);
 
   protected readonly query = injectQuery(() =>
@@ -212,8 +258,23 @@ export class AdminUserDetailComponent {
     },
   }));
 
+  protected readonly roleMutation = injectMutation(() => ({
+    mutationFn: () =>
+      firstValueFrom(this.admin.setRole(this.id, this.roleTarget())),
+    onSuccess: () => {
+      this.roleOpen.set(false);
+      this.queryClient.invalidateQueries({
+        queryKey: queryKeys.adminUser(this.id),
+      });
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers });
+    },
+  }));
+
   protected readonly working = computed(
-    () => this.removeMutation.isPending() || this.deleteMutation.isPending(),
+    () =>
+      this.removeMutation.isPending() ||
+      this.deleteMutation.isPending() ||
+      this.roleMutation.isPending(),
   );
 
   protected isSelf(): boolean {
@@ -251,6 +312,15 @@ export class AdminUserDetailComponent {
 
   protected removeAssignments(): void {
     this.removeMutation.mutate();
+  }
+
+  protected openRole(role: 'admin' | 'user'): void {
+    this.roleTarget.set(role);
+    this.roleOpen.set(true);
+  }
+
+  protected setRole(): void {
+    this.roleMutation.mutate();
   }
 
   protected deleteUser(): void {

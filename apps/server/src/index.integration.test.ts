@@ -140,6 +140,74 @@ describe('server API integration', () => {
     expect(ok.status).toBe(200);
   });
 
+  it('gates set-role behind admin, validates the role, and proxies set-role', async () => {
+    // Non-admins can't set roles.
+    const denied = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-role',
+      {
+        method: 'POST',
+        headers: { ...as('alice'), 'content-type': 'application/json' },
+        body: JSON.stringify({ role: 'admin' }),
+      },
+    );
+    expect(denied.status).toBe(403);
+
+    // An invalid role is rejected before it reaches better-auth.
+    const bad = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-role',
+      {
+        method: 'POST',
+        headers: { ...as('admin'), 'content-type': 'application/json' },
+        body: JSON.stringify({ role: 'superuser' }),
+      },
+    );
+    expect(bad.status).toBe(400);
+
+    // Promote, then revoke — both proxy to the stubbed set-role endpoint. The Origin
+    // header is forwarded to better-auth (which rejects state-changing admin calls
+    // without a trusted Origin); the stub enforces that, so a 200 proves forwarding.
+    const promote = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-role',
+      {
+        method: 'POST',
+        headers: {
+          ...as('admin'),
+          'content-type': 'application/json',
+          origin: 'http://localhost:4200',
+        },
+        body: JSON.stringify({ role: 'admin' }),
+      },
+    );
+    expect(promote.status).toBe(200);
+    expect(await promote.json()).toMatchObject({ role: 'admin' });
+
+    const revoke = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-role',
+      {
+        method: 'POST',
+        headers: {
+          ...as('admin'),
+          'content-type': 'application/json',
+          origin: 'http://localhost:4200',
+        },
+        body: JSON.stringify({ role: 'user' }),
+      },
+    );
+    expect(revoke.status).toBe(200);
+    expect(await revoke.json()).toMatchObject({ role: 'user' });
+
+    // Without a forwarded Origin, better-auth (the stub) rejects it → surfaced as 502.
+    const noOrigin = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-role',
+      {
+        method: 'POST',
+        headers: { ...as('admin'), 'content-type': 'application/json' },
+        body: JSON.stringify({ role: 'admin' }),
+      },
+    );
+    expect(noOrigin.status).toBe(502);
+  });
+
   it('admin can list users, view one, remove assignments, and delete', async () => {
     // alice joins so she has assignments to inspect/remove.
     await SELF.fetch('https://server/api/join', {

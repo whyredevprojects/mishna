@@ -69,6 +69,11 @@ export class AdminService {
     return this.http.delete(`/api/admin/users/${id}`);
   }
 
+  /** Promotes the user to admin (`'admin'`) or revokes it (`'user'`). */
+  setRole(id: string, role: 'admin' | 'user'): Observable<unknown> {
+    return this.http.post(`/api/admin/users/${id}/set-role`, { role });
+  }
+
   /** Queues an extra weekly mishnayos email for the user (bypasses dedup). */
   sendWeekly(id: string): Observable<unknown> {
     return this.http.post(`/api/admin/users/${id}/send-weekly`, {});
