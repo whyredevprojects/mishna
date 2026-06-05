@@ -242,6 +242,44 @@ describe('server API integration', () => {
     expect(noOrigin.status).toBe(502);
   });
 
+  it('gates send-verification behind admin, skips verified users, and forwards Origin', async () => {
+    // Non-admins can't trigger it.
+    const denied = await SELF.fetch(
+      'https://server/api/admin/users/pending/send-verification',
+      { method: 'POST', headers: as('alice') },
+    );
+    expect(denied.status).toBe(403);
+
+    // An already-verified user is a no-op (409) rather than a wasted send.
+    const verified = await SELF.fetch(
+      'https://server/api/admin/users/alice/send-verification',
+      {
+        method: 'POST',
+        headers: { ...as('admin'), origin: 'http://localhost:4200' },
+      },
+    );
+    expect(verified.status).toBe(409);
+
+    // A pending user gets the email; a 200 proves the Origin was forwarded (the
+    // send-verification-email stub rejects calls without a trusted Origin).
+    const sent = await SELF.fetch(
+      'https://server/api/admin/users/pending/send-verification',
+      {
+        method: 'POST',
+        headers: { ...as('admin'), origin: 'http://localhost:4200' },
+      },
+    );
+    expect(sent.status).toBe(200);
+    expect(await sent.json()).toMatchObject({ sent: true });
+
+    // Without a forwarded Origin, better-auth (the stub) rejects it → surfaced as 502.
+    const noOrigin = await SELF.fetch(
+      'https://server/api/admin/users/pending/send-verification',
+      { method: 'POST', headers: as('admin') },
+    );
+    expect(noOrigin.status).toBe(502);
+  });
+
   it('admin can list users, view one, remove assignments, and delete', async () => {
     // alice joins so she has assignments to inspect/remove.
     await SELF.fetch('https://server/api/join', {

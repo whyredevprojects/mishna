@@ -37,7 +37,9 @@ export default defineConfig(() => ({
               name: `${id} name`,
               email: `${id}@example.com`,
               role: null,
-              emailVerified: true,
+              // Ids starting with 'pending' model an unverified address, so the
+              // send-verification route's already-verified short-circuit can be tested.
+              emailVerified: !id.startsWith('pending'),
               createdAt: '2026-06-01T00:00:00.000Z',
             });
 
@@ -86,6 +88,17 @@ export default defineConfig(() => ({
                 );
               }
               return json({ success: true });
+            }
+            if (url.pathname === '/api/auth/send-verification-email') {
+              // Public endpoint, but better-auth still enforces the trusted-Origin
+              // CSRF check on POST — guard that the server forwards the Origin.
+              if (!request.headers.get('origin')) {
+                return new Response(
+                  JSON.stringify({ code: 'MISSING_OR_NULL_ORIGIN' }),
+                  { status: 403, headers: { 'content-type': 'application/json' } },
+                );
+              }
+              return json({ status: true });
             }
             return json(null);
           },

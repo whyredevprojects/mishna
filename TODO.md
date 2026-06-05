@@ -40,3 +40,10 @@ reconnect, resolving conflicts by last-write-wins.
 
 Deferred because it needs a local queue, a sync trigger, and a conflict-resolution endpoint
 shape; the online path covers the common case.
+
+## Run e2e tests in CI
+
+The `client-e2e` project (Playwright) is not run by `nx test` — only `nx e2e client-e2e`
+triggers it, and nothing currently invokes that automatically. It should run as part of CI
+so end-to-end regressions are caught. Today it only has the scaffolded `example.spec.ts`, so
+wiring it into CI should go hand-in-hand with adding real specs for the key flows.

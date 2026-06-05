@@ -104,6 +104,7 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `POST/DELETE /api/admin/users/:id/completions` `{ ref, groupId }` | Mark/unmark a mishna learned on the user's behalf (the Assignments learn/unlearn toggle). Mirrors the self `/api/completions` routes, keyed on `:id` (**admin**). |
 | `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails. Verified-only, like the bulk path (**admin**). |
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
+| `POST /api/admin/users/:id/send-verification` | Re-send the better-auth verification email for a *pending* user: looks up the address via the `get-user` admin proxy, then calls better-auth's public `send-verification-email` (forwarding the caller's Origin). `409` if already verified, `404` if no email, `502` on send failure (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
 
 `groupId` on assignments is resolved by `buildAssignment`: it finds the group whose block

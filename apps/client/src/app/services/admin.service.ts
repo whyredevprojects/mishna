@@ -84,6 +84,11 @@ export class AdminService {
     return this.http.post(`/api/admin/users/${id}/send-reminder`, {});
   }
 
+  /** Re-sends the better-auth verification email to a pending user. */
+  sendVerification(id: string): Observable<unknown> {
+    return this.http.post(`/api/admin/users/${id}/send-verification`, {});
+  }
+
   /** Marks a mishna learned on the user's behalf. */
   markLearned(id: string, target: CompletionTarget): Observable<unknown> {
     return this.http.post(`/api/admin/users/${id}/completions`, target);
