@@ -47,5 +47,14 @@
     "hooks": ["create_worktree"],
     "command": "npm run db:init:local",
     "hide": "on_success"
+  },
+  {
+    "label": "Run migrations",
+    "env": {
+      "NX_NON_INTERACTIVE": "true"
+    },
+    "hooks": ["create_worktree"],
+    "command": "npm run db:migrate:local",
+    "hide": "on_success"
   }
 ]
