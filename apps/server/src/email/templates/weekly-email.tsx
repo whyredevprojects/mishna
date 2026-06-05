@@ -1,0 +1,30 @@
+import { Text } from '@react-email/components';
+import { ResolvedMishna } from '../quota';
+import { EmailShell } from './components/email-shell';
+import { MishnaList } from './components/mishna-list';
+import * as styles from './styles';
+
+export const WEEKLY_TITLE = 'Your mishnayos for the coming week';
+
+interface WeeklyEmailProps {
+  items: ResolvedMishna[];
+  appOrigin: string;
+}
+
+/** The weekly quota email: every mishna due this coming week, with its text. */
+export function WeeklyEmail({ items, appOrigin }: WeeklyEmailProps) {
+  return (
+    <EmailShell title={WEEKLY_TITLE} appOrigin={appOrigin}>
+      {items.length > 0 ? (
+        <Text style={styles.intro}>
+          Here are your mishnayos for the coming week ({items.length}):
+        </Text>
+      ) : (
+        <Text style={styles.intro}>
+          You have no mishnayos scheduled for this week.
+        </Text>
+      )}
+      <MishnaList items={items} />
+    </EmailShell>
+  );
+}

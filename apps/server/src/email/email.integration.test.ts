@@ -210,7 +210,7 @@ describe('email path', () => {
       expect(sink.emails).toHaveLength(1);
       expect(sink.emails[0]).toHaveLength(1);
       expect(sink.emails[0][0].to).toBe('alice@example.com');
-      expect(sink.emails[0][0].subject).toContain('המשניות');
+      expect(sink.emails[0][0].subject).toContain('mishnayos for the coming week');
       expect(deps.resolveText).toHaveBeenCalledOnce();
 
       const log = await env.DB.prepare(

@@ -79,15 +79,15 @@ async function batchIdempotencyKey(jobs: PreparedEmail[]): Promise<string> {
 }
 
 /** Render the email for one prepared job. */
-function buildEmail(
+async function buildEmail(
   job: PreparedEmail,
   resolved: Awaited<ReturnType<TextResolver>>,
   deps: SenderDeps,
-): OutgoingEmail {
+): Promise<OutgoingEmail> {
   const built =
     job.kind === 'weekly'
-      ? weeklyEmail(resolved, deps.appOrigin)
-      : reminderEmail(resolved, deps.appOrigin);
+      ? await weeklyEmail(resolved, deps.appOrigin)
+      : await reminderEmail(resolved, deps.appOrigin);
   return { from: deps.from, to: job.to, subject: built.subject, html: built.html };
 }
 
@@ -106,7 +106,7 @@ export async function processJobs(
 
   const emails: OutgoingEmail[] = [];
   for (const job of jobs) {
-    emails.push(buildEmail(job, await deps.resolveText(job.refs), deps));
+    emails.push(await buildEmail(job, await deps.resolveText(job.refs), deps));
   }
 
   await deps.send(emails, await batchIdempotencyKey(jobs));

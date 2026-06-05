@@ -13,6 +13,8 @@
     "target": "es2021",
     "lib": ["es2021"],
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "resolveJsonModule": true,
     "allowJs": true,
     "checkJs": false,
@@ -23,7 +25,7 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "worker-configuration.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "worker-configuration.d.ts"],
   "exclude": [
     "vite.config.ts",
     "vite.config.mts",

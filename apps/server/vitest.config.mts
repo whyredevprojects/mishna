@@ -6,6 +6,12 @@ import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
 export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/server',
+  resolve: {
+    // @react-email/render's workerd build imports `react-dom/server.edge`, a
+    // subpath react-dom 19 dropped; map it to `server.browser` (same
+    // `renderToReadableStream`). Mirrors the alias in wrangler.toml.
+    alias: { 'react-dom/server.edge': 'react-dom/server.browser' },
+  },
   plugins: [
     nxViteTsPaths(),
     nxCopyAssetsPlugin(['*.md']),
