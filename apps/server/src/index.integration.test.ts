@@ -117,6 +117,40 @@ describe('server API integration', () => {
     expect(await me.json()).toMatchObject({ joined: false, commitment: null });
   });
 
+  it('gives each group member their own assignment, not the first member\'s', async () => {
+    // Two users join the same cycle; both land in the same group, which holds
+    // both their blocks. Each must see their own slice — a regression guard for
+    // the bug where the whole group's blocks were fed to the engine, so every
+    // member resolved to the first block-owner's mishnayot (the corpus head).
+    for (const id of ['alice', 'bob']) {
+      const join = await SELF.fetch('https://server/api/join', {
+        method: 'POST',
+        headers: { ...as(id), 'content-type': 'application/json' },
+        body: JSON.stringify({ commitment: 1 }),
+      });
+      expect(join.status).toBe(200);
+    }
+
+    const cycleStart = calendar.cycleStart(new Date());
+    const dateStr = cycleStart.toISOString().slice(0, 10);
+    async function assignmentFor(id: string) {
+      const res = await SELF.fetch(
+        `https://server/api/assignments?date=${dateStr}`,
+        { headers: as(id) },
+      );
+      return (await res.json()) as { userId: string; mishnas: MishnaRef[] };
+    }
+
+    const alice = await assignmentFor('alice');
+    const bob = await assignmentFor('bob');
+
+    expect(alice.userId).toBe('alice');
+    expect(bob.userId).toBe('bob');
+    expect(alice.mishnas[0]).toEqual(structure.firstRef());
+    expect(bob.mishnas).toHaveLength(1);
+    expect(bob.mishnas[0]).not.toEqual(alice.mishnas[0]);
+  });
+
   it('/api/me carries identity and the admin flag', async () => {
     const mine = await SELF.fetch('https://server/api/me', { headers: as('alice') });
     expect(await mine.json()).toMatchObject({

@@ -49,6 +49,15 @@ function flattenBlocks(groups: Group[]): Block[] {
   return groups.flatMap((g) => g.toState().blocks);
 }
 
+/**
+ * Only the blocks `userId` holds, flattened across all their groups. A group's
+ * state carries every member's blocks, so anything that computes a single user's
+ * portion must filter — otherwise it sees the whole group.
+ */
+function userBlocks(groups: Group[], userId: string): Block[] {
+  return flattenBlocks(groups).filter((b) => b.userId === userId);
+}
+
 /** Whether `ref` falls within one of the block's ranges. */
 function blockContains(block: Block, ref: MishnaRef): boolean {
   const i = structure.indexOf(ref);
@@ -85,7 +94,10 @@ function groupIdForRef(
  */
 async function buildAssignment(env: Env, userId: string, date: Date) {
   const groups = await userGroups(env, userId);
-  const assignment = assignmentEngine.getAssignment(flattenBlocks(groups), date);
+  const assignment = assignmentEngine.getAssignment(
+    userBlocks(groups, userId),
+    date,
+  );
   const groupId = assignment.mishnas.length
     ? groupIdForRef(groups, userId, assignment.mishnas[0])
     : null;
@@ -299,9 +311,7 @@ app.get('/api/me', requireAuth, async (c) => {
 // and join date. Powers the "My Chaluka" higher-level progress + stats view.
 app.get('/api/me/chaluka', requireAuth, async (c) => {
   const userId = c.get('userId');
-  const blocks = flattenBlocks(await userGroups(c.env, userId)).filter(
-    (b) => b.userId === userId,
-  );
+  const blocks = userBlocks(await userGroups(c.env, userId), userId);
   const ranges = blocks
     .flatMap((b) => b.ranges)
     .sort((a, b) => structure.indexOf(a.start) - structure.indexOf(b.start));
