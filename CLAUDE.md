@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-An app for organizing groups to collectively memorize the entire Mishna by Rosh Chodesh Sivan. Users commit to 1, 2, or 3 mishnayos per day and are auto-assigned a block. Groups are auto-created so the full set of mishnayos is covered by Rosh Chodesh Sivan. The cycle resets each Rosh Chodesh Sivan.
+An app for organizing groups to collectively memorize the entire Mishna by Rosh Chodesh Sivan. Users commit to 1, 2, or 3 mishnayos per week and are auto-assigned a block. Groups are auto-created so the full set of mishnayos is covered by Rosh Chodesh Sivan. The cycle resets each Rosh Chodesh Sivan.
 
 ## Monorepo Structure
 
@@ -30,9 +30,9 @@ Framework-free core, fully unit-tested. See `libs/shared/domain/CLAUDE.md` for t
 implementation map and `README.md` there for the design narrative.
 
 - **`MishnaStructure`** — static corpus model (4192 mishnayot); owns all corpus traversal (`computeBlock`, `indexOf`/`refAt`, `iterateRange`). Build the default via `createMishnaStructure()`.
-- **`CycleCalendar`** — the 1-Sivan-to-1-Sivan learning cycle via `@hebcal/core` (`cycleStart`, `daysSinceCycleStart`, `daysRemaining`).
+- **`CycleCalendar`** — the 1-Sivan-to-1-Sivan learning cycle via `@hebcal/core` (`cycleStart`, `daysSinceCycleStart`, `daysRemaining`, `weeksSinceCycleStart`, `weeksRemaining`).
 - **`Group`** — per-group allocation (blocks, gap queue, tail); `addUser` / `removeUser` / `toState` / `fromState`. Each group spans the whole corpus.
-- **`AssignmentEngine`** — stateless; `getAssignment(blocks, date)` derives a day's mishnayot on demand.
+- **`AssignmentEngine`** — stateless; `getAssignment(blocks, date)` derives a week's mishnayot on demand (offset = `weeksSinceCycleStart * commitment`).
 - **`GroupManager` + `GroupRepository`** — orchestration over a persistence port (`InMemoryGroupRepository` for tests; D1 in production).
 
 Determinism: ids come from an injected `IdGenerator`, dates are always passed in.

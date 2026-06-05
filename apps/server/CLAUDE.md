@@ -84,8 +84,8 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `PUT /api/me/preferences` `{ timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled }` | Validate (IANA tz via `Intl`, dow 0-6) + upsert (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |
-| `GET /api/assignments/today` | Today's mishnayot for the caller, plus the `groupId` they belong to (auth). |
-| `GET /api/assignments?date=YYYY-MM-DD` | Same for an explicit UTC date (auth). |
+| `GET /api/assignments/today` | This week's mishnayot for the caller, plus the `groupId` they belong to (auth). The route keeps its `/today` name; it returns the current week's bucket (commitment is per-week). |
+| `GET /api/assignments?date=YYYY-MM-DD` | Same for the week containing an explicit UTC date (auth). |
 | `GET /api/completions` | `{ completed: MishnaRef[] }` — every mishna the caller has marked learned (auth). |
 | `POST /api/completions` `{ ref, groupId }` | Mark a mishna learned; validates the ref + the caller's membership of `groupId`, then upserts (auth). |
 | `DELETE /api/completions` `{ ref, groupId }` | Unmark a mishna; idempotent, scoped to the caller's rows (auth). |
@@ -119,6 +119,14 @@ resolved `PreparedEmail`s in Resend-batch-sized chunks — each chunk a durable 
 with a free `step.sleep` between to stay under Resend's rate limit. It closes with a
 `run-metrics` step logging one `{ evt: 'reminder_run', durationMs, planned, sent, batches }`
 line — the early-warning for the per-invocation ceiling.
+
+**Week quota.** Commitment is per **week**, so a weekly email's quota is `commitment`
+mishnayot (1/2/3), not a 7-day concatenation. `weekRefs` (`email/quota.ts`) returns the
+domain's week-bucket slice for the cycle-week containing the user's `weekStart`. Note the
+week bucket is counted from the cycle start (1 Sivan) while `weekStart` is anchored to the
+user's chosen weekly-email weekday, so the dashboard's "this week" and the email's week can
+differ by a few days at bucket boundaries; the next email re-syncs. This anchor choice is an
+open question recorded in the root `TODO.md`.
 
 **Scalability — batched reads.** `planSends` does **not** do a per-user query loop. It
 loads all participants+prefs once (`loadCandidates`, addresses excluded), filters to those

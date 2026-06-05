@@ -75,4 +75,22 @@ export class CycleCalendar {
   daysRemaining(date: Date): number {
     return this.cycleEndAbs(date) - absOf(date);
   }
+
+  /**
+   * The 0-based week bucket `date` falls in, counted in 7-day windows from the
+   * cycle start. Days 0-6 are week 0, 7-13 are week 1, … Negative before the
+   * cycle starts (the assignment engine guards on that).
+   */
+  weeksSinceCycleStart(date: Date): number {
+    return Math.floor(this.daysSinceCycleStart(date) / 7);
+  }
+
+  /**
+   * Whole learning weeks from `date` (inclusive) until the cycle resets — the
+   * number of distinct week buckets a joiner on `date` will still be assigned.
+   * `ceil` of the remaining days, so a partial final week still counts as one.
+   */
+  weeksRemaining(date: Date): number {
+    return Math.ceil(this.daysRemaining(date) / 7);
+  }
 }

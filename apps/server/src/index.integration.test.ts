@@ -56,7 +56,7 @@ describe('server API integration', () => {
     let me = await SELF.fetch('https://server/api/me', { headers: as('alice') });
     expect(await me.json()).toMatchObject({ joined: false, commitment: null });
 
-    // Join with a commitment of 1/day.
+    // Join with a commitment of 1/week.
     const join = await SELF.fetch('https://server/api/join', {
       method: 'POST',
       headers: { ...as('alice'), 'content-type': 'application/json' },
@@ -69,7 +69,7 @@ describe('server API integration', () => {
     me = await SELF.fetch('https://server/api/me', { headers: as('alice') });
     expect(await me.json()).toMatchObject({ joined: true, commitment: 1 });
 
-    // On day 0 of the cycle, the first joiner's first mishna is the corpus head.
+    // In week 0 of the cycle, the first joiner's first mishna is the corpus head.
     const cycleStart = calendar.cycleStart(new Date());
     const dateStr = cycleStart.toISOString().slice(0, 10);
     const assign = await SELF.fetch(

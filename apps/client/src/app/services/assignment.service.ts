@@ -3,12 +3,12 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Assignment, MishnaRef } from '../models/api.types';
 
-/** Reads the caller's daily mishnayot and completion state from apps/server. */
+/** Reads the caller's weekly mishnayot and completion state from apps/server. */
 @Injectable({ providedIn: 'root' })
 export class AssignmentService {
   private readonly http = inject(HttpClient);
 
-  /** Today's assignment for the caller. */
+  /** This week's assignment for the caller. */
   today(): Observable<Assignment> {
     return this.http.get<Assignment>('/api/assignments/today');
   }

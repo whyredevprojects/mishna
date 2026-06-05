@@ -11,7 +11,7 @@ import { MishnaListComponent } from '../components/mishna-list.component';
 import { formatLongDate, toIsoDate } from '../util/format';
 import { assignmentByDateQueryOptions } from '../queries/queries';
 
-/** Browse the caller's assignment for any chosen day. */
+/** Browse the caller's assignment for the week of any chosen day. */
 @Component({
   selector: 'app-review',
   imports: [MishnaListComponent],
@@ -49,7 +49,7 @@ import { assignmentByDateQueryOptions } from '../queries/queries';
         } @else if (query.data(); as a) {
           <app-mishna-list [mishnas]="a.mishnas"></app-mishna-list>
         } @else if (query.isError()) {
-          <wa-callout variant="danger">Could not load that day’s assignment.</wa-callout>
+          <wa-callout variant="danger">Could not load that week’s assignment.</wa-callout>
         }
       </wa-card>
     </div>

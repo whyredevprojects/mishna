@@ -75,7 +75,7 @@ import { adminUserQueryOptions } from '../queries/queries';
             <dd>{{ u.role || 'user' }}</dd>
             <dt>Status</dt>
             <dd>
-              {{ u.joined ? 'Joined — ' + u.commitment + '/day' : 'Not joined' }}
+              {{ u.joined ? 'Joined — ' + u.commitment + '/week' : 'Not joined' }}
             </dd>
             <dt>Groups</dt>
             <dd>

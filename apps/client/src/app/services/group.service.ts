@@ -8,7 +8,7 @@ import { Commitment } from '../models/api.types';
 export class GroupService {
   private readonly http = inject(HttpClient);
 
-  /** Join with a per-day commitment of 1, 2, or 3 mishnayot. */
+  /** Join with a per-week commitment of 1, 2, or 3 mishnayot. */
   join(commitment: Commitment): Observable<unknown> {
     return this.http.post('/api/join', { commitment });
   }

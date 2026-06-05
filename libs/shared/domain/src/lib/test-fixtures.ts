@@ -52,14 +52,22 @@ export function sequentialIdGen(prefix = 'id'): IdGenerator {
   return () => `${prefix}-${n++}`;
 }
 
-/** A CycleCalendar stub returning fixed day numbers, for deterministic tests. */
+/**
+ * A CycleCalendar stub returning fixed day numbers, for deterministic tests.
+ * The week methods are derived from the day inputs exactly as the real calendar
+ * derives them, so tests keep expressing scenarios in days.
+ */
 export function fakeCalendar(opts: {
   daysSinceCycleStart?: number;
   daysRemaining?: number;
 }): CycleCalendar {
+  const dsc = opts.daysSinceCycleStart ?? 0;
+  const dr = opts.daysRemaining ?? 0;
   return {
-    daysSinceCycleStart: () => opts.daysSinceCycleStart ?? 0,
-    daysRemaining: () => opts.daysRemaining ?? 0,
+    daysSinceCycleStart: () => dsc,
+    daysRemaining: () => dr,
+    weeksSinceCycleStart: () => Math.floor(dsc / 7),
+    weeksRemaining: () => Math.ceil(dr / 7),
   } as unknown as CycleCalendar;
 }
 

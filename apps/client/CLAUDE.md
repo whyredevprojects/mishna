@@ -1,7 +1,7 @@
 # apps/client
 
 Angular frontend for the Mishna app (Cloudflare Pages target). Mobile-first: a
-logged-in user's first screen is today's mishnayot. Talks to `apps/server`'s REST
+logged-in user's first screen is this week's mishnayot. Talks to `apps/server`'s REST
 API and to `apps/login` (better-auth) for sign-in.
 
 ## Rendering model

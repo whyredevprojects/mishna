@@ -18,7 +18,7 @@ export interface BlockRange {
   end: MishnaRef;
 }
 
-/** How many mishnas a user commits to learning per day. */
+/** How many mishnas a user commits to learning per week. */
 export type Commitment = 1 | 2 | 3;
 
 /**

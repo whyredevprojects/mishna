@@ -66,7 +66,7 @@ const PAGE_SIZE = 50;
                 <span class="muted">{{ row.email }}</span>
               }
               @case ('goal') {
-                {{ row.joined ? row.commitment + '/day' : '—' }}
+                {{ row.joined ? row.commitment + '/week' : '—' }}
               }
               @case ('joined') {
                 {{ row.createdAt ? (row.createdAt | date: 'mediumDate') : '—' }}
