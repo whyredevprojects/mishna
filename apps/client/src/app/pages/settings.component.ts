@@ -49,7 +49,7 @@ const DAY_NAMES = [
       }
       .tz-row {
         display: flex;
-        align-items: end;
+        align-items: anchor-center;
         gap: var(--wa-space-s, 0.5rem);
       }
       .tz-row wa-select {
@@ -126,7 +126,9 @@ const DAY_NAMES = [
                 label="Reminder email day"
                 hint="A nudge if you haven't finished that week's mishnayos yet."
                 [value]="String(reminderEmailDow())"
-                (change)="reminderEmailDow.set(asDow($any($event.target).value))"
+                (change)="
+                  reminderEmailDow.set(asDow($any($event.target).value))
+                "
               >
                 @for (d of days; track d.value) {
                   <wa-option [value]="String(d.value)">{{ d.name }}</wa-option>
