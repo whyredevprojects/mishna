@@ -860,6 +860,7 @@ async function sendEmailNow(
     await processJobs(env, prepared ? [prepared] : [], senderDeps(env));
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
+    console.error('send email now failed', kind, userId, '—', detail);
     return Response.json({ error: 'email send failed', detail }, { status: 502 });
   }
   return Response.json({ sent: true, kind, weekStart });

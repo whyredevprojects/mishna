@@ -11,6 +11,12 @@
     }
   ],
   "compilerOptions": {
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    // Wrangler's esbuild reads THIS tsconfig (the entry's nearest one), not
+    // tsconfig.app.json — so the email templates' JSX must use the automatic
+    // runtime here too, else esbuild falls back to the classic `React.createElement`
+    // transform and the bundle throws "React is not defined" at render time.
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   }
 }
