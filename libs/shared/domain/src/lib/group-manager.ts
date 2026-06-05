@@ -23,10 +23,10 @@ export class GroupManager {
 
   /**
    * Joins a user for the current cycle. Their total allocation is
-   * `commitment * daysRemaining`, spread across as many groups as needed.
+   * `commitment * weeksRemaining`, spread across as many groups as needed.
    */
   async join(userId: string, commitment: Commitment, today: Date): Promise<void> {
-    let remaining = commitment * this.calendar.daysRemaining(today);
+    let remaining = commitment * this.calendar.weeksRemaining(today);
 
     while (remaining > 0) {
       const group =

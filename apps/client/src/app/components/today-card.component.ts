@@ -23,10 +23,10 @@ const SYNC_ERROR =
   "We weren't able to update your progress. Please try again later.";
 
 /**
- * Today's mishnayot — one {@link MishnaCardComponent} per mishna, with a
+ * This week's mishnayot — one {@link MishnaCardComponent} per mishna, with a
  * completion banner when all are learned.
  *
- * This component owns the day's completion state so the cards share one source of
+ * This component owns the week's completion state so the cards share one source of
  * truth. The initial state comes from the parent (server-loaded), and each toggle
  * is optimistically applied and synced to apps/server; a failed sync reverts the
  * checkbox and shows an error toast.
@@ -67,11 +67,11 @@ const SYNC_ERROR =
       @if (allDone()) {
         <div class="done-banner">
           <wa-icon name="circle-check" variant="solid"></wa-icon>
-          Done for today!
+          Done for this week!
         </div>
       }
     } @else {
-      <p class="muted">No mishnayot assigned today.</p>
+      <p class="muted">No mishnayot assigned this week.</p>
     }
   `,
 })

@@ -36,6 +36,18 @@ describe('CycleCalendar', () => {
     expect(cal.daysRemaining(utc('2027-06-05'))).toBe(1);
   });
 
+  it('buckets days into 7-day weeks from the cycle start', () => {
+    expect(cal.weeksSinceCycleStart(utc('2026-05-17'))).toBe(0); // day 0
+    expect(cal.weeksSinceCycleStart(utc('2026-05-23'))).toBe(0); // day 6
+    expect(cal.weeksSinceCycleStart(utc('2026-05-24'))).toBe(1); // day 7
+    expect(cal.weeksSinceCycleStart(utc('2026-06-02'))).toBe(2); // day 16
+  });
+
+  it('weeksRemaining is ceil of the remaining days', () => {
+    expect(cal.weeksRemaining(utc('2026-05-17'))).toBe(55); // ceil(385/7)
+    expect(cal.weeksRemaining(utc('2027-06-05'))).toBe(1); // ceil(1/7)
+  });
+
   it('is independent of host time-of-day within the UTC day', () => {
     const morning = new Date('2026-06-02T01:00:00.000Z');
     const evening = new Date('2026-06-02T23:00:00.000Z');

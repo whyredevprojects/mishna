@@ -30,21 +30,22 @@ describe('integration', () => {
     expect(covered).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  it('one user fills one group and their daily assignments tile that group', async () => {
+  it('one user fills one group and their weekly assignments tile that group', async () => {
     const repo = new InMemoryGroupRepository(structure, sequentialIdGen('g'));
-    const manager = new GroupManager(repo, fakeCalendar({ daysRemaining: 10 }));
+    // ceil(70/7) = 10 weeks * commitment 1 = 10 mishnayot -> fills the group
+    const manager = new GroupManager(repo, fakeCalendar({ daysRemaining: 70 }));
     await manager.join('u1', 1, new Date());
 
     const groups = await repo.loadAll();
     expect(groups).toHaveLength(1);
     const blocks = groups[0].toState().blocks.filter((b) => b.userId === 'u1');
 
-    // walk all 10 days; the union of assignments must be the whole corpus
+    // walk all 10 weeks; the union of assignments must be the whole corpus
     const seen: number[] = [];
-    for (let day = 0; day < 10; day++) {
+    for (let week = 0; week < 10; week++) {
       const engine = new AssignmentEngine(
         structure,
-        fakeCalendar({ daysSinceCycleStart: day }),
+        fakeCalendar({ daysSinceCycleStart: week * 7 }),
       );
       const { mishnas } = engine.getAssignment(blocks, new Date());
       expect(mishnas).toHaveLength(1); // commitment 1

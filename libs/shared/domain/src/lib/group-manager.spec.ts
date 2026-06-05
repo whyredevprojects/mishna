@@ -6,6 +6,7 @@ import { fakeCalendar, sequentialIdGen, tinyDataset } from './test-fixtures';
 describe('GroupManager', () => {
   const structure = new MishnaStructure(tinyDataset); // 10 mishnayot per group
 
+  // remaining = commitment * ceil(daysRemaining / 7)
   const setup = (daysRemaining: number) => {
     const repo = new InMemoryGroupRepository(structure, sequentialIdGen('g'));
     const manager = new GroupManager(repo, fakeCalendar({ daysRemaining }));
@@ -13,7 +14,7 @@ describe('GroupManager', () => {
   };
 
   it('spills a large commitment across multiple groups', async () => {
-    const { repo, manager } = setup(25); // remaining = 1 * 25
+    const { repo, manager } = setup(175); // remaining = 1 * ceil(175/7) = 25
     await manager.join('u1', 1, new Date());
 
     const groups = await repo.loadAll();
@@ -28,7 +29,7 @@ describe('GroupManager', () => {
   });
 
   it('stops exactly at the commitment within a single group', async () => {
-    const { repo, manager } = setup(6);
+    const { repo, manager } = setup(42); // remaining = ceil(42/7) = 6
     await manager.join('u1', 1, new Date());
     const groups = await repo.loadAll();
     expect(groups).toHaveLength(1);
@@ -37,7 +38,7 @@ describe('GroupManager', () => {
   });
 
   it('removes the user from every group they belong to', async () => {
-    const { repo, manager } = setup(25);
+    const { repo, manager } = setup(175); // remaining = ceil(175/7) = 25
     await manager.join('u1', 1, new Date());
     expect(await repo.loadGroupsForUser('u1')).toHaveLength(3);
 

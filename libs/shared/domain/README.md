@@ -130,20 +130,21 @@ The persistence layer is responsible for loading a `Group` fully into memory bef
 ### Commitment
 
 ```ts
-type Commitment = 1 | 2 | 3  // mishnas per day
+type Commitment = 1 | 2 | 3  // mishnas per week
 ```
 
 ---
 
 ### Assignment
 
-What a user must learn on a specific date. Derived on demand — not pre-generated.
+What a user must learn in the week containing a specific date. Derived on demand —
+not pre-generated.
 
 ```ts
 type Assignment = {
   userId: string
   date: Date
-  mishnas: MishnaRef[]  // the specific mishnas for that day
+  mishnas: MishnaRef[]  // the specific mishnas for that week
 }
 ```
 
@@ -157,10 +158,13 @@ Stateless. Given a user's blocks and a date, computes which mishnas are due.
 
 ```
 getAssignment(blocks: Block[], date: Date):
-  dayNumber = daysSinceCycleStart(date)          // 0-indexed
-  mishnaOffset = dayNumber * blocks[0].commitment
+  weekNumber = weeksSinceCycleStart(date)        // 0-indexed, floor(days / 7)
+  mishnaOffset = weekNumber * blocks[0].commitment
   return flattenBlocks(blocks).slice(mishnaOffset, mishnaOffset + commitment)
 ```
+
+A week is a 7-day bucket counted from the cycle start (1 Sivan); the slice is stable
+across all 7 days and advances once per week.
 
 `flattenBlocks` streams mishnas across all blocks in corpus order, then across ranges within each block, without materializing the full list.
 
@@ -174,7 +178,7 @@ Orchestrates allocation across groups. Loops until the user's full commitment is
 
 ```
 join(user, commitment, today):
-  remaining = commitment * daysRemaining(today)
+  remaining = commitment * weeksRemaining(today)
 
   while remaining > 0:
     group = loadNonExhaustedGroup() ?? createNewGroup()
@@ -203,15 +207,15 @@ User joins
           → remaining -= allocated, saves Group
 ```
 
-## Data flow: daily assignment
+## Data flow: weekly assignment
 
 ```
 User opens app on a given date
   → load user's Blocks across all groups, ordered by corpus position
   → AssignmentEngine.getAssignment(blocks, date)
-      → computes day offset from cycle start
+      → computes week offset from cycle start (floor(days / 7))
       → streams mishnas across blocks and ranges in corpus order
-      → returns Assignment (the specific mishnas for that day)
+      → returns Assignment (the specific mishnas for that week)
 ```
 
 ## Data flow: user drops out

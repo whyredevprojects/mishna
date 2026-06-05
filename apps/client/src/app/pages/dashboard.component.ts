@@ -18,7 +18,7 @@ import { Commitment } from '../models/api.types';
 import { TodayCardComponent } from '../components/today-card.component';
 import { JoinFormComponent } from '../components/join-form.component';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
-import { formatLongDate, formatRef } from '../util/format';
+import { formatRef } from '../util/format';
 import { queryKeys } from '../queries/query-keys';
 import {
   cycleQueryOptions,
@@ -26,7 +26,7 @@ import {
   todayAssignmentQueryOptions,
 } from '../queries/queries';
 
-/** Logged-in home: today's mishnayot when joined, otherwise the join card. */
+/** Logged-in home: this week's mishnayot when joined, otherwise the join card. */
 @Component({
   selector: 'app-dashboard',
   imports: [TodayCardComponent, JoinFormComponent, CycleProgressComponent],
@@ -53,7 +53,7 @@ import {
         }
 
         @if (joined()) {
-          <p class="today-date muted">{{ today() }}</p>
+          <p class="today-date muted">This week’s mishnayos</p>
           @if (assignment(); as a) {
             <app-today-card
               [mishnas]="a.mishnas"
@@ -120,7 +120,7 @@ export class DashboardComponent {
   );
   protected readonly error = computed(() => {
     if (this.assignmentQuery.isError()) {
-      return 'Could not load today’s assignment.';
+      return 'Could not load this week’s assignment.';
     }
     if (this.joinMutation.isError()) {
       return 'Could not join the cycle. Please try again.';
@@ -131,10 +131,6 @@ export class DashboardComponent {
 
   protected readonly assignment = computed(() => this.assignmentQuery.data());
   protected readonly cycle = computed(() => this.cycleQuery.data());
-  protected readonly today = computed(() => {
-    const a = this.assignmentQuery.data();
-    return a ? formatLongDate(a.date) : '';
-  });
   // The assignment carries its own completion state, so the checks render from the
   // same response (no separate, separately-failing fetch).
   protected readonly completed = computed(

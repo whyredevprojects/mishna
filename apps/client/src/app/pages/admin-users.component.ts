@@ -49,7 +49,7 @@ import { adminUsersQueryOptions } from '../queries/queries';
             <span class="email muted">{{ user.email }}</span>
             @if (user.joined) {
               <wa-tag size="small" variant="success"
-                >{{ user.commitment }}/day</wa-tag
+                >{{ user.commitment }}/week</wa-tag
               >
             } @else {
               <wa-tag size="small">not joined</wa-tag>

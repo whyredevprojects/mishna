@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { Commitment } from '../models/api.types';
 
-/** Commitment picker (1/2/3 mishnayot per day) + Join button. */
+/** Commitment picker (1/2/3 mishnayot per week) + Join button. */
 @Component({
   selector: 'app-join-form',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -22,7 +22,7 @@ import { Commitment } from '../models/api.types';
     <wa-card>
       <strong slot="header">Join the current cycle</strong>
 
-      <p>How many mishnayot will you learn each day?</p>
+      <p>How many mishnayot will you learn each week?</p>
 
       <wa-radio-group
         [value]="String(selected())"

@@ -8,7 +8,7 @@ export interface ResolvedMishna {
   hebrew: string;
 }
 
-/** The mishnayot due across the 7 days of the week anchored at `weekStart`. */
+/** The mishnayot for the cycle-week containing `weekStart` (the user's weekly quota). */
 export function weekRefs(blocks: Block[], weekStart: string): MishnaRef[] {
   return assignmentEngine.getWeekAssignment(blocks, weekStartToDate(weekStart));
 }

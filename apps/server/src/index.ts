@@ -70,9 +70,9 @@ function groupIdForRef(
 }
 
 /**
- * The day's assignment plus the group it belongs to. `groupId` is resolved from
+ * The week's assignment plus the group it belongs to. `groupId` is resolved from
  * the first mishna's block (null when the assignment is empty); the client echoes
- * it back when recording completions. On the single overflow-boundary day a user's
+ * it back when recording completions. At the single overflow boundary a user's
  * mishnayot can span two groups — they're all attributed to the first's group.
  */
 async function buildAssignment(env: Env, userId: string, date: Date) {
@@ -197,7 +197,7 @@ app.get('/api/cycle', (c) => {
 });
 
 // The caller's identity (for the settings page), whether they're an admin, and
-// their join status + per-day commitment.
+// their join status + per-week commitment.
 app.get('/api/me', requireAuth, async (c) => {
   const user = c.get('user');
   const row = await c.env.DB.prepare(
@@ -354,7 +354,7 @@ app.post('/api/leave', requireAuth, async (c) => {
   return new Response(res.body, res);
 });
 
-// Today's mishnayot for the caller, plus the group they belong to.
+// This week's mishnayot for the caller, plus the group they belong to.
 app.get('/api/assignments/today', requireAuth, async (c) => {
   return c.json(await buildAssignment(c.env, c.get('userId'), new Date()));
 });
