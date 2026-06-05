@@ -3,6 +3,9 @@
 # compiled output
 dist
 tmp
+
+# react-email preview/build artifacts (npm run email:dev)
+.react-email/
 out-tsc
 
 # dependencies

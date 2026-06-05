@@ -15,7 +15,7 @@ allocation writes so concurrent joins can't corrupt a group.
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics), `orchestrator.ts` (`planSends` — who is due at 08:00 local, fully resolved via batched reads → `PreparedEmail[]`), `sender.ts` (`PreparedEmail`, `processJobs` — render → Resend batch w/ idempotency key → log, plus `prepareOne` for admin), `data.ts` (`loadCandidates` + batched `loadEmailsFor`/`alreadySentSet`/`loadBlocksFor`/`loadCompletedFor` over `DB` + `AUTH_DB`; single-user `loadRecipient`/`loadBlocks`/`pendingRefs` for the admin path), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL). |
+| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics), `orchestrator.ts` (`planSends` — who is due at 08:00 local, fully resolved via batched reads → `PreparedEmail[]`), `sender.ts` (`PreparedEmail`, `processJobs` — render → Resend batch w/ idempotency key → log, plus `prepareOne` for admin), `data.ts` (`loadCandidates` + batched `loadEmailsFor`/`alreadySentSet`/`loadBlocksFor`/`loadCompletedFor` over `DB` + `AUTH_DB`; single-user `loadRecipient`/`loadBlocks`/`pendingRefs` for the admin path), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
@@ -161,6 +161,16 @@ The week is anchored from the user's prefs (`localParts` + `weekStartOnOrBefore`
 skipped by the cron and yields no `PreparedEmail` for send-now. Google sign-ins are
 verified automatically by better-auth; password sign-ups stay unverified until a
 verification flow is added (`apps/login`). The admin views surface the flag so it's visible.
+
+**Editing templates.** The emails are React Email components in `src/email/templates/`
+(`weekly-email.tsx`, `reminder-email.tsx`, shared `components/`, theme in `styles.ts`),
+rendered to HTML at send time by `templates/index.tsx`'s `weeklyEmail`/`reminderEmail`.
+Preview them live in the browser with `npm run email:dev` (from the repo root) — it serves
+the dev-only entries in `templates/preview/` (one per email state, with sample mishnayot) at
+`http://localhost:3030`. The CLI only lists `.tsx`/`.jsx` files with a default export, so the
+`.ts` sample-data file is ignored. Two install-time gotchas (react 18.3.1 pin and the
+`react-dom/server.edge` alias) are documented at the top of `wrangler.toml` / in
+`package.json`.
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin
