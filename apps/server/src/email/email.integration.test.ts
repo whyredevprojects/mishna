@@ -30,13 +30,15 @@ async function createTables(): Promise<void> {
   // migrations, so it's created here.
   await applyMigrations(env.DB);
   await env.AUTH_DB.exec(
-    'CREATE TABLE IF NOT EXISTS "user" (id TEXT PRIMARY KEY, email TEXT, name TEXT)',
+    'CREATE TABLE IF NOT EXISTS "user" (id TEXT PRIMARY KEY, email TEXT, name TEXT, "emailVerified" INTEGER NOT NULL DEFAULT 0)',
   );
 }
 
 async function seedParticipant(opts: {
   userId: string;
   email?: string | null;
+  /** 1 (default) = verified; 0 = unverified (the email path must skip them). */
+  emailVerified?: number;
   timezone?: string;
   weeklyDow?: number;
   reminderDow?: number;
@@ -46,6 +48,7 @@ async function seedParticipant(opts: {
   const {
     userId,
     email = `${userId}@example.com`,
+    emailVerified = 1,
     timezone = 'America/New_York',
     weeklyDow = 0,
     reminderDow = 4,
@@ -62,8 +65,10 @@ async function seedParticipant(opts: {
   )
     .bind(userId, timezone, weeklyDow, reminderDow, weeklyEnabled, reminderEnabled)
     .run();
-  await env.AUTH_DB.prepare('INSERT INTO "user" (id, email, name) VALUES (?, ?, ?)')
-    .bind(userId, email, `${userId} name`)
+  await env.AUTH_DB.prepare(
+    'INSERT INTO "user" (id, email, name, "emailVerified") VALUES (?, ?, ?, ?)',
+  )
+    .bind(userId, email, `${userId} name`, emailVerified)
     .run();
 }
 
@@ -131,6 +136,11 @@ describe('email path', () => {
 
     it('skips a participant with no email address', async () => {
       await seedParticipant({ userId: 'ghost', weeklyDow: 3, email: null });
+      expect(await planSends(env, NOW_NY_WED_8AM)).toEqual([]);
+    });
+
+    it('skips a participant whose email is not verified', async () => {
+      await seedParticipant({ userId: 'unconfirmed', weeklyDow: 3, emailVerified: 0 });
       expect(await planSends(env, NOW_NY_WED_8AM)).toEqual([]);
     });
 

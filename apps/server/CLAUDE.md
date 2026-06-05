@@ -89,11 +89,15 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/completions` | `{ completed: MishnaRef[] }` — every mishna the caller has marked learned (auth). |
 | `POST /api/completions` `{ ref, groupId }` | Mark a mishna learned; validates the ref + the caller's membership of `groupId`, then upserts (auth). |
 | `DELETE /api/completions` `{ ref, groupId }` | Unmark a mishna; idempotent, scoped to the caller's rows (auth). |
+| `GET /api/admin/stats` | Dashboard counters: `{ activeUsers, verifiedUsers, totalGroups, totalCompletions, weekCompletions, weekStart }` — set-based aggregates, no per-user loop (**admin**). |
 | `GET /api/admin/groups` | Per group: `id`, `progress`, `members` (userIds) + `memberCount` (**admin**). |
-| `GET /api/admin/users` | `{ users: [{ id, name, email, role, joined, commitment }], total }` — better-auth `list-users` merged with `participants` (**admin**). |
-| `GET /api/admin/users/:id` | One user: identity + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
+| `GET /api/admin/groups/:id` | One group: `progress`, `memberCount`, `members: [{ id, name, email, emailVerified, blockSize }]` (identity from `AUTH_DB`) (**admin**). |
+| `GET /api/admin/users?limit&offset&search&sort` | One page of users (`limit` 1-50, default 50). `search` matches email (or name when it has no `@`); `sort` is `field:asc\|desc`. Pagination/search/sort delegate to better-auth `list-users`; merged with `participants`. Rows carry `emailVerified` + `createdAt`. Returns `{ users, total, limit, offset }` (**admin**). |
+| `GET /api/admin/users/:id` | One user: identity (+ `emailVerified`, `createdAt`) + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
+| `GET /api/admin/assignments?week&limit&offset` | One page of participants with the chosen week's mishnayot, each `{ ref…, groupId, done }`, plus `emailSent` (weekly). `week` defaults to the current week. Resolves blocks/completions/identities for the page subset via the batched email-path readers (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
-| `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails (**admin**). |
+| `POST/DELETE /api/admin/users/:id/completions` `{ ref, groupId }` | Mark/unmark a mishna learned on the user's behalf (the Assignments learn/unlearn toggle). Mirrors the self `/api/completions` routes, keyed on `:id` (**admin**). |
+| `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails. Verified-only, like the bulk path (**admin**). |
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
 
@@ -137,6 +141,13 @@ The admin "send now" routes resolve one `PreparedEmail` via `prepareOne` (per-us
 fine at volume 1) and send it **inline and synchronously** via the same `processJobs` path
 (bypassing the dedup), so the admin gets the real result — a `502` on a Resend failure.
 The week is anchored from the user's prefs (`localParts` + `weekStartOnOrBefore`).
+
+**Verified-only.** The email path never mails an unverified address. `loadEmailsFor`
+(bulk) filters `WHERE "emailVerified" = 1`, and `loadRecipient` (admin send-now) returns
+`null` unless the address is present and verified — so an unverified user is silently
+skipped by the cron and yields no `PreparedEmail` for send-now. Google sign-ins are
+verified automatically by better-auth; password sign-ups stay unverified until a
+verification flow is added (`apps/login`). The admin views surface the flag so it's visible.
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin

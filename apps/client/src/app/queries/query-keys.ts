@@ -12,10 +12,22 @@ export const queryKeys = {
   assignmentToday: ['assignment', 'today'] as const,
   /** GET /api/assignments?date= — a specific day (keyed per date so each is cached). */
   assignment: (date: string) => ['assignment', date] as const,
+  /** GET /api/admin/stats — Overview dashboard counters. */
+  adminStats: ['admin', 'stats'] as const,
   /** GET /api/admin/groups. */
   adminGroups: ['admin', 'groups'] as const,
-  /** GET /api/admin/users. */
+  /** GET /api/admin/groups/:id. */
+  adminGroup: (id: string) => ['admin', 'group', id] as const,
+  /** GET /api/admin/users (list, sans page params) — for broad invalidation. */
   adminUsers: ['admin', 'users'] as const,
+  /** GET /api/admin/users — one page (keyed by the page params so each caches). */
+  adminUsersPage: (params: Record<string, unknown>) =>
+    ['admin', 'users', params] as const,
   /** GET /api/admin/users/:id. */
   adminUser: (id: string) => ['admin', 'user', id] as const,
+  /** GET /api/admin/assignments (all weeks/pages) — for broad invalidation. */
+  adminAssignments: ['admin', 'assignments'] as const,
+  /** GET /api/admin/assignments — one week/page. */
+  adminAssignmentsPage: (params: Record<string, unknown>) =>
+    ['admin', 'assignments', params] as const,
 } as const;

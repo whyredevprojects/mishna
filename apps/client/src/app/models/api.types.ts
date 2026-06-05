@@ -79,17 +79,85 @@ export interface AdminUser {
   name: string | null;
   email: string | null;
   role: string | null;
+  /** Whether the email is verified (Google sign-ins are; password sign-ups aren't). */
+  emailVerified: boolean;
+  /** ISO timestamp of account creation, or null if the directory omits it. */
+  createdAt: string | null;
   joined: boolean;
   commitment: Commitment | null;
 }
 
-/** GET /api/admin/users */
+/** Paging params shared by the admin list endpoints (`limit` is capped at 50). */
+export interface PageParams {
+  limit: number;
+  offset: number;
+  /** Free-text match (email, or name when it has no `@`). */
+  search?: string;
+  /** `field:asc|desc`, e.g. `createdAt:desc`. */
+  sort?: string;
+}
+
+/** GET /api/admin/users — one page plus the total for the paginator. */
 export interface AdminUsers {
   users: AdminUser[];
   total: number;
+  limit: number;
+  offset: number;
 }
 
 /** GET /api/admin/users/:id */
 export interface AdminUserDetail extends AdminUser {
   groups: { id: string; blockSize: number }[];
+}
+
+/** GET /api/admin/stats — the Overview dashboard counters. */
+export interface AdminStats {
+  activeUsers: number;
+  verifiedUsers: number;
+  totalGroups: number;
+  totalCompletions: number;
+  weekCompletions: number;
+  weekStart: string;
+}
+
+/** One member row in GET /api/admin/groups/:id */
+export interface AdminGroupMember {
+  id: string;
+  name: string | null;
+  email: string | null;
+  emailVerified: boolean;
+  blockSize: number;
+}
+
+/** GET /api/admin/groups/:id */
+export interface AdminGroupDetail {
+  id: string;
+  progress: number;
+  memberCount: number;
+  members: AdminGroupMember[];
+}
+
+/** One of a user's mishnayot for the week, in GET /api/admin/assignments. */
+export interface AdminAssignmentMishna extends MishnaRef {
+  /** The group this mishna belongs to; null if unresolved (action disabled). */
+  groupId: string | null;
+  done: boolean;
+}
+
+/** One participant's row in GET /api/admin/assignments. */
+export interface AdminAssignmentRow {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  emailVerified: boolean;
+  /** Whether the weekly email for this week has gone out. */
+  emailSent: boolean;
+  mishnas: AdminAssignmentMishna[];
+}
+
+/** GET /api/admin/assignments — one page for the selected week. */
+export interface AdminAssignmentsPage {
+  weekStart: string;
+  rows: AdminAssignmentRow[];
+  total: number;
 }

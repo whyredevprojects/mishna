@@ -31,6 +31,8 @@ export default defineConfig(() => ({
               name: `${id} name`,
               email: `${id}@example.com`,
               role: null,
+              emailVerified: true,
+              createdAt: '2026-06-01T00:00:00.000Z',
             });
 
             if (url.pathname === '/api/auth/get-session') {
@@ -41,9 +43,23 @@ export default defineConfig(() => ({
               );
             }
             if (url.pathname === '/api/auth/admin/list-users') {
+              // Honor the pagination/search the server forwards, so the paging tests
+              // exercise the real query params (better-auth does this for real).
+              const all = ['alice', 'bob', 'admin'].map(fakeUser);
+              const needle = url.searchParams.get('searchValue')?.toLowerCase();
+              const field = url.searchParams.get('searchField') ?? 'email';
+              const filtered = needle
+                ? all.filter((u) =>
+                    String(field === 'name' ? u.name : u.email)
+                      .toLowerCase()
+                      .includes(needle),
+                  )
+                : all;
+              const offset = Number(url.searchParams.get('offset')) || 0;
+              const limit = Number(url.searchParams.get('limit')) || filtered.length;
               return json({
-                users: ['alice', 'bob', 'admin'].map(fakeUser),
-                total: 3,
+                users: filtered.slice(offset, offset + limit),
+                total: filtered.length,
               });
             }
             if (url.pathname === '/api/auth/admin/get-user') {

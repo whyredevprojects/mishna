@@ -5,13 +5,17 @@
  * exactly one place. Pass the already-injected service in from the caller's injection
  * context.
  */
-import { queryOptions } from '@tanstack/angular-query-experimental';
+import {
+  keepPreviousData,
+  queryOptions,
+} from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 import { queryKeys } from './query-keys';
 import { AuthService } from '../services/auth.service';
 import { CycleService } from '../services/cycle.service';
 import { AssignmentService } from '../services/assignment.service';
 import { AdminService } from '../services/admin.service';
+import { PageParams } from '../models/api.types';
 
 const MINUTE = 60_000;
 
@@ -52,6 +56,15 @@ export function assignmentByDateQueryOptions(
   });
 }
 
+/** GET /api/admin/stats. Live dashboard — short freshness. */
+export function adminStatsQueryOptions(admin: AdminService) {
+  return queryOptions({
+    queryKey: queryKeys.adminStats,
+    queryFn: () => firstValueFrom(admin.stats()),
+    staleTime: 0,
+  });
+}
+
 /** GET /api/admin/groups. Live monitoring view — short freshness. */
 export function adminGroupsQueryOptions(admin: AdminService) {
   return queryOptions({
@@ -61,12 +74,22 @@ export function adminGroupsQueryOptions(admin: AdminService) {
   });
 }
 
-/** GET /api/admin/users. */
-export function adminUsersQueryOptions(admin: AdminService) {
+/** GET /api/admin/groups/:id. */
+export function adminGroupQueryOptions(admin: AdminService, id: string) {
   return queryOptions({
-    queryKey: queryKeys.adminUsers,
-    queryFn: () => firstValueFrom(admin.users()),
+    queryKey: queryKeys.adminGroup(id),
+    queryFn: () => firstValueFrom(admin.group(id)),
     staleTime: 0,
+  });
+}
+
+/** GET /api/admin/users — one page. `keepPreviousData` so paging doesn't flash. */
+export function adminUsersQueryOptions(admin: AdminService, params: PageParams) {
+  return queryOptions({
+    queryKey: queryKeys.adminUsersPage({ ...params }),
+    queryFn: () => firstValueFrom(admin.users(params)),
+    staleTime: 0,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -76,5 +99,18 @@ export function adminUserQueryOptions(admin: AdminService, id: string) {
     queryKey: queryKeys.adminUser(id),
     queryFn: () => firstValueFrom(admin.user(id)),
     staleTime: 0,
+  });
+}
+
+/** GET /api/admin/assignments — one week/page. */
+export function adminAssignmentsQueryOptions(
+  admin: AdminService,
+  params: PageParams & { week?: string },
+) {
+  return queryOptions({
+    queryKey: queryKeys.adminAssignmentsPage({ ...params }),
+    queryFn: () => firstValueFrom(admin.assignments(params)),
+    staleTime: 0,
+    placeholderData: keepPreviousData,
   });
 }

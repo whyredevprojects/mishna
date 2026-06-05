@@ -67,14 +67,15 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | Path | Role |
 |------|------|
 | `app.ts` | Root: a bare `<router-outlet>`. |
-| `app.routes.ts` | `/` = landing (public). `/dashboard`, `/review`, `/settings`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. `/admin` is a shell (sub-nav + outlet) further gated by `adminGuard`, with children `'' ` (groups), `users`, `users/:id`. |
+| `app.routes.ts` | `/` = landing (public). `/dashboard`, `/review`, `/settings`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. `/admin` is a shell (sub-nav + outlet) further gated by `adminGuard`, with children `''` (Overview), `users` + `users/:id`, `groups` + `groups/:id`, `assignments`. |
+| `ui/` | In-app reusable presentational components: `app-data-table` (column defs + a projected `#cell` template; owns the table chrome, hover, horizontal scroll) and `app-paginator` (server-side pager, "X–Y of N" + prev/next). Deliberately thin — the seam to swap in a headless table (e.g. TanStack Table) later without touching pages. |
 | `guards/auth.guard.ts` | Confirms a session via `GET /api/me`; redirects to `/` otherwise. UX only — the server API is the real auth boundary. |
 | `guards/admin.guard.ts` | Loads `GET /api/me` and allows only when `isAdmin`, else redirects to `/dashboard`. UX only — the server's `requireAdmin` is the boundary. |
 | `models/api.types.ts` | Client shapes of the server responses; reuses `@mishna/domain` value types, redefines anything carrying a `Date` (arrives as ISO string). |
 | `services/` | One thin service per API area (see below) — they own the URLs only. |
 | `queries/` | TanStack Query layer: `query-keys.ts` (cache-key registry) + `queries.ts` (`queryOptions` factories that wrap the service observables). See **Data caching** below. |
 | `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-list`, `today-card`, `join-form`. |
-| `pages/` | Routed screens: `landing`, `dashboard`, `review`, `settings`, and the admin shell `admin` + `admin-groups`, `admin-users`, `admin-user-detail`. |
+| `pages/` | Routed screens: `landing`, `dashboard`, `review`, `settings`, and the admin shell `admin` + `admin-overview`, `admin-users` (paginated/searchable), `admin-user-detail`, `admin-groups` + `admin-group-detail`, `admin-assignments`. Admin lists use `ui/` (`app-data-table` + `app-paginator`) with server-side paging (≤50/page). |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
 
 ## Services → API
@@ -86,7 +87,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
-| `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `DELETE /api/admin/users/:id`. |
+| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `DELETE /api/admin/users/:id`. |
 
 ## Data caching (TanStack Query)
 
