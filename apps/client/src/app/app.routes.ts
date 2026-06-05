@@ -19,10 +19,29 @@ export const appRoutes: Route[] = [
           import('./pages/dashboard.component').then((m) => m.DashboardComponent),
       },
       {
-        path: 'chaluka',
+        path: 'my-mishnayos',
         loadComponent: () =>
-          import('./pages/chaluka.component').then((m) => m.ChalukaComponent),
+          import('./pages/my-mishnayos.component').then(
+            (m) => m.MyMishnayosComponent,
+          ),
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./pages/my-mishnayos-assignments.component').then(
+                (m) => m.MyMishnayosAssignmentsComponent,
+              ),
+          },
+          {
+            path: 'stats',
+            loadComponent: () =>
+              import('./pages/my-mishnayos-stats.component').then(
+                (m) => m.MyMishnayosStatsComponent,
+              ),
+          },
+        ],
       },
+      { path: 'chaluka', redirectTo: 'my-mishnayos', pathMatch: 'full' },
       {
         path: 'review',
         loadComponent: () =>

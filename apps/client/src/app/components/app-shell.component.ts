@@ -75,7 +75,7 @@ import { ToastService } from '../services/toast.service';
       <span class="spacer"></span>
       <nav class="topbar-nav">
         <wa-button routerLink="/dashboard" appearance="plain"><wa-icon slot="start" name="calendar-day"></wa-icon> Today</wa-button>
-        <wa-button routerLink="/chaluka" appearance="plain"><wa-icon slot="start" name="chart-simple"></wa-icon> My Chaluka</wa-button>
+        <wa-button routerLink="/my-mishnayos" appearance="plain"><wa-icon slot="start" name="book"></wa-icon> My Mishnayos</wa-button>
         <wa-button routerLink="/review" appearance="plain"><wa-icon slot="start" name="magnifying-glass"></wa-icon> Review</wa-button>
         <wa-button routerLink="/settings" appearance="plain"><wa-icon slot="start" name="user"></wa-icon> Settings</wa-button>
         @if (auth.isAdmin()) {
@@ -100,7 +100,7 @@ import { ToastService } from '../services/toast.service';
     >
       <nav>
         <wa-button routerLink="/dashboard" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="calendar-day"></wa-icon> Today</wa-button>
-        <wa-button routerLink="/chaluka" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="chart-simple"></wa-icon> My Chaluka</wa-button>
+        <wa-button routerLink="/my-mishnayos" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="book"></wa-icon> My Mishnayos</wa-button>
         <wa-button routerLink="/review" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="magnifying-glass"></wa-icon> Review</wa-button>
         <wa-button routerLink="/settings" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="user"></wa-icon> Settings</wa-button>
         @if (auth.isAdmin()) {

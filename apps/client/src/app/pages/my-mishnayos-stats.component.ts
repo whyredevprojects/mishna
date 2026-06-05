@@ -18,11 +18,12 @@ interface MesechtaProgress {
 }
 
 /**
- * "My Chaluka": a higher-level view of the user's whole-cycle commitment — overall
- * learned/total progress, a few stats, and a per-mesechta breakdown of their portion.
+ * "My Mishnayos" → Stats tab: a higher-level view of the user's whole-cycle
+ * commitment — overall learned/total progress, a few stats, and a per-mesechta
+ * breakdown of their portion.
  */
 @Component({
-  selector: 'app-chaluka',
+  selector: 'app-my-mishnayos-stats',
   imports: [RouterLink],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
@@ -81,8 +82,6 @@ interface MesechtaProgress {
   ],
   template: `
     <div class="stack">
-      <h2>My Chaluka</h2>
-
       @if (query.isPending()) {
         <div class="spinner-wrap"><wa-spinner style="font-size: 2rem"></wa-spinner></div>
       } @else if (query.isError()) {
@@ -135,7 +134,7 @@ interface MesechtaProgress {
     </div>
   `,
 })
-export class ChalukaComponent {
+export class MyMishnayosStatsComponent {
   private readonly assignments = inject(AssignmentService);
 
   protected readonly query = injectQuery(() =>
