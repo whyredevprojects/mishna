@@ -84,6 +84,27 @@ export class AuthService {
       });
   }
 
+  /**
+   * Asks the login worker to email a password-reset link (better-auth's
+   * `request-password-reset`). `redirectTo` is where the email link lands after
+   * the token is validated — our `/reset-password` page, which reads the appended
+   * `?token=`. Resolves whether or not the email exists (no enumeration).
+   */
+  requestPasswordReset(email: string, redirectTo: string): Observable<unknown> {
+    return this.http.post('/api/auth/request-password-reset', {
+      email,
+      redirectTo,
+    });
+  }
+
+  /**
+   * Completes a password reset with the token from the email link. Propagates
+   * errors (e.g. expired/invalid token) so the caller can surface a message.
+   */
+  resetPassword(newPassword: string, token: string): Observable<unknown> {
+    return this.http.post('/api/auth/reset-password', { newPassword, token });
+  }
+
   /** Ends the better-auth session and clears local + cached state. */
   signOut(): Observable<unknown> {
     const clear = () => {

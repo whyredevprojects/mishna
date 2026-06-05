@@ -28,3 +28,7 @@ database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
 # the session cookie is first-party. Overridden locally by `.dev.vars` for dev.
 [vars]
 BETTER_AUTH_URL = "https://getchevrasmishnayos.com"
+# Sender for transactional auth email (verification + password reset). Same verified
+# Resend domain as apps/server's reminder sender. The RESEND_API_KEY is a secret
+# (wrangler secret put RESEND_API_KEY; .dev.vars for local dev).
+RESEND_FROM_EMAIL = "Chevras Mishnayos <noreply@getchevrasmishnayos.com>"

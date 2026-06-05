@@ -9,6 +9,22 @@ export const appRoutes: Route[] = [
   { path: '', component: LandingComponent, pathMatch: 'full' },
   { path: 'join', component: JoinComponent, pathMatch: 'full' },
   {
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./pages/forgot-password.component').then(
+        (m) => m.ForgotPasswordComponent,
+      ),
+    pathMatch: 'full',
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./pages/reset-password.component').then(
+        (m) => m.ResetPasswordComponent,
+      ),
+    pathMatch: 'full',
+  },
+  {
     path: '',
     component: AppShellComponent,
     canActivate: [authGuard],

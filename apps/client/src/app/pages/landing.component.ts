@@ -45,6 +45,10 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
       .join-link {
         font-size: var(--wa-font-size-s, 0.875rem);
       }
+      .forgot-link {
+        font-size: var(--wa-font-size-s, 0.875rem);
+        margin-block: 0;
+      }
     `,
   ],
   template: `
@@ -92,6 +96,10 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
           >
             Log in
           </wa-button>
+
+          <p class="forgot-link center">
+            <a routerLink="/forgot-password">Forgot your password?</a>
+          </p>
 
           <wa-divider></wa-divider>
 

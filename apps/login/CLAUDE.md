@@ -72,11 +72,31 @@ but is no longer the apply mechanism.
 
 ## Authentication methods
 
-- **Email + password** — enabled in `authOptions` (`src/auth.ts`). No email
-  verification yet (`emailVerified` stays 0); add later via a `sendEmail` callback.
+- **Email + password** — enabled in `authOptions` (`src/auth.ts`).
 - **Google OAuth** — wired in `createAuth(env)` via `socialProviders.google`,
   reading `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from env (Wrangler secrets).
   Enabling it needs no schema change — the existing `account` table covers OAuth.
+
+## Email (verification + password reset)
+
+`createAuth(env)` wires two better-auth email callbacks to **Resend**
+(`src/email.ts`), self-contained in this worker (its own `RESEND_API_KEY` secret +
+`RESEND_FROM_EMAIL` var — no call back into `apps/server`):
+
+- **Email verification** — `emailVerification.sendOnSignUp: true` sends a "Verify
+  your email" link on sign-up. It is **not** required to sign in
+  (`requireEmailVerification` is off — flip it on in the `emailAndPassword` block to
+  enforce, but that locks out existing unverified accounts). Verifying also opts the
+  user into `apps/server`'s reminder mail, which only sends to verified addresses.
+  Google sign-ins are verified automatically.
+- **Password reset** — `emailAndPassword.sendResetPassword` emails a reset link.
+  The client drives it via `request-password-reset` (with a `redirectTo` of the
+  SPA's `/reset-password`) → `reset-password` (token + new password).
+
+Both reuse the existing `verification` table — **no schema change / migration**.
+The callbacks need runtime secrets so they live in `createAuth(env)`, not the
+static `authOptions`; they `await` the Resend send (reliable on Workers without
+`ctx.waitUntil`; transactional volume is low).
 
 ## Admin
 
@@ -122,6 +142,9 @@ the server worker, which forwards `/api/auth/*` here via the `AUTH` service bind
   put them in `.dev.vars`. Register **both** redirect URIs in the Google Cloud
   console: `https://getchevrasmishnayos.com/api/auth/callback/google` (prod) and
   `http://localhost:8787/api/auth/callback/google` (dev).
+- `wrangler secret put RESEND_API_KEY` (for verification + password-reset email).
+  For local dev, put it in `.dev.vars`. `RESEND_FROM_EMAIL` is a plain var in
+  `wrangler.toml` (`noreply@getchevrasmishnayos.com`, the verified Resend domain).
 - The Pages project must have `getchevrasmishnayos.com` as a custom domain (its
   zone must be on this Cloudflare account for the worker `routes` to bind).
 

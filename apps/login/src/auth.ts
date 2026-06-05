@@ -1,5 +1,6 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { admin, customSession } from 'better-auth/plugins';
+import { sendResetPasswordEmail, sendVerificationEmail } from './email';
 
 // Env-independent config. Shared with auth.config.ts so the offline schema
 // generator (better-auth CLI) emits DDL for exactly this configuration.
@@ -36,6 +37,27 @@ export function createAuth(env: Env) {
     database: env.DB,
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
+    // Transactional auth email via Resend (apps/login/src/email.ts). These callbacks
+    // need runtime secrets (RESEND_API_KEY), so they live here, not in the static
+    // authOptions. Both reuse the existing `verification` table — no schema change.
+    // We `await` the send (rather than fire-and-forget) so it isn't dropped on
+    // Workers without ctx.waitUntil; transactional volume is low.
+    emailAndPassword: {
+      ...authOptions.emailAndPassword,
+      sendResetPassword: async ({ user, url }) => {
+        await sendResetPasswordEmail(env, { to: user.email, url });
+      },
+    },
+    // Confirmation email on sign-up. Not *required* to sign in (would lock out
+    // existing unverified accounts) — flip emailAndPassword.requireEmailVerification
+    // to enforce. Verifying also opts the user into apps/server's reminder mail,
+    // which only sends to verified addresses.
+    emailVerification: {
+      sendOnSignUp: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendVerificationEmail(env, { to: user.email, url });
+      },
+    },
     // Re-build the admin plugin with the runtime admin list. `adminUserIds`
     // grants full admin permissions to those user ids (the admin endpoints
     // under /api/auth/admin/* authorize against it). It doesn't change the
