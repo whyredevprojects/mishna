@@ -88,7 +88,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/me/chaluka` (whole-cycle portion + learned subset), `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
-| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `DELETE /api/admin/users/:id`. |
+| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `POST /api/admin/users/:id/send-verification` (resend the verification email to a pending user), `DELETE /api/admin/users/:id`. |
 
 ## Data caching (TanStack Query)
 

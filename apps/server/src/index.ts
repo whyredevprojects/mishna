@@ -865,6 +865,45 @@ async function sendEmailNow(
   return Response.json({ sent: true, kind, weekStart });
 }
 
+// Re-send the better-auth verification email for a pending user. Looks up the
+// address via the admin get-user proxy, then hits better-auth's public
+// send-verification-email endpoint (which runs apps/login's Resend callback).
+app.post('/api/admin/users/:id/send-verification', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+
+  const userRes = await adminAuthFetch(c, `get-user?id=${encodeURIComponent(id)}`);
+  if (!userRes.ok) return c.json({ error: 'user not found' }, 404);
+  const user = (await userRes.json()) as {
+    email?: string;
+    emailVerified?: boolean;
+  };
+  if (!user.email) return c.json({ error: 'user has no email' }, 404);
+  if (user.emailVerified) return c.json({ error: 'already verified' }, 409);
+
+  // send-verification-email is NOT under /admin/*, so call it directly (not via
+  // adminAuthFetch). It needs no session but better-auth still enforces the
+  // trusted-Origin CSRF check on POST — forward the caller's Origin like
+  // adminAuthFetch does.
+  const origin = c.req.header('origin');
+  const res = await c.env.AUTH.fetch(
+    'https://login/api/auth/send-verification-email',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(origin ? { origin } : {}),
+      },
+      body: JSON.stringify({ email: user.email, callbackURL: '/' }),
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    console.error('send-verification-email failed', res.status, detail);
+    return c.json({ error: 'failed to send verification email' }, 502);
+  }
+  return c.json({ sent: true });
+});
+
 app.post('/api/admin/users/:id/send-weekly', requireAdmin, (c) =>
   sendEmailNow(c.env, c.req.param('id'), 'weekly'),
 );

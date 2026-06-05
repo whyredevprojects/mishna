@@ -106,6 +106,16 @@ import { adminUserQueryOptions } from '../queries/queries';
             <wa-icon slot="start" name="bell"></wa-icon>
             Send reminder email
           </wa-button>
+          @if (!u.emailVerified) {
+            <wa-button
+              appearance="outlined"
+              [attr.disabled]="verifying() ? '' : null"
+              (click)="resendVerification()"
+            >
+              <wa-icon slot="start" name="envelope-circle-check"></wa-icon>
+              Resend verification email
+            </wa-button>
+          }
           <wa-button
             variant="warning"
             appearance="outlined"
@@ -230,6 +240,7 @@ export class AdminUserDetailComponent {
   /** The role the confirm dialog will apply: 'admin' = promote, 'user' = revoke. */
   protected readonly roleTarget = signal<'admin' | 'user'>('admin');
   protected readonly sending = signal(false);
+  protected readonly verifying = signal(false);
 
   protected readonly query = injectQuery(() =>
     adminUserQueryOptions(this.admin, this.id),
@@ -309,6 +320,20 @@ export class AdminUserDetailComponent {
     });
   }
 
+
+  protected resendVerification(): void {
+    this.verifying.set(true);
+    this.admin.sendVerification(this.id).subscribe({
+      next: () => {
+        this.verifying.set(false);
+        this.toast.success('Verification email sent.');
+      },
+      error: () => {
+        this.verifying.set(false);
+        this.toast.error('Could not send the verification email.');
+      },
+    });
+  }
 
   protected removeAssignments(): void {
     this.removeMutation.mutate();
