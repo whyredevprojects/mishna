@@ -33,8 +33,9 @@ reverts + danger toast), which is the intended behavior.
   (`index.html`/CSS/JS/`manifest`), lazily cache `/icons` + media, and lazily
   cache the 64 `mishna-text` tractate JSONs (`/*.json`) — cache-on-view so only
   opened tractates are stored (the full set is ~7 MB). The `api-data` `dataGroup`
-  caches the read endpoints (`/api/me`, `/api/cycle`, `/api/assignments[?...]`,
-  `/api/completions`) with `strategy: freshness`, `timeout: 3s`, `maxAge: 30d`:
+  caches the read endpoints (`/api/me`, `/api/me/chaluka`, `/api/cycle`,
+  `/api/assignments[?...]`, `/api/completions`) with `strategy: freshness`,
+  `timeout: 3s`, `maxAge: 30d`:
   network-first when online, last snapshot when offline. **`/api/auth/*` is
   deliberately not cached.**
 - `public/manifest.webmanifest` + `public/icons/*` (placeholder brand book icon,
@@ -67,14 +68,14 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | Path | Role |
 |------|------|
 | `app.ts` | Root: a bare `<router-outlet>`. |
-| `app.routes.ts` | `/` = landing (public). `/dashboard`, `/review`, `/settings`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. `/admin` is a shell (sub-nav + outlet) further gated by `adminGuard`, with children `'' ` (groups), `users`, `users/:id`. |
+| `app.routes.ts` | `/` = landing (public). `/dashboard`, `/chaluka`, `/review`, `/settings`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. `/admin` is a shell (sub-nav + outlet) further gated by `adminGuard`, with children `'' ` (groups), `users`, `users/:id`. |
 | `guards/auth.guard.ts` | Confirms a session via `GET /api/me`; redirects to `/` otherwise. UX only — the server API is the real auth boundary. |
 | `guards/admin.guard.ts` | Loads `GET /api/me` and allows only when `isAdmin`, else redirects to `/dashboard`. UX only — the server's `requireAdmin` is the boundary. |
 | `models/api.types.ts` | Client shapes of the server responses; reuses `@mishna/domain` value types, redefines anything carrying a `Date` (arrives as ISO string). |
 | `services/` | One thin service per API area (see below) — they own the URLs only. |
 | `queries/` | TanStack Query layer: `query-keys.ts` (cache-key registry) + `queries.ts` (`queryOptions` factories that wrap the service observables). See **Data caching** below. |
 | `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-list`, `today-card`, `join-form`. |
-| `pages/` | Routed screens: `landing`, `dashboard`, `review`, `settings`, and the admin shell `admin` + `admin-groups`, `admin-users`, `admin-user-detail`. |
+| `pages/` | Routed screens: `landing`, `dashboard`, `chaluka` (whole-cycle progress + stats + per-mesechta breakdown), `review`, `settings`, and the admin shell `admin` + `admin-groups`, `admin-users`, `admin-user-detail`. |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
 
 ## Services → API
@@ -83,7 +84,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 |---------|-------|
 | `AuthService` | `GET /api/me` (session + join status + identity + `isAdmin`), better-auth `sign-in/social` + `sign-out`. Holds a `me` signal; `isAdmin()` reads it. |
 | `CycleService` | `GET /api/cycle` (public). |
-| `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/completions`, `POST`/`DELETE /api/completions`. |
+| `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/me/chaluka` (whole-cycle portion + learned subset), `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
 | `AdminService` | `GET /api/admin/groups`, `GET /api/admin/users`, `GET /api/admin/users/:id`, `POST /api/admin/users/:id/remove-assignments`, `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `DELETE /api/admin/users/:id`. |

@@ -41,6 +41,7 @@
       "name": "api-data",
       "urls": [
         "/api/me",
+        "/api/me/chaluka",
         "/api/cycle",
         "/api/assignments",
         "/api/assignments?*",

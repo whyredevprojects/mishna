@@ -129,6 +129,8 @@ export class TodayCardComponent {
       this.queryClient.invalidateQueries({
         queryKey: queryKeys.assignmentToday,
       });
+      // The overall portion progress derives from completions too.
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.chaluka });
     },
   }));
 

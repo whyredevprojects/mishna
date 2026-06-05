@@ -41,6 +41,14 @@ export function todayAssignmentQueryOptions(assignments: AssignmentService) {
   });
 }
 
+/** GET /api/me/chaluka — the caller's whole-cycle portion + learned subset. */
+export function chalukaQueryOptions(assignments: AssignmentService) {
+  return queryOptions({
+    queryKey: queryKeys.chaluka,
+    queryFn: () => firstValueFrom(assignments.chaluka()),
+  });
+}
+
 /** GET /api/assignments?date= — one cache entry per date. */
 export function assignmentByDateQueryOptions(
   assignments: AssignmentService,

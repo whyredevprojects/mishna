@@ -108,6 +108,7 @@ export class DashboardComponent {
       this.queryClient.invalidateQueries({
         queryKey: queryKeys.assignmentToday,
       });
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.chaluka });
     },
   }));
 

@@ -80,6 +80,7 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/corpus` | The static `MishnahDataset` (public; lets the client skip bundling it). |
 | `GET /api/cycle` | `{ cycleStart, cycleEnd, daysElapsed, daysRemaining, totalDays }` for the current cycle (public; powers the landing-page progress bar without shipping `@hebcal/core` to the client). |
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
+| `GET /api/me/chaluka` | `{ commitment, joinedAt, assigned: MishnaRef[], completed: MishnaRef[] }` — the caller's whole-cycle portion (every mishna in their blocks, corpus order) + the learned subset, for the "My Chaluka" progress/stats view (auth). |
 | `GET /api/me/preferences` | The caller's email prefs, defaults if no row (auth). |
 | `PUT /api/me/preferences` `{ timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled }` | Validate (IANA tz via `Intl`, dow 0-6) + upsert (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |

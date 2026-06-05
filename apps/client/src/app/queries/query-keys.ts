@@ -10,6 +10,8 @@ export const queryKeys = {
   cycle: ['cycle'] as const,
   /** GET /api/assignments/today — the server's notion of "today". */
   assignmentToday: ['assignment', 'today'] as const,
+  /** GET /api/me/chaluka — the caller's whole-cycle portion + learned subset. */
+  chaluka: ['chaluka'] as const,
   /** GET /api/assignments?date= — a specific day (keyed per date so each is cached). */
   assignment: (date: string) => ['assignment', date] as const,
   /** GET /api/admin/groups. */

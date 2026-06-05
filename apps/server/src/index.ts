@@ -218,6 +218,34 @@ app.get('/api/me', requireAuth, async (c) => {
   });
 });
 
+// The caller's whole-cycle portion ("chaluka"): every mishna in their blocks
+// (corpus order) and the subset they've marked learned, plus their weekly goal
+// and join date. Powers the "My Chaluka" higher-level progress + stats view.
+app.get('/api/me/chaluka', requireAuth, async (c) => {
+  const userId = c.get('userId');
+  const blocks = flattenBlocks(await userGroups(c.env, userId)).filter(
+    (b) => b.userId === userId,
+  );
+  const ranges = blocks
+    .flatMap((b) => b.ranges)
+    .sort((a, b) => structure.indexOf(a.start) - structure.indexOf(b.start));
+  const assigned = ranges.flatMap((r) => [...structure.iterateRange(r)]);
+  const completed = await completedAmong(c.env, userId, assigned);
+
+  const row = await c.env.DB.prepare(
+    'SELECT commitment, joined_at FROM participants WHERE user_id = ?',
+  )
+    .bind(userId)
+    .first<{ commitment: number; joined_at: number }>();
+
+  return c.json({
+    commitment: row?.commitment ?? null,
+    joinedAt: row ? new Date(row.joined_at).toISOString() : null,
+    assigned,
+    completed,
+  });
+});
+
 // -- email preferences ------------------------------------------------------
 // Per-user email settings (timezone + which weekday each email lands on). Stored
 // in user_email_prefs; users without a row get DEFAULT_PREFS. The email worker

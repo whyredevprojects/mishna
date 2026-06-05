@@ -321,6 +321,67 @@ describe('server API integration', () => {
     });
   });
 
+  describe('chaluka', () => {
+    it('returns empty for a user who has not joined', async () => {
+      const res = await SELF.fetch('https://server/api/me/chaluka', {
+        headers: as('alice'),
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({
+        commitment: null,
+        joinedAt: null,
+        assigned: [],
+        completed: [],
+      });
+    });
+
+    it('reports the whole portion, join date, and learned subset', async () => {
+      await SELF.fetch('https://server/api/join', {
+        method: 'POST',
+        headers: { ...as('alice'), 'content-type': 'application/json' },
+        body: JSON.stringify({ commitment: 2 }),
+      });
+
+      let res = await SELF.fetch('https://server/api/me/chaluka', {
+        headers: as('alice'),
+      });
+      let body = (await res.json()) as {
+        commitment: number;
+        joinedAt: string | null;
+        assigned: MishnaRef[];
+        completed: MishnaRef[];
+      };
+      expect(body.commitment).toBe(2);
+      expect(body.joinedAt).toBeTruthy();
+      // The portion is the whole-cycle allocation (commitment * weeks remaining),
+      // in corpus order — the first joiner's portion starts at the corpus head.
+      expect(body.assigned).toHaveLength(2 * calendar.weeksRemaining(new Date()));
+      expect(body.assigned[0]).toEqual(structure.firstRef());
+      expect(body.completed).toEqual([]);
+
+      // Mark the head learned; it shows up in `completed`.
+      const head = body.assigned[0];
+      const groupId = (
+        (await (
+          await SELF.fetch('https://server/api/assignments/today', {
+            headers: as('alice'),
+          })
+        ).json()) as { groupId: string }
+      ).groupId;
+      await SELF.fetch('https://server/api/completions', {
+        method: 'POST',
+        headers: { ...as('alice'), 'content-type': 'application/json' },
+        body: JSON.stringify({ ref: head, groupId }),
+      });
+
+      res = await SELF.fetch('https://server/api/me/chaluka', {
+        headers: as('alice'),
+      });
+      body = (await res.json()) as typeof body;
+      expect(body.completed).toEqual([head]);
+    });
+  });
+
   it('rejects an invalid commitment and a double-join', async () => {
     const bad = await SELF.fetch('https://server/api/join', {
       method: 'POST',

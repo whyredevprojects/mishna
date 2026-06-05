@@ -19,6 +19,11 @@ export const appRoutes: Route[] = [
           import('./pages/dashboard.component').then((m) => m.DashboardComponent),
       },
       {
+        path: 'chaluka',
+        loadComponent: () =>
+          import('./pages/chaluka.component').then((m) => m.ChalukaComponent),
+      },
+      {
         path: 'review',
         loadComponent: () =>
           import('./pages/review.component').then((m) => m.ReviewComponent),

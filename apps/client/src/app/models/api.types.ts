@@ -59,6 +59,17 @@ export interface Completions {
   completed: MishnaRef[];
 }
 
+/**
+ * GET /api/me/chaluka — the caller's whole-cycle portion. `assigned` is every
+ * mishna in their blocks (corpus order); `completed` is the learned subset.
+ */
+export interface Chaluka {
+  commitment: Commitment | null;
+  joinedAt: string | null;
+  assigned: MishnaRef[];
+  completed: MishnaRef[];
+}
+
 /** One group's row in GET /api/admin/groups */
 export interface AdminGroup {
   id: string;
