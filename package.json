@@ -8,9 +8,13 @@
     "dev": "npx nx serve client",
     "e2e": "npx nx e2e client-e2e",
     "email:dev": "npx email dev --dir apps/server/src/email/templates/preview --port 3030",
-    "db:init:local": "npx wrangler d1 migrations apply mishna-auth --local --persist-to .wrangler/state --config apps/login/wrangler.toml ; npm run db:migrate:local",
-    "db:migrate:local": "npx wrangler d1 migrations apply mishna-app --local --persist-to .wrangler/state --config apps/server/wrangler.toml",
-    "db:migrate:remote": "npx wrangler d1 migrations apply mishna-app --remote --config apps/server/wrangler.toml"
+    "db:migrate:local:app": "npx wrangler d1 migrations apply mishna-app --local --persist-to .wrangler/state --config apps/server/wrangler.toml",
+    "db:migrate:local:auth": "npx wrangler d1 migrations apply mishna-auth --local --persist-to .wrangler/state --config apps/login/wrangler.toml",
+    "db:migrate:local": "npm run db:migrate:local:auth && npm run db:migrate:local:app",
+    "db:init:local": "npm run db:migrate:local",
+    "db:migrate:remote:app": "npx wrangler d1 migrations apply mishna-app --remote --config apps/server/wrangler.toml",
+    "db:migrate:remote:auth": "npx wrangler d1 migrations apply mishna-auth --remote --config apps/login/wrangler.toml",
+    "db:migrate:remote": "npm run db:migrate:remote:app && npm run db:migrate:remote:auth"
   },
   "private": true,
   "workspaces": [

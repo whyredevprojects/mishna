@@ -279,6 +279,15 @@ export class AdminUserDetailComponent {
       });
       this.queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers });
     },
+    onError: (err: HttpErrorResponse) => {
+      const detail =
+        typeof err.error?.detail === 'string' ? err.error.detail : null;
+      this.toast.error(
+        detail
+          ? `Could not change the role: ${detail}`
+          : 'Could not change the role.',
+      );
+    },
   }));
 
   protected readonly working = computed(

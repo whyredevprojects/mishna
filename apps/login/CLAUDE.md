@@ -47,7 +47,9 @@ DDL:
 # Local dev D1 (.wrangler/state) — also run by `npm run db:init:local`
 wrangler d1 migrations apply mishna-auth --local
 
-# Production D1
+# Production D1 — also run automatically on push to `main` by CI
+# (`npm run db:migrate:remote`, which migrates both mishna-app and mishna-auth
+# before deploy). The command stays available for manual/out-of-band applies.
 wrangler d1 migrations apply mishna-auth --remote
 ```
 
@@ -100,18 +102,25 @@ static `authOptions`; they `await` the Resend send (reliable on Workers without
 
 ## Admin
 
-The better-auth admin plugin is enabled in `authOptions` (`src/auth.ts`). Who is an
-admin is configured at runtime, not in the DB: `createAuth(env)` passes
-`admin({ adminUserIds })` parsed from the **`ADMIN_USER_IDS`** env var
-(comma-separated better-auth user ids). Those ids get full admin permissions on the
-`/api/auth/admin/*` endpoints (`list-users`, `get-user`, `remove-user`, …). The
-`role` column stays NULL — admin status is not role-based here.
+The better-auth admin plugin is enabled in `authOptions` (`src/auth.ts`). Admin
+status comes from **two** sources:
+
+1. **`ADMIN_USER_IDS`** env var (comma-separated better-auth user ids) — bootstrap
+   admins, configured at runtime, not in the DB. `createAuth(env)` passes
+   `admin({ adminUserIds })`. These ids always have full admin permissions on the
+   `/api/auth/admin/*` endpoints (`list-users`, `get-user`, `set-role`, …).
+2. **The `user.role` column** — set to `'admin'` via the admin plugin's `set-role`
+   endpoint (the client's "Make admin" button → `apps/server`
+   `/api/admin/users/:id/set-role` proxies here). This grants admin without
+   editing `ADMIN_USER_IDS`, and is the runtime mechanism for promoting users.
+   It requires the `0002_admin_plugin_fields.sql` columns to exist in the DB —
+   missing them makes `set-role` fail with a 500.
 
 This worker is the **single source of truth** for admin status: a `customSession`
-plugin stamps `isAdmin` (`adminUserIds.includes(user.id)`) onto the get-session
-response. `apps/server` reads `user.isAdmin` from the session it already fetches to
-gate its `/api/admin/*` routes, so `ADMIN_USER_IDS` lives only here — no need to
-duplicate the secret on the server worker.
+plugin stamps `isAdmin` (`adminUserIds.includes(user.id) || user.role === 'admin'`)
+onto the get-session response. `apps/server` reads `user.isAdmin` from the session
+it already fetches to gate its `/api/admin/*` routes, so `ADMIN_USER_IDS` lives only
+here — no need to duplicate the secret on the server worker.
 
 ## Production topology (same-origin)
 
