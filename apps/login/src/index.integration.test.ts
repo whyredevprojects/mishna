@@ -16,7 +16,15 @@ describe('Integration', () => {
     expect(await response.json()).toMatchObject({ ok: true });
   });
 
-  it('sign-up with email and password succeeds', async () => {
+  it('routes a non-/api/auth path to 404', async () => {
+    const response = await SELF.fetch('http://example.com/');
+    expect(response.status).toBe(404);
+  });
+
+  // Tests run with no RESEND_API_KEY, so the on-sign-up verification email send fails.
+  // This asserts that a failed verification send does not block sign-up (the send is
+  // wrapped in try/catch in createAuth, and verification isn't required to sign in).
+  it('sign-up with email and password succeeds (even when the verification email fails)', async () => {
     const response = await SELF.fetch('http://example.com/api/auth/sign-up/email', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

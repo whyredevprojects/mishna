@@ -45,7 +45,14 @@ export function createAuth(env: Env) {
     emailAndPassword: {
       ...authOptions.emailAndPassword,
       sendResetPassword: async ({ user, url }) => {
-        await sendResetPasswordEmail(env, { to: user.email, url });
+        // A failing send must not 503 the request: better-auth returns 200 for a
+        // reset request regardless (so it can't be used to probe which emails exist),
+        // so swallow + log rather than throw.
+        try {
+          await sendResetPasswordEmail(env, { to: user.email, url });
+        } catch (err) {
+          console.error('sendResetPassword failed', err);
+        }
       },
     },
     // Confirmation email on sign-up. Not *required* to sign in (would lock out
@@ -55,7 +62,13 @@ export function createAuth(env: Env) {
     emailVerification: {
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url }) => {
-        await sendVerificationEmail(env, { to: user.email, url });
+        // Verification isn't required to sign in, so a failed send must never block
+        // sign-up. (better-auth already tolerates this, but make the intent explicit.)
+        try {
+          await sendVerificationEmail(env, { to: user.email, url });
+        } catch (err) {
+          console.error('sendVerificationEmail failed', err);
+        }
       },
     },
     // Re-build the admin plugin with the runtime admin list. `adminUserIds`
