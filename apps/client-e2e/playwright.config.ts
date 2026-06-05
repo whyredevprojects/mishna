@@ -5,6 +5,10 @@ import { workspaceRoot } from '@nx/devkit';
 // For CI, you may want to set BASE_URL to the deployed application.
 const baseURL = process.env['BASE_URL'] || 'http://localhost:4200';
 
+// In CI, serve the prebuilt static SPA (no backend Workers / D1 needed).
+// Locally, default to the full-stack dev server and reuse one if it's already up.
+const isCI = !!process.env['CI'];
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -24,9 +28,9 @@ export default defineConfig({
   },
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npx nx run client:serve',
+    command: isCI ? 'npx nx run client:serve-static' : 'npx nx run client:serve',
     url: 'http://localhost:4200',
-    reuseExistingServer: true,
+    reuseExistingServer: !isCI,
     cwd: workspaceRoot,
   },
   projects: [
