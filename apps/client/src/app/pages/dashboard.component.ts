@@ -47,7 +47,7 @@ import {
     @if (loading()) {
       <div class="spinner-wrap"><wa-spinner style="font-size: 2rem"></wa-spinner></div>
     } @else {
-      <div class="stack">
+      <div class="stack readable">
         @if (error()) {
           <wa-callout variant="danger">{{ error() }}</wa-callout>
         }

@@ -61,7 +61,7 @@ const DAY_NAMES = [
     `,
   ],
   template: `
-    <div class="stack">
+    <div class="stack readable">
       <h2>Settings</h2>
 
       @if (auth.me()?.user; as user) {

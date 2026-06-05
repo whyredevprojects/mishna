@@ -61,7 +61,14 @@ import { adminUserQueryOptions } from '../queries/queries';
           <strong slot="header">{{ u.name || '(no name)' }}</strong>
           <dl>
             <dt>Email</dt>
-            <dd>{{ u.email }}</dd>
+            <dd>
+              {{ u.email }}
+              @if (u.emailVerified) {
+                <wa-tag size="small" variant="success">Verified</wa-tag>
+              } @else {
+                <wa-tag size="small" variant="warning">Pending</wa-tag>
+              }
+            </dd>
             <dt>User ID</dt>
             <dd class="mono">{{ u.id }}</dd>
             <dt>Role</dt>

@@ -34,7 +34,7 @@ import { assignmentByDateQueryOptions } from '../queries/queries';
     `,
   ],
   template: `
-    <div class="stack">
+    <div class="stack readable">
       <h2>Review</h2>
 
       <label class="picker">

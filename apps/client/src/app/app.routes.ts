@@ -42,8 +42,8 @@ export const appRoutes: Route[] = [
           {
             path: '',
             loadComponent: () =>
-              import('./pages/admin-groups.component').then(
-                (m) => m.AdminGroupsComponent,
+              import('./pages/admin-overview.component').then(
+                (m) => m.AdminOverviewComponent,
               ),
           },
           {
@@ -58,6 +58,27 @@ export const appRoutes: Route[] = [
             loadComponent: () =>
               import('./pages/admin-user-detail.component').then(
                 (m) => m.AdminUserDetailComponent,
+              ),
+          },
+          {
+            path: 'groups',
+            loadComponent: () =>
+              import('./pages/admin-groups.component').then(
+                (m) => m.AdminGroupsComponent,
+              ),
+          },
+          {
+            path: 'groups/:id',
+            loadComponent: () =>
+              import('./pages/admin-group-detail.component').then(
+                (m) => m.AdminGroupDetailComponent,
+              ),
+          },
+          {
+            path: 'assignments',
+            loadComponent: () =>
+              import('./pages/admin-assignments.component').then(
+                (m) => m.AdminAssignmentsComponent,
               ),
           },
         ],

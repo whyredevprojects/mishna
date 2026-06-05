@@ -40,9 +40,11 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
           routerLink="/admin"
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
-          >Groups</a
+          >Overview</a
         >
         <a routerLink="/admin/users" routerLinkActive="active">Users</a>
+        <a routerLink="/admin/groups" routerLinkActive="active">Groups</a>
+        <a routerLink="/admin/assignments" routerLinkActive="active">Assignments</a>
       </nav>
       <router-outlet />
     </div>

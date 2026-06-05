@@ -15,12 +15,28 @@ const structure = createMishnaStructure();
 const calendar = new CycleCalendar();
 
 describe('server API integration', () => {
-  beforeAll(() => applyMigrations(env.DB));
+  beforeAll(async () => {
+    await applyMigrations(env.DB);
+    // The admin dashboard/group/assignment endpoints resolve identity (and the
+    // verified flag) from the better-auth AUTH_DB user table; seed a stable
+    // directory of verified users (the get-session stub names them by cookie).
+    await env.AUTH_DB.exec(
+      'CREATE TABLE IF NOT EXISTS "user" (id TEXT PRIMARY KEY, email TEXT, name TEXT, "emailVerified" INTEGER NOT NULL DEFAULT 0)',
+    );
+    for (const id of ['alice', 'bob', 'admin']) {
+      await env.AUTH_DB.prepare(
+        'INSERT OR IGNORE INTO "user" (id, email, name, "emailVerified") VALUES (?, ?, ?, 1)',
+      )
+        .bind(id, `${id}@example.com`, `${id} name`)
+        .run();
+    }
+  });
   beforeEach(async () => {
     await env.DB.exec('DELETE FROM groups');
     await env.DB.exec('DELETE FROM group_members');
     await env.DB.exec('DELETE FROM participants');
     await env.DB.exec('DELETE FROM completions');
+    await env.DB.exec('DELETE FROM email_log');
   });
 
   it('rejects unauthenticated requests with 401', async () => {
@@ -379,6 +395,163 @@ describe('server API integration', () => {
       });
       body = (await res.json()) as typeof body;
       expect(body.completed).toEqual([head]);
+    });
+  });
+
+  describe('admin dashboard endpoints', () => {
+    async function join(userId: string, commitment = 1): Promise<void> {
+      await SELF.fetch('https://server/api/join', {
+        method: 'POST',
+        headers: { ...as(userId), 'content-type': 'application/json' },
+        body: JSON.stringify({ commitment }),
+      });
+    }
+
+    /** The Sunday on/before the cycle start — the week that holds a joiner's first
+     *  mishnayot, so assignment rows are non-empty regardless of the real date. */
+    function cycleStartWeek(): string {
+      const start = calendar.cycleStart(new Date());
+      const sunday = new Date(start);
+      sunday.setUTCDate(sunday.getUTCDate() - sunday.getUTCDay());
+      return sunday.toISOString().slice(0, 10);
+    }
+
+    it('paginates and searches the user list', async () => {
+      const page = await SELF.fetch(
+        'https://server/api/admin/users?limit=2&offset=0',
+        { headers: as('admin') },
+      );
+      const body = (await page.json()) as {
+        users: { id: string; emailVerified: boolean }[];
+        total: number;
+        limit: number;
+        offset: number;
+      };
+      expect(body.total).toBe(3);
+      expect(body.users).toHaveLength(2);
+      expect(body.limit).toBe(2);
+      expect(body.users[0].emailVerified).toBe(true);
+
+      const search = await SELF.fetch(
+        'https://server/api/admin/users?search=bob',
+        { headers: as('admin') },
+      );
+      const sBody = (await search.json()) as { users: { id: string }[] };
+      expect(sBody.users.map((u) => u.id)).toEqual(['bob']);
+    });
+
+    it('reports dashboard stats', async () => {
+      await join('alice');
+      const res = await SELF.fetch('https://server/api/admin/stats', {
+        headers: as('admin'),
+      });
+      const s = (await res.json()) as {
+        activeUsers: number;
+        verifiedUsers: number;
+        totalGroups: number;
+        weekStart: string;
+      };
+      expect(s.activeUsers).toBe(1);
+      expect(s.verifiedUsers).toBe(3);
+      expect(s.totalGroups).toBeGreaterThanOrEqual(1);
+      expect(s.weekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it('returns one group with resolved members', async () => {
+      await join('alice');
+      const listRes = await SELF.fetch('https://server/api/admin/groups', {
+        headers: as('admin'),
+      });
+      const { groups } = (await listRes.json()) as {
+        groups: { id: string; members: string[] }[];
+      };
+      const gid = groups.find((g) => g.members.includes('alice'))?.id as string;
+      expect(gid).toBeTruthy();
+
+      const res = await SELF.fetch(`https://server/api/admin/groups/${gid}`, {
+        headers: as('admin'),
+      });
+      const detail = (await res.json()) as {
+        members: { id: string; email: string; emailVerified: boolean; blockSize: number }[];
+      };
+      const alice = detail.members.find((m) => m.id === 'alice');
+      expect(alice).toMatchObject({
+        email: 'alice@example.com',
+        emailVerified: true,
+      });
+      expect(alice?.blockSize).toBeGreaterThan(0);
+
+      const notFound = await SELF.fetch('https://server/api/admin/groups/nope', {
+        headers: as('admin'),
+      });
+      expect(notFound.status).toBe(404);
+    });
+
+    it('lists a week of assignments and toggles a completion on the user behalf', async () => {
+      await join('alice');
+      const week = cycleStartWeek();
+      const res = await SELF.fetch(
+        `https://server/api/admin/assignments?week=${week}`,
+        { headers: as('admin') },
+      );
+      const body = (await res.json()) as {
+        weekStart: string;
+        total: number;
+        rows: {
+          userId: string;
+          email: string;
+          mishnas: { mesechta: string; perek: number; mishna: number; groupId: string | null; done: boolean }[];
+        }[];
+      };
+      expect(body.weekStart).toBe(week);
+      expect(body.total).toBe(1);
+      const row = body.rows.find((r) => r.userId === 'alice');
+      expect(row?.email).toBe('alice@example.com');
+      const m = row?.mishnas.find((x) => x.groupId);
+      if (!m || !m.groupId) throw new Error('expected a mishna with a group');
+      expect(m.done).toBe(false);
+
+      const completionBody = {
+        ref: { mesechta: m.mesechta, perek: m.perek, mishna: m.mishna },
+        groupId: m.groupId,
+      };
+      const post = await SELF.fetch(
+        'https://server/api/admin/users/alice/completions',
+        {
+          method: 'POST',
+          headers: { ...as('admin'), 'content-type': 'application/json' },
+          body: JSON.stringify(completionBody),
+        },
+      );
+      expect(post.status).toBe(200);
+      const afterPost = await SELF.fetch('https://server/api/completions', {
+        headers: as('alice'),
+      });
+      expect(((await afterPost.json()) as { completed: MishnaRef[] }).completed).toHaveLength(1);
+
+      const del = await SELF.fetch(
+        'https://server/api/admin/users/alice/completions',
+        {
+          method: 'DELETE',
+          headers: { ...as('admin'), 'content-type': 'application/json' },
+          body: JSON.stringify(completionBody),
+        },
+      );
+      expect(del.status).toBe(200);
+      const afterDel = await SELF.fetch('https://server/api/completions', {
+        headers: as('alice'),
+      });
+      expect(((await afterDel.json()) as { completed: MishnaRef[] }).completed).toEqual([]);
+
+      const forbidden = await SELF.fetch(
+        'https://server/api/admin/users/alice/completions',
+        {
+          method: 'POST',
+          headers: { ...as('alice'), 'content-type': 'application/json' },
+          body: JSON.stringify(completionBody),
+        },
+      );
+      expect(forbidden.status).toBe(403);
     });
   });
 

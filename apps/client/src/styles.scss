@@ -22,12 +22,23 @@ body {
   font-family: var(--wa-font-family-body, system-ui, sans-serif);
 }
 
-/* Mobile-first: a single centered column that never gets uncomfortably wide. */
+/* A centered content column. Wide enough that data-dense screens (admin tables)
+   aren't cramped; reading/form screens opt back into a narrow measure via
+   `.readable`. */
 .page {
-  max-width: 32rem;
+  max-width: 72rem;
   margin: 0 auto;
   padding: var(--wa-space-l, 1rem);
   box-sizing: border-box;
+}
+
+/* A comfortable reading measure for prose/forms (mishna text, settings) — the
+   width `.page` used to impose globally, now applied only where readability beats
+   breadth. */
+.readable {
+  max-width: 32rem;
+  margin-inline: auto;
+  width: 100%;
 }
 
 /* Vertical rhythm helper used by most screens. */

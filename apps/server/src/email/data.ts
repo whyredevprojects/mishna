@@ -73,6 +73,7 @@ interface UserRow {
   id: string;
   email: string;
   name: string | null;
+  emailVerified: number;
 }
 
 /**
@@ -101,7 +102,10 @@ export async function loadCandidates(env: Env): Promise<Candidate[]> {
 
 /**
  * Addresses for the given user ids, as `userId → email` (users with no usable
- * address are omitted). Chunked under D1's 100-param ceiling. Read from `AUTH_DB`.
+ * address, or whose email isn't verified, are omitted). Chunked under D1's
+ * 100-param ceiling. Read from `AUTH_DB`. The `emailVerified = 1` filter is the
+ * email path's verified-only guard: we never mail an unverified address. Google
+ * sign-ins are verified automatically; password sign-ups stay unverified.
  */
 export async function loadEmailsFor(
   env: Env,
@@ -110,13 +114,88 @@ export async function loadEmailsFor(
   const byId = new Map<string, string>();
   for (const chunk of chunked(userIds)) {
     const { results } = await env.AUTH_DB.prepare(
-      `SELECT id, email FROM "user" WHERE id IN (${placeholders(chunk.length)})`,
+      `SELECT id, email FROM "user"
+        WHERE "emailVerified" = 1 AND id IN (${placeholders(chunk.length)})`,
     )
       .bind(...chunk)
       .all<{ id: string; email: string | null }>();
     for (const r of results) if (r.email) byId.set(r.id, r.email);
   }
   return byId;
+}
+
+/** One user's identity for the admin views, regardless of join/verification. */
+export interface Identity {
+  email: string | null;
+  name: string | null;
+  emailVerified: boolean;
+}
+
+/**
+ * Identities (name/email/verified) for the given user ids, from `AUTH_DB`, as
+ * `userId → Identity`. Unlike `loadEmailsFor` this keeps unverified users (the
+ * admin needs to *see* who's unverified) and carries the flag through. Chunked.
+ */
+export async function loadIdentitiesFor(
+  env: Env,
+  userIds: string[],
+): Promise<Map<string, Identity>> {
+  const byId = new Map<string, Identity>();
+  for (const chunk of chunked(userIds)) {
+    const { results } = await env.AUTH_DB.prepare(
+      `SELECT id, email, name, "emailVerified" AS emailVerified
+         FROM "user" WHERE id IN (${placeholders(chunk.length)})`,
+    )
+      .bind(...chunk)
+      .all<UserRow>();
+    for (const r of results) {
+      byId.set(r.id, {
+        email: r.email ?? null,
+        name: r.name ?? null,
+        emailVerified: r.emailVerified === 1,
+      });
+    }
+  }
+  return byId;
+}
+
+/** One of a user's blocks together with the group it lives in. */
+export interface GroupBlock {
+  groupId: string;
+  block: Block;
+}
+
+/**
+ * The blocks a user holds, *tagged with their group id*, as `userId → GroupBlock[]`.
+ * Like `loadBlocksFor` but keeps each block's group so callers can resolve the
+ * `groupId` a given mishna belongs to (needed when acting on a completion). Chunked.
+ */
+export async function loadGroupBlocksFor(
+  env: Env,
+  userIds: string[],
+): Promise<Map<string, GroupBlock[]>> {
+  const byUser = new Map<string, GroupBlock[]>();
+  for (const chunk of chunked(userIds)) {
+    const { results } = await env.DB.prepare(
+      `SELECT g.id AS group_id, m.user_id AS user_id, g.state AS state
+         FROM groups g
+         JOIN group_members m ON g.id = m.group_id
+        WHERE m.user_id IN (${placeholders(chunk.length)})`,
+    )
+      .bind(...chunk)
+      .all<{ group_id: string; user_id: string; state: string }>();
+    for (const r of results) {
+      const blocks = Group.fromState(structure, idGen, JSON.parse(r.state)).toState()
+        .blocks;
+      const mine = blocks
+        .filter((b) => b.userId === r.user_id)
+        .map((block) => ({ groupId: r.group_id, block }));
+      const existing = byUser.get(r.user_id);
+      if (existing) existing.push(...mine);
+      else byUser.set(r.user_id, mine);
+    }
+  }
+  return byUser;
 }
 
 /**
@@ -199,7 +278,9 @@ export async function loadRecipient(
   userId: string,
 ): Promise<Recipient | null> {
   const [user, prefs] = await Promise.all([
-    env.AUTH_DB.prepare('SELECT id, email, name FROM "user" WHERE id = ?')
+    env.AUTH_DB.prepare(
+      'SELECT id, email, name, "emailVerified" AS emailVerified FROM "user" WHERE id = ?',
+    )
       .bind(userId)
       .first<UserRow>(),
     env.DB.prepare(
@@ -209,7 +290,9 @@ export async function loadRecipient(
       .bind(userId)
       .first<PrefsRow>(),
   ]);
-  if (!user?.email) return null;
+  // Verified-only, same as the bulk path: admin "send now" can't mail an
+  // unverified address either.
+  if (!user?.email || user.emailVerified !== 1) return null;
   return buildRecipient(userId, user, prefs ?? undefined);
 }
 

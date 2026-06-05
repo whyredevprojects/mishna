@@ -9,6 +9,7 @@ import {
   localParts,
   mishnahDataset,
   weekStartOnOrBefore,
+  weekStartToDate,
 } from '@mishna/domain';
 import { AllocatorDO } from './allocator';
 import { assignmentEngine, calendar, idGen, structure } from './domain';
@@ -16,6 +17,13 @@ import { D1GroupRepository } from './repository';
 import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
 import { prepareOne, processJobs } from './email/sender';
+import {
+  GroupBlock,
+  alreadySentSet,
+  loadCompletedFor,
+  loadGroupBlocksFor,
+  loadIdentitiesFor,
+} from './email/data';
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
 
@@ -161,6 +169,65 @@ function parseCompletionBody(
     return null;
   }
   return { ref: ref as MishnaRef, groupId };
+}
+
+/** Whether `userId` belongs to `groupId` (the completion authorization check). */
+function isGroupMember(env: Env, groupId: string, userId: string): Promise<unknown> {
+  return env.DB.prepare(
+    'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?',
+  )
+    .bind(groupId, userId)
+    .first();
+}
+
+/** Upsert a `(user, group, ref)` completion. Shared by the self + admin paths. */
+function recordCompletion(
+  env: Env,
+  userId: string,
+  ref: MishnaRef,
+  groupId: string,
+): Promise<unknown> {
+  return env.DB.prepare(
+    `INSERT INTO completions (user_id, group_id, mesechta, perek, mishna, completed_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id, group_id, mesechta, perek, mishna)
+       DO UPDATE SET completed_at = excluded.completed_at`,
+  )
+    .bind(userId, groupId, ref.mesechta, ref.perek, ref.mishna, Date.now())
+    .run();
+}
+
+/** Delete a `(user, group, ref)` completion. Idempotent. Shared self + admin. */
+function removeCompletion(
+  env: Env,
+  userId: string,
+  ref: MishnaRef,
+  groupId: string,
+): Promise<unknown> {
+  return env.DB.prepare(
+    `DELETE FROM completions
+      WHERE user_id = ? AND group_id = ? AND mesechta = ? AND perek = ? AND mishna = ?`,
+  )
+    .bind(userId, groupId, ref.mesechta, ref.perek, ref.mishna)
+    .run();
+}
+
+/** The group id whose tagged block contains `ref`, or null. In-memory, no I/O. */
+function groupIdForRefInBlocks(
+  entries: GroupBlock[],
+  ref: MishnaRef,
+): string | null {
+  for (const e of entries) {
+    if (blockContains(e.block, ref)) return e.groupId;
+  }
+  return null;
+}
+
+/** `?limit` (1-50, default 50) + `?offset` (>=0) for the paginated admin lists. */
+function pageParams(c: { req: { query(name: string): string | undefined } }) {
+  const limit = Math.min(50, Math.max(1, Number(c.req.query('limit')) || 50));
+  const offset = Math.max(0, Number(c.req.query('offset')) || 0);
+  return { limit, offset };
 }
 
 // -- routes -----------------------------------------------------------------
@@ -420,30 +487,11 @@ app.post('/api/completions', requireAuth, async (c) => {
   } catch {
     return c.json({ error: 'ref must be a valid mishna' }, 400);
   }
-  const member = await c.env.DB.prepare(
-    'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?',
-  )
-    .bind(parsed.groupId, userId)
-    .first();
-  if (!member) {
+  if (!(await isGroupMember(c.env, parsed.groupId, userId))) {
     return c.json({ error: 'not a member of that group' }, 403);
   }
 
-  await c.env.DB.prepare(
-    `INSERT INTO completions (user_id, group_id, mesechta, perek, mishna, completed_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(user_id, group_id, mesechta, perek, mishna)
-       DO UPDATE SET completed_at = excluded.completed_at`,
-  )
-    .bind(
-      userId,
-      parsed.groupId,
-      parsed.ref.mesechta,
-      parsed.ref.perek,
-      parsed.ref.mishna,
-      Date.now(),
-    )
-    .run();
+  await recordCompletion(c.env, userId, parsed.ref, parsed.groupId);
   return c.json({ ok: true });
 });
 
@@ -460,18 +508,7 @@ app.delete('/api/completions', requireAuth, async (c) => {
     return c.json({ error: 'ref must be a valid mishna' }, 400);
   }
 
-  await c.env.DB.prepare(
-    `DELETE FROM completions
-      WHERE user_id = ? AND group_id = ? AND mesechta = ? AND perek = ? AND mishna = ?`,
-  )
-    .bind(
-      userId,
-      parsed.groupId,
-      parsed.ref.mesechta,
-      parsed.ref.perek,
-      parsed.ref.mishna,
-    )
-    .run();
+  await removeCompletion(c.env, userId, parsed.ref, parsed.groupId);
   return c.json({ ok: true });
 });
 
@@ -515,14 +552,48 @@ interface AuthUser {
   name?: string;
   email?: string;
   role?: string | null;
+  emailVerified?: boolean;
+  createdAt?: string;
 }
 
-// Every user with their join status and commitment.
+/** Shape a better-auth admin user into the merged admin-list/detail row. */
+function adminUserRow(u: AuthUser, commitment: number | null) {
+  return {
+    id: u.id,
+    name: u.name ?? null,
+    email: u.email ?? null,
+    role: u.role ?? null,
+    emailVerified: u.emailVerified === true,
+    createdAt: u.createdAt ?? null,
+    joined: commitment !== null,
+    commitment,
+  };
+}
+
+// One page of users with their join status and commitment. Pagination/search/sort
+// are delegated to better-auth's list-users (the auth DB is the user directory);
+// only the page's participant rows are merged in. `?search` matches email (or name
+// when it has no '@'); `?sort` is `field:asc|desc` (e.g. createdAt:desc).
 app.get('/api/admin/users', requireAdmin, async (c) => {
+  const { limit, offset } = pageParams(c);
+  const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const search = c.req.query('search')?.trim();
+  if (search) {
+    q.set('searchValue', search);
+    q.set('searchField', search.includes('@') ? 'email' : 'name');
+    q.set('searchOperator', 'contains');
+  }
+  const sort = c.req.query('sort');
+  if (sort) {
+    const [field, dir] = sort.split(':');
+    q.set('sortBy', field);
+    q.set('sortDirection', dir === 'asc' ? 'asc' : 'desc');
+  }
+
   const res = await adminAuthFetch(
     c.env,
     c.req.header('cookie'),
-    'list-users?limit=1000',
+    `list-users?${q.toString()}`,
   );
   if (!res.ok) {
     return c.json({ error: 'failed to list users' }, 502);
@@ -537,15 +608,10 @@ app.get('/api/admin/users', requireAdmin, async (c) => {
   ).all<{ user_id: string; commitment: number }>();
   const commitmentByUser = new Map(results.map((r) => [r.user_id, r.commitment]));
 
-  const merged = users.map((u) => ({
-    id: u.id,
-    name: u.name ?? null,
-    email: u.email ?? null,
-    role: u.role ?? null,
-    joined: commitmentByUser.has(u.id),
-    commitment: commitmentByUser.get(u.id) ?? null,
-  }));
-  return c.json({ users: merged, total: total ?? merged.length });
+  const merged = users.map((u) =>
+    adminUserRow(u, commitmentByUser.get(u.id) ?? null),
+  );
+  return c.json({ users: merged, total: total ?? merged.length, limit, offset });
 });
 
 // One user's identity plus their join status, commitment and group membership.
@@ -578,14 +644,152 @@ app.get('/api/admin/users/:id', requireAdmin, async (c) => {
   }));
 
   return c.json({
-    id: user.id,
-    name: user.name ?? null,
-    email: user.email ?? null,
-    role: user.role ?? null,
-    joined: row !== null,
-    commitment: row?.commitment ?? null,
+    ...adminUserRow(user, row?.commitment ?? null),
     groups: groupSummaries,
   });
+});
+
+// One group: progress plus its members resolved to identity + block size. The
+// list view (/api/admin/groups) carries userIds only; this enriches one group.
+app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+  const groupRow = await c.env.DB.prepare(
+    'SELECT id, state, capacity_left FROM groups WHERE id = ?',
+  )
+    .bind(id)
+    .first<{ id: string; state: string; capacity_left: number }>();
+  if (!groupRow) {
+    return c.json({ error: 'group not found' }, 404);
+  }
+  const blocks = Group.fromState(structure, idGen, JSON.parse(groupRow.state)).toState()
+    .blocks;
+  const { results: memberRows } = await c.env.DB.prepare(
+    'SELECT user_id FROM group_members WHERE group_id = ?',
+  )
+    .bind(id)
+    .all<{ user_id: string }>();
+  const ids = memberRows.map((r) => r.user_id);
+  const identities = await loadIdentitiesFor(c.env, ids);
+
+  const total = structure.totalMishnayot;
+  const members = ids.map((uid) => {
+    const who = identities.get(uid);
+    return {
+      id: uid,
+      name: who?.name ?? null,
+      email: who?.email ?? null,
+      emailVerified: who?.emailVerified ?? false,
+      blockSize: userBlockSize(blocks, uid),
+    };
+  });
+  return c.json({
+    id: groupRow.id,
+    progress: (total - groupRow.capacity_left) / total,
+    memberCount: members.length,
+    members,
+  });
+});
+
+/** The Sunday-anchored week-start (YYYY-MM-DD) for `now` in the default timezone.
+ *  The admin dashboard/assignments use one shared week, independent of any user. */
+function currentWeekStart(now: Date): string {
+  return weekStartOnOrBefore(
+    localParts(now, DEFAULT_PREFS.timezone),
+    DEFAULT_PREFS.weeklyEmailDow,
+  );
+}
+
+// Dashboard counters. A handful of set-based aggregates, so it stays cheap as the
+// participant count grows (no per-user loop).
+app.get('/api/admin/stats', requireAdmin, async (c) => {
+  const weekStart = currentWeekStart(new Date());
+  const weekStartMs = weekStartToDate(weekStart).getTime();
+  const count = (q: D1PreparedStatement) =>
+    q.first<{ n: number }>().then((r) => r?.n ?? 0);
+
+  const [activeUsers, totalGroups, totalCompletions, weekCompletions, verifiedUsers] =
+    await Promise.all([
+      count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM participants')),
+      count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM groups')),
+      count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM completions')),
+      count(
+        c.env.DB
+          .prepare('SELECT COUNT(*) AS n FROM completions WHERE completed_at >= ?')
+          .bind(weekStartMs),
+      ),
+      count(
+        c.env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM "user" WHERE "emailVerified" = 1'),
+      ),
+    ]);
+
+  return c.json({
+    activeUsers,
+    verifiedUsers,
+    totalGroups,
+    totalCompletions,
+    weekCompletions,
+    weekStart,
+  });
+});
+
+// One page of participants with the chosen week's mishnayot, each tagged with its
+// group and learned-state, plus whether the weekly email went out. `?week=YYYY-MM-DD`
+// selects the week (defaults to the current one). Resolves blocks/completions/emails
+// only for the page's user subset via the batched email-path readers — a few
+// subrequests regardless of headcount.
+app.get('/api/admin/assignments', requireAdmin, async (c) => {
+  const { limit, offset } = pageParams(c);
+  const weekStart = parseUtcDate(c.req.query('week'))
+    ? (c.req.query('week') as string)
+    : currentWeekStart(new Date());
+  const weekDate = weekStartToDate(weekStart);
+
+  const total = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM participants')
+    .first<{ n: number }>()
+    .then((r) => r?.n ?? 0);
+  const { results: pageRows } = await c.env.DB.prepare(
+    'SELECT user_id FROM participants ORDER BY joined_at, user_id LIMIT ? OFFSET ?',
+  )
+    .bind(limit, offset)
+    .all<{ user_id: string }>();
+  const ids = pageRows.map((r) => r.user_id);
+  if (ids.length === 0) {
+    return c.json({ weekStart, rows: [], total });
+  }
+
+  const [groupBlocks, completedByUser, identities, sent] = await Promise.all([
+    loadGroupBlocksFor(c.env, ids),
+    loadCompletedFor(c.env, ids),
+    loadIdentitiesFor(c.env, ids),
+    alreadySentSet(c.env, ids, weekStart),
+  ]);
+
+  const rows = ids.map((uid) => {
+    const entries = groupBlocks.get(uid) ?? [];
+    const refs = assignmentEngine.getWeekAssignment(
+      entries.map((e) => e.block),
+      weekDate,
+    );
+    const done = completedByUser.get(uid) ?? new Set<string>();
+    const who = identities.get(uid);
+    const mishnas = refs.map((ref) => ({
+      mesechta: ref.mesechta,
+      perek: ref.perek,
+      mishna: ref.mishna,
+      groupId: groupIdForRefInBlocks(entries, ref),
+      done: done.has(refKey(ref)),
+    }));
+    return {
+      userId: uid,
+      name: who?.name ?? null,
+      email: who?.email ?? null,
+      emailVerified: who?.emailVerified ?? false,
+      emailSent: sent.has(`${uid}|weekly|${weekStart}`),
+      mishnas,
+    };
+  });
+
+  return c.json({ weekStart, rows, total });
 });
 
 // Return a user's mishnayot to their groups' gap queues (same path as /api/leave,
@@ -631,6 +835,37 @@ app.post('/api/admin/users/:id/send-weekly', requireAdmin, (c) =>
 app.post('/api/admin/users/:id/send-reminder', requireAdmin, (c) =>
   sendEmailNow(c.env, c.req.param('id'), 'reminder'),
 );
+
+// Admin mark/unmark a mishna learned on a user's behalf (the Assignments view's
+// learn/unlearn toggle). Mirrors the self /api/completions routes — same validation
+// and membership check — but keyed on the path's user id rather than the caller.
+app.post('/api/admin/users/:id/completions', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+  const parsed = parseCompletionBody(await c.req.json().catch(() => ({})));
+  if (!parsed) {
+    return c.json({ error: 'ref and groupId are required' }, 400);
+  }
+  try {
+    structure.indexOf(parsed.ref);
+  } catch {
+    return c.json({ error: 'ref must be a valid mishna' }, 400);
+  }
+  if (!(await isGroupMember(c.env, parsed.groupId, id))) {
+    return c.json({ error: 'user is not a member of that group' }, 403);
+  }
+  await recordCompletion(c.env, id, parsed.ref, parsed.groupId);
+  return c.json({ ok: true });
+});
+
+app.delete('/api/admin/users/:id/completions', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+  const parsed = parseCompletionBody(await c.req.json().catch(() => ({})));
+  if (!parsed) {
+    return c.json({ error: 'ref and groupId are required' }, 400);
+  }
+  await removeCompletion(c.env, id, parsed.ref, parsed.groupId);
+  return c.json({ ok: true });
+});
 
 // Hard-delete a user. Removes their assignments first (so mishna-app holds no
 // orphaned blocks/participants), then removes the better-auth account.
