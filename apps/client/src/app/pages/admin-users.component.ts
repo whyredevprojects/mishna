@@ -60,6 +60,13 @@ const PAGE_SIZE = 50;
           <ng-template #cell let-row let-col="col">
             @switch (col.key) {
               @case ('name') {
+                @if (row.role === 'admin') {
+                  <wa-icon
+                    name="shield-halved"
+                    title="Admin"
+                    style="margin-inline-end: var(--wa-space-2xs, 0.25rem)"
+                  ></wa-icon>
+                }
                 <strong>{{ row.name || '(no name)' }}</strong>
               }
               @case ('email') {

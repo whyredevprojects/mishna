@@ -69,9 +69,12 @@ service binding (`/api/auth/get-session`, a better-auth built-in) and sets
 `requireAdmin` does the same, then requires `user.isAdmin === true`, else `403`.
 This worker holds **no** admin config: `apps/login` is the single source of truth —
 its `customSession` plugin stamps `isAdmin` onto the get-session response from its
-`ADMIN_USER_IDS`. The admin user-management routes also proxy better-auth's
-`/api/auth/admin/*` endpoints through the `AUTH` binding (forwarding the caller's
-cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
+`ADMIN_USER_IDS` **or** a `role` of `admin` on the user row (set via the set-role
+route below). The admin user-management routes also proxy better-auth's
+`/api/auth/admin/*` endpoints through the `AUTH` binding (the `adminAuthFetch` helper
+forwards the caller's cookie — better-auth authorizes those against the same
+`ADMIN_USER_IDS` — **and** their browser `Origin`, since better-auth rejects
+state-changing admin POSTs that arrive without a trusted Origin).
 
 ## Routes
 
@@ -97,6 +100,7 @@ cookie; better-auth authorizes those against the same `ADMIN_USER_IDS`).
 | `GET /api/admin/users/:id` | One user: identity (+ `emailVerified`, `createdAt`) + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
 | `GET /api/admin/assignments?week&limit&offset` | One page of participants with the chosen week's mishnayot, each `{ ref…, groupId, done }`, plus `emailSent` (weekly). `week` defaults to the current week. Resolves blocks/completions/identities for the page subset via the batched email-path readers (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
+| `POST /api/admin/users/:id/set-role` `{ role: 'admin'\|'user' }` | Promote/revoke admin by proxying better-auth `set-role` (writes the `role` column); apps/login's `customSession` treats `role==='admin'` as `isAdmin` on the next session, alongside `ADMIN_USER_IDS` (**admin**). |
 | `POST/DELETE /api/admin/users/:id/completions` `{ ref, groupId }` | Mark/unmark a mishna learned on the user's behalf (the Assignments learn/unlearn toggle). Mirrors the self `/api/completions` routes, keyed on `:id` (**admin**). |
 | `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails. Verified-only, like the bulk path (**admin**). |
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |

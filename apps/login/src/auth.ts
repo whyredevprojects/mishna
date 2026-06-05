@@ -45,10 +45,21 @@ export function createAuth(env: Env) {
     // is the single source of truth for who's an admin: apps/server reads it from
     // the session it already fetches and needs no ADMIN_USER_IDS of its own. The
     // callback runs on every get-session (custom fields are never cached).
+    //
+    // Two paths grant admin: the `ADMIN_USER_IDS` env bootstrap (seed admins, set at
+    // deploy time) OR a `role` of 'admin' on the user row — which admins can set at
+    // runtime via the admin plugin's set-role endpoint (see apps/server's
+    // /api/admin/users/:id/set-role). The role path layers on top of the env seed;
+    // it doesn't replace it.
     plugins: [
       admin({ adminUserIds: adminIds }),
       customSession(async ({ user, session }) => ({
-        user: { ...user, isAdmin: adminIds.includes(user.id) },
+        user: {
+          ...user,
+          isAdmin:
+            adminIds.includes(user.id) ||
+            (user as { role?: string | null }).role === 'admin',
+        },
         session,
       })),
     ],

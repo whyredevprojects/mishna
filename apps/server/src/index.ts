@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { poweredBy } from 'hono/powered-by';
 import {
   Block,
@@ -127,18 +127,27 @@ function parseUtcDate(value: string | undefined): Date | null {
 
 /**
  * Calls a better-auth admin endpoint (`/api/auth/admin/<path>`) on the login worker
- * via the AUTH service binding, forwarding the caller's cookie so better-auth
- * authorizes against its `adminUserIds`. Used by the admin user-management routes.
+ * via the AUTH service binding. Forwards the caller's cookie (so better-auth authorizes
+ * against its `adminUserIds`) and their browser `Origin`: better-auth rejects
+ * state-changing (POST) admin calls that arrive without a trusted Origin
+ * (`MISSING_OR_NULL_ORIGIN`). The caller's Origin is same-origin in prod
+ * (getchevrasmishnayos.com) and localhost:4200 in dev — both in `trustedOrigins` — so
+ * forwarding it satisfies the check while keeping CSRF protection intact.
+ * Used by the admin user-management routes.
  */
 function adminAuthFetch(
-  env: Env,
-  cookie: string | undefined,
+  c: Context<{ Bindings: Env; Variables: AuthVariables }>,
   path: string,
   init?: RequestInit,
 ): Promise<Response> {
-  return env.AUTH.fetch(`https://login/api/auth/admin/${path}`, {
+  const origin = c.req.header('origin');
+  return c.env.AUTH.fetch(`https://login/api/auth/admin/${path}`, {
     ...init,
-    headers: { cookie: cookie ?? '', ...(init?.headers ?? {}) },
+    headers: {
+      cookie: c.req.header('cookie') ?? '',
+      ...(origin ? { origin } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
 }
 
@@ -590,11 +599,7 @@ app.get('/api/admin/users', requireAdmin, async (c) => {
     q.set('sortDirection', dir === 'asc' ? 'asc' : 'desc');
   }
 
-  const res = await adminAuthFetch(
-    c.env,
-    c.req.header('cookie'),
-    `list-users?${q.toString()}`,
-  );
+  const res = await adminAuthFetch(c, `list-users?${q.toString()}`);
   if (!res.ok) {
     return c.json({ error: 'failed to list users' }, 502);
   }
@@ -618,8 +623,7 @@ app.get('/api/admin/users', requireAdmin, async (c) => {
 app.get('/api/admin/users/:id', requireAdmin, async (c) => {
   const id = c.req.param('id');
   const res = await adminAuthFetch(
-    c.env,
-    c.req.header('cookie'),
+    c,
     `get-user?id=${encodeURIComponent(id)}`,
   );
   if (!res.ok) {
@@ -804,6 +808,29 @@ app.post('/api/admin/users/:id/remove-assignments', requireAdmin, async (c) => {
   return new Response(res.body, res);
 });
 
+// Promote a user to admin (role 'admin') or revoke it (role 'user'). Proxies the
+// better-auth admin plugin's set-role endpoint, which writes the `role` column on the
+// auth user row. apps/login's customSession then treats role 'admin' as isAdmin on the
+// next session, so the grant takes effect without touching ADMIN_USER_IDS.
+app.post('/api/admin/users/:id/set-role', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+  const { role } = (await c.req.json().catch(() => ({}))) as { role?: unknown };
+  if (role !== 'admin' && role !== 'user') {
+    return c.json({ error: 'role must be admin or user' }, 400);
+  }
+  const res = await adminAuthFetch(c, 'set-role', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId: id, role }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    console.error('set-role failed', res.status, detail);
+    return c.json({ error: 'failed to set role', status: res.status, detail }, 502);
+  }
+  return c.json({ role });
+});
+
 // Admin "send now": send an extra weekly or reminder email for a user, bypassing the
 // once-per-week dedup. Reuses the user's prefs to anchor the week (so the email covers
 // the same quota the scheduled one would). Unlike the scheduled path (the ReminderWorkflow,
@@ -882,8 +909,7 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
   }
 
   const removed = await adminAuthFetch(
-    c.env,
-    c.req.header('cookie'),
+    c,
     'remove-user',
     {
       method: 'POST',

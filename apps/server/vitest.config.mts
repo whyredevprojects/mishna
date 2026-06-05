@@ -69,6 +69,18 @@ export default defineConfig(() => ({
             if (url.pathname === '/api/auth/admin/remove-user') {
               return json({ success: true });
             }
+            if (url.pathname === '/api/auth/admin/set-role') {
+              // Mirror better-auth: state-changing admin calls are rejected without a
+              // trusted Origin (MISSING_OR_NULL_ORIGIN), so this guards that the server
+              // forwards the caller's Origin.
+              if (!request.headers.get('origin')) {
+                return new Response(
+                  JSON.stringify({ code: 'MISSING_OR_NULL_ORIGIN' }),
+                  { status: 403, headers: { 'content-type': 'application/json' } },
+                );
+              }
+              return json({ success: true });
+            }
             return json(null);
           },
         },
