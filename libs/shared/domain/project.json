@@ -15,9 +15,9 @@
         "assets": [
           "libs/shared/domain/*.md",
           {
-            "input": "libs/shared/domain/src/lib",
+            "input": "libs/shared/domain/src/data",
             "glob": "mishnah_dataset.json",
-            "output": "src/lib"
+            "output": "src/data"
           }
         ]
       }

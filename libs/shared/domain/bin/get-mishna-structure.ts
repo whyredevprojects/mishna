@@ -16,8 +16,8 @@ import {
  *   - length   → number of perakim
  *   - chapters → array where chapters[i] = mishnayot count in perek (i+1)
  *
- * Run:  npx ts-node mishnah_dataset.ts
- * Or:   npx tsx mishnah_dataset.ts
+ * Run:  npx ts-node get-mishna-structure.ts
+ * Or:   npx tsx get-mishna-structure.ts
  */
 
 // ---------------------------------------------------------------------------
@@ -134,12 +134,14 @@ async function main(): Promise<void> {
 
   // Optionally write JSON to disk
   const fs = await import('fs/promises');
-  await fs.writeFile(
-    'mishnah_dataset.json',
-    JSON.stringify(dataset, null, 2),
-    'utf-8',
+  const path = await import('path');
+  const url = await import('url');
+  const outPath = path.join(
+    path.dirname(url.fileURLToPath(import.meta.url)),
+    '../src/data/mishnah_dataset.json',
   );
-  console.log('\n✓ Written to mishnah_dataset.json');
+  await fs.writeFile(outPath, JSON.stringify(dataset, null, 2), 'utf-8');
+  console.log(`\n✓ Written to ${outPath}`);
 }
 
 main().catch((err) => {

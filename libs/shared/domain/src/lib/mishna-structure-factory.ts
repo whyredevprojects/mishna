@@ -1,4 +1,4 @@
-import dataset from './mishnah_dataset.json';
+import dataset from '../data/mishnah_dataset.json';
 import { MishnahDataset } from './mishna-types';
 import { MishnaStructure } from './mishna-structure';
 
