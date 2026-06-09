@@ -8,6 +8,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { MishnaRef } from '../models/api.types';
 import { MishnaText, MishnaTextService } from '../services/mishna-text.service';
 import { formatRef, formatRefHe } from '../util/format';
@@ -16,12 +17,20 @@ import { formatRef, formatRefHe } from '../util/format';
  * One mishna: its Hebrew text, an English toggle, and the "I Learned This Baal
  * Peh" completion button. Text is loaded on demand from {@link MishnaTextService};
  * completion state is owned by the parent (see TodayCardComponent).
+ *
+ * In {@link collapsible} mode the card instead renders a compact, clickable
+ * disclosure row (ref + a learned/pending tag) that reveals the text inline only
+ * when opened — and defers loading the text until then (see the load effect).
  */
 @Component({
   selector: 'app-mishna-card',
+  imports: [NgTemplateOutlet],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
+      :host {
+        display: block;
+      }
       wa-card.learned::part(header) {
         background-color: var(--wa-color-success-fill-quiet, #dcfce7);
       }
@@ -61,19 +70,103 @@ import { formatRef, formatRefHe } from '../util/format';
         justify-content: flex-end;
         gap: var(--wa-space-s, 0.5rem);
       }
+      /* Collapsible (disclosure) mode — a compact row that opens to reveal the text. */
+      .row-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--wa-space-s, 0.5rem);
+        padding-block: var(--wa-space-2xs, 0.25rem);
+        cursor: pointer;
+      }
+      .row-head:focus-visible {
+        outline: var(--wa-border-width-l, 2px) solid
+          var(--wa-color-brand-fill-loud, #2563eb);
+        outline-offset: 2px;
+        border-radius: var(--wa-border-radius-s, 0.25rem);
+      }
+      .row-main {
+        display: flex;
+        align-items: center;
+        gap: var(--wa-space-xs, 0.375rem);
+      }
+      .row-main .ref {
+        font-variant-numeric: tabular-nums;
+      }
+      .chev {
+        color: var(--wa-color-text-quiet, #6b6b6b);
+        font-size: 0.85em;
+      }
+      .row-body {
+        padding-block-end: var(--wa-space-s, 0.5rem);
+      }
     `,
   ],
   template: `
-    <wa-card [class.learned]="!showCheckbox() && done()">
-      <div slot="header" class="header">
-        <strong>{{ format(ref()) }}</strong>
-        @if (text(); as t) {
-          <span class="he hebrew-text">{{
-            formatHe(t.tractateHebrewName, ref().perek, ref().mishna)
-          }}</span>
+    @if (collapsible()) {
+      <div class="disclosure">
+        <div
+          class="row-head"
+          role="button"
+          tabindex="0"
+          [attr.aria-expanded]="expanded()"
+          (click)="toggle()"
+          (keydown.enter)="toggle()"
+          (keydown.space)="onSpace($event)"
+        >
+          <span class="row-main">
+            <wa-icon
+              class="chev"
+              [attr.name]="expanded() ? 'chevron-down' : 'chevron-right'"
+            ></wa-icon>
+            <span class="ref">{{ ref().perek }}:{{ ref().mishna }}</span>
+          </span>
+          @if (done()) {
+            <wa-tag size="small" variant="success">Learned</wa-tag>
+          } @else {
+            <wa-tag size="small">Pending</wa-tag>
+          }
+        </div>
+
+        @if (expanded()) {
+          <div class="row-body">
+            <ng-container [ngTemplateOutlet]="bodyTpl"></ng-container>
+            @if (showEnglishToggle()) {
+              <div class="footer">
+                <ng-container [ngTemplateOutlet]="englishToggleTpl"></ng-container>
+              </div>
+            }
+          </div>
         }
       </div>
+    } @else {
+      <wa-card [class.learned]="!showCheckbox() && done()">
+        <div slot="header" class="header">
+          <strong>{{ format(ref()) }}</strong>
+          @if (text(); as t) {
+            <span class="he hebrew-text">{{
+              formatHe(t.tractateHebrewName, ref().perek, ref().mishna)
+            }}</span>
+          }
+        </div>
 
+        <ng-container [ngTemplateOutlet]="bodyTpl"></ng-container>
+
+        <div slot="footer" class="footer">
+          @if (showEnglishToggle()) {
+            <ng-container [ngTemplateOutlet]="englishToggleTpl"></ng-container>
+          }
+          @if (showCheckbox()) {
+            <wa-checkbox
+              [attr.checked]="done() ? '' : null"
+              (change)="learned.emit()"
+            >I Learned This Baal Peh</wa-checkbox>
+          }
+        </div>
+      </wa-card>
+    }
+
+    <ng-template #bodyTpl>
       @if (loading()) {
         <div class="spinner-wrap"><wa-spinner></wa-spinner></div>
       } @else if (text(); as t) {
@@ -84,40 +177,38 @@ import { formatRef, formatRefHe } from '../util/format';
       } @else {
         <p class="muted">Text unavailable for this mishna.</p>
       }
+    </ng-template>
 
-      <div slot="footer" class="footer">
-        @if (showEnglishToggle()) {
-          <wa-button
-            appearance="outlined"
-            (click)="showEnglish.set(!showEnglish())"
-          >
-            <wa-icon slot="start" name="language"></wa-icon>
-            {{ showEnglish() ? 'Hide English' : 'English' }}
-          </wa-button>
-        }
-        @if (showCheckbox()) {
-          <wa-checkbox
-            [attr.checked]="done() ? '' : null"
-            (change)="learned.emit()"
-          >I Learned This Baal Peh</wa-checkbox>
-        }
-      </div>
-    </wa-card>
+    <ng-template #englishToggleTpl>
+      <wa-button appearance="outlined" (click)="showEnglish.set(!showEnglish())">
+        <wa-icon slot="start" name="language"></wa-icon>
+        {{ showEnglish() ? 'Hide English' : 'English' }}
+      </wa-button>
+    </ng-template>
   `,
 })
 export class MishnaCardComponent {
   readonly ref = input.required<MishnaRef>();
   readonly done = input.required<boolean>();
-  /** Show the "I Learned This" checkbox; when false, render a learned/not-yet tag. */
+  /** Show the "I Learned This" checkbox; when false, no completion control is shown. */
   readonly showCheckbox = input(true);
   /** Render the footer English toggle; set false when a parent owns English visibility. */
   readonly showEnglishToggle = input(true);
   /** English visibility — internal when {@link showEnglishToggle}, else parent-driven. */
   readonly showEnglish = model(false);
+  /**
+   * Render as a compact disclosure row whose heading toggles the text open/closed,
+   * collapsed by default. Text loads lazily on first expand (see the load effect),
+   * so a long list of these doesn't fetch a tractate per row up front.
+   */
+  readonly collapsible = input(false);
   readonly learned = output<void>();
 
   protected readonly format = formatRef;
   protected readonly formatHe = formatRefHe;
+
+  /** Open state in {@link collapsible} mode; ignored otherwise. */
+  protected readonly expanded = signal(false);
 
   protected readonly text = signal<MishnaText | null>(null);
   protected readonly loading = signal(true);
@@ -126,8 +217,14 @@ export class MishnaCardComponent {
   private loadToken = 0;
 
   constructor() {
-    // (Re)load text whenever the ref changes; ignore stale resolutions.
+    // (Re)load text whenever the ref changes; ignore stale resolutions. In
+    // collapsible mode, defer the lookup until the card is actually expanded —
+    // otherwise a long list (e.g. /my-mishnayos) would fetch a tractate JSON per
+    // row on render. Reading expanded() here re-runs the effect on first open.
     effect(() => {
+      if (this.collapsible() && !this.expanded()) {
+        return;
+      }
       const ref = this.ref();
       const token = ++this.loadToken;
       this.loading.set(true);
@@ -154,5 +251,16 @@ export class MishnaCardComponent {
           }
         });
     });
+  }
+
+  /** Toggle the disclosure (collapsible mode). */
+  protected toggle(): void {
+    this.expanded.update((v) => !v);
+  }
+
+  /** Space on the disclosure header toggles it without scrolling the page. */
+  protected onSpace(event: Event): void {
+    event.preventDefault();
+    this.toggle();
   }
 }

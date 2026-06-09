@@ -8,6 +8,7 @@ import { RouterLink } from '@angular/router';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 import { MishnaRef } from '../models/api.types';
 import { AssignmentService } from '../services/assignment.service';
+import { MishnaCardComponent } from '../components/mishna-card.component';
 import { chalukaQueryOptions } from '../queries/queries';
 import { formatRef } from '../util/format';
 
@@ -26,7 +27,7 @@ interface MesechtaGroup {
  */
 @Component({
   selector: 'app-my-mishnayos-assignments',
-  imports: [RouterLink],
+  imports: [RouterLink, MishnaCardComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
@@ -45,19 +46,9 @@ interface MesechtaGroup {
         display: flex;
         flex-direction: column;
       }
-      .row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: var(--wa-space-s, 0.5rem);
-        padding-block: var(--wa-space-2xs, 0.125rem);
-      }
-      .row + .row {
+      app-mishna-card + app-mishna-card {
         border-block-start: var(--wa-border-width-s, 1px) solid
           var(--wa-color-surface-border, #e5e0d8);
-      }
-      .row .ref {
-        font-variant-numeric: tabular-nums;
       }
       .spinner-wrap {
         display: flex;
@@ -86,14 +77,12 @@ interface MesechtaGroup {
             </div>
             <div class="rows">
               @for (row of g.rows; track key(row.ref)) {
-                <div class="row">
-                  <span class="ref">{{ row.ref.perek }}:{{ row.ref.mishna }}</span>
-                  @if (row.done) {
-                    <wa-tag size="small" variant="success">Learned</wa-tag>
-                  } @else {
-                    <wa-tag size="small">Pending</wa-tag>
-                  }
-                </div>
+                <app-mishna-card
+                  [ref]="row.ref"
+                  [done]="row.done"
+                  [collapsible]="true"
+                  [showCheckbox]="false"
+                ></app-mishna-card>
               }
             </div>
           </wa-card>
