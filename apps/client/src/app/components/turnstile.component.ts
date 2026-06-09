@@ -21,7 +21,6 @@ interface TurnstileApi {
     },
   ): string;
   remove(widgetId: string): void;
-  ready(callback: () => void): void;
 }
 
 declare global {
@@ -82,8 +81,8 @@ export class TurnstileComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     loadTurnstile()
-      // ready() gates explicit rendering on Turnstile being fully initialised.
-      .then(() => window.turnstile?.ready(() => this.renderWidget()))
+      // Explicit mode is ready as soon as api.js's onload fires, so render now.
+      .then(() => this.renderWidget())
       .catch(() => {
         // Script blocked (offline / ad-blocker). Token stays null so the form's
         // submit button stays disabled; the server would reject anyway.
