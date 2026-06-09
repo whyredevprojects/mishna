@@ -3,6 +3,7 @@ import {
   Component,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -13,6 +14,7 @@ import { AuthService } from '../services/auth.service';
 import { CycleService } from '../services/cycle.service';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
 import { SiteHeaderComponent } from '../components/site-header.component';
+import { TurnstileComponent } from '../components/turnstile.component';
 import { queryKeys } from '../queries/query-keys';
 import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
@@ -20,7 +22,12 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
  * session already exists. New users follow the "Join here" link to /join. */
 @Component({
   selector: 'app-landing',
-  imports: [CycleProgressComponent, SiteHeaderComponent, RouterLink],
+  imports: [
+    CycleProgressComponent,
+    SiteHeaderComponent,
+    TurnstileComponent,
+    RouterLink,
+  ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
@@ -84,6 +91,8 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
             (keydown.enter)="logIn()"
           ></wa-input>
 
+          <app-turnstile (verified)="captchaToken.set($event)"></app-turnstile>
+
           @if (error(); as e) {
             <p class="error">{{ e }}</p>
           }
@@ -92,6 +101,7 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
             class="signin"
             variant="brand"
             [attr.loading]="loading() ? '' : null"
+            [attr.disabled]="captchaToken() ? null : ''"
             (click)="logIn()"
           >
             Log in
@@ -126,8 +136,10 @@ export class LandingComponent {
   protected readonly cycleQuery = injectQuery(() =>
     cycleQueryOptions(this.cycleService),
   );
+  private readonly turnstile = viewChild.required(TurnstileComponent);
   protected readonly email = signal('');
   protected readonly password = signal('');
+  protected readonly captchaToken = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly loading = signal(false);
 
@@ -142,10 +154,11 @@ export class LandingComponent {
   }
 
   protected logIn(): void {
-    if (this.loading()) return;
+    const token = this.captchaToken();
+    if (this.loading() || !token) return;
     this.error.set(null);
     this.loading.set(true);
-    this.auth.signInWithEmail(this.email(), this.password()).subscribe({
+    this.auth.signInWithEmail(this.email(), this.password(), token).subscribe({
       next: async () => {
         // New session — refetch `me` now so the route guard sees the signed-in user
         // (invalidateQueries only marks stale; ensureQueryData would still read the
@@ -157,6 +170,10 @@ export class LandingComponent {
       error: () => {
         this.loading.set(false);
         this.error.set('Incorrect email or password.');
+        // The Turnstile token was consumed by this attempt; get a fresh one so a
+        // retry isn't rejected for reusing it.
+        this.captchaToken.set(null);
+        this.turnstile().reset();
       },
     });
   }

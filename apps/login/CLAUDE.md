@@ -79,6 +79,25 @@ but is no longer the apply mechanism.
   reading `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from env (Wrangler secrets).
   Enabling it needs no schema change — the existing `account` table covers OAuth.
 
+## Captcha (Cloudflare Turnstile)
+
+The better-auth **captcha plugin** (`cloudflare-turnstile`) guards the
+bot-facing endpoints. It's middleware: on a POST to `/sign-in/email`,
+`/sign-up/email`, or `/request-password-reset` (the plugin defaults) it reads the
+`x-captcha-response` header, verifies it via Turnstile's `/siteverify`, and rejects
+the request if the token is missing/invalid. The Angular client renders the widget
+and sends that header (`apps/client` `TurnstileComponent` + `AuthService`); the
+server worker forwards `/api/auth/*` with `c.req.raw`, so the header survives the
+hop in both dev and prod.
+
+- Wired in `createAuth(env)` (`src/auth.ts`) — it needs the runtime
+  `TURNSTILE_SECRET_KEY` secret, like the email callbacks, and adds **no tables**
+  (so the generated schema / migrations are untouched).
+- **Gated on the secret**: the plugin is only added when `TURNSTILE_SECRET_KEY` is
+  set. With no secret an empty key would reject every sign-in/up, and it lets the
+  worker's own tests (run with no secret) exercise the auth flows. **Production
+  must set the secret** for protection to be on.
+
 ## Email (verification + password reset)
 
 `createAuth(env)` wires two better-auth email callbacks to **Resend**
@@ -154,6 +173,14 @@ the server worker, which forwards `/api/auth/*` here via the `AUTH` service bind
 - `wrangler secret put RESEND_API_KEY` (for verification + password-reset email).
   For local dev, put it in `.dev.vars`. `RESEND_FROM_EMAIL` is a plain var in
   `wrangler.toml` (`noreply@getchevrasmishnayos.com`, the verified Resend domain).
+- `wrangler secret put TURNSTILE_SECRET_KEY` (Cloudflare Turnstile bot protection).
+  Create the widget in the Cloudflare dashboard for `getchevrasmishnayos.com` — its
+  **site key** goes in `apps/client/src/environments/environment.ts`, its **secret
+  key** here. (Dev uses Cloudflare's always-pass test keys, wired via
+  `environment.development.ts` + `.dev.vars`.)
+  For local dev, put `TURNSTILE_SECRET_KEY` in `.dev.vars` (the test secret
+  `1x0000000000000000000000000000000AA` always passes). Without this secret the
+  captcha plugin is **disabled** (see "Captcha" above).
 - The Pages project must have `getchevrasmishnayos.com` as a custom domain (its
   zone must be on this Cloudflare account for the worker `routes` to bind).
 

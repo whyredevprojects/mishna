@@ -3,18 +3,20 @@ import {
   Component,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { QueryClient } from '@tanstack/angular-query-experimental';
 import { AuthService } from '../services/auth.service';
 import { SiteHeaderComponent } from '../components/site-header.component';
+import { TurnstileComponent } from '../components/turnstile.component';
 import { queryKeys } from '../queries/query-keys';
 
 /** Public signup page. Creates an account via email/password or Google, then
  * lands on the dashboard where the commitment picker (JoinFormComponent) runs. */
 @Component({
   selector: 'app-join',
-  imports: [SiteHeaderComponent, RouterLink],
+  imports: [SiteHeaderComponent, TurnstileComponent, RouterLink],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
@@ -67,6 +69,8 @@ import { queryKeys } from '../queries/query-keys';
             (keydown.enter)="createAccount()"
           ></wa-input>
 
+          <app-turnstile (verified)="captchaToken.set($event)"></app-turnstile>
+
           @if (error(); as e) {
             <p class="error">{{ e }}</p>
           }
@@ -75,6 +79,7 @@ import { queryKeys } from '../queries/query-keys';
             class="submit"
             variant="brand"
             [attr.loading]="loading() ? '' : null"
+            [attr.disabled]="captchaToken() ? null : ''"
             (click)="createAccount()"
           >
             Create account
@@ -101,18 +106,21 @@ export class JoinComponent {
   private readonly router = inject(Router);
   private readonly queryClient = inject(QueryClient);
 
+  private readonly turnstile = viewChild.required(TurnstileComponent);
   protected readonly name = signal('');
   protected readonly email = signal('');
   protected readonly password = signal('');
+  protected readonly captchaToken = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly loading = signal(false);
 
   protected createAccount(): void {
-    if (this.loading()) return;
+    const token = this.captchaToken();
+    if (this.loading() || !token) return;
     this.error.set(null);
     this.loading.set(true);
     this.auth
-      .signUpWithEmail(this.name(), this.email(), this.password())
+      .signUpWithEmail(this.name(), this.email(), this.password(), token)
       .subscribe({
         next: async () => {
           // New session — refetch `me` now so the route guard sees the signed-in user
@@ -127,6 +135,10 @@ export class JoinComponent {
           this.error.set(
             'Could not create the account. The email may already be registered, or the password is too short.',
           );
+          // The Turnstile token was consumed by this attempt; get a fresh one so a
+          // retry isn't rejected for reusing it.
+          this.captchaToken.set(null);
+          this.turnstile().reset();
         },
       });
   }

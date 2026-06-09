@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { QueryClient } from '@tanstack/angular-query-experimental';
 import { Me } from '../models/api.types';
@@ -42,23 +42,38 @@ export class AuthService {
    * Signs in with email + password via the login worker. On success the session
    * cookie is set; callers should refresh `loadSession()` / navigate. Emits the
    * created session on success and propagates errors (e.g. invalid credentials)
-   * so the caller can surface a message.
+   * so the caller can surface a message. `captchaToken` is the Cloudflare
+   * Turnstile token, which the login worker's captcha plugin requires.
    */
-  signInWithEmail(email: string, password: string): Observable<unknown> {
-    return this.http.post('/api/auth/sign-in/email', { email, password });
+  signInWithEmail(
+    email: string,
+    password: string,
+    captchaToken?: string,
+  ): Observable<unknown> {
+    return this.http.post(
+      '/api/auth/sign-in/email',
+      { email, password },
+      captchaOptions(captchaToken),
+    );
   }
 
   /**
    * Creates an account with email + password via the login worker. With no email
    * verification configured, the user is signed in immediately. Propagates errors
-   * (e.g. email already registered) for the caller to display.
+   * (e.g. email already registered) for the caller to display. `captchaToken` is
+   * the Cloudflare Turnstile token required by the login worker's captcha plugin.
    */
   signUpWithEmail(
     name: string,
     email: string,
     password: string,
+    captchaToken?: string,
   ): Observable<unknown> {
-    return this.http.post('/api/auth/sign-up/email', { name, email, password });
+    return this.http.post(
+      '/api/auth/sign-up/email',
+      { name, email, password },
+      captchaOptions(captchaToken),
+    );
   }
 
   /**
@@ -90,11 +105,16 @@ export class AuthService {
    * the token is validated — our `/reset-password` page, which reads the appended
    * `?token=`. Resolves whether or not the email exists (no enumeration).
    */
-  requestPasswordReset(email: string, redirectTo: string): Observable<unknown> {
-    return this.http.post('/api/auth/request-password-reset', {
-      email,
-      redirectTo,
-    });
+  requestPasswordReset(
+    email: string,
+    redirectTo: string,
+    captchaToken?: string,
+  ): Observable<unknown> {
+    return this.http.post(
+      '/api/auth/request-password-reset',
+      { email, redirectTo },
+      captchaOptions(captchaToken),
+    );
   }
 
   /**
@@ -120,4 +140,17 @@ export class AuthService {
       }),
     );
   }
+}
+
+/**
+ * Builds the HttpClient options carrying the Cloudflare Turnstile token in the
+ * `x-captcha-response` header the login worker's captcha plugin reads. Returns an
+ * empty object when no token is given (caller-side captcha not yet wired).
+ */
+function captchaOptions(captchaToken?: string): {
+  headers?: HttpHeaders;
+} {
+  return captchaToken
+    ? { headers: new HttpHeaders().set('x-captcha-response', captchaToken) }
+    : {};
 }

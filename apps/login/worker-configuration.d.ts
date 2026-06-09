@@ -10,6 +10,7 @@ interface __BaseEnv_Env {
   RESEND_API_KEY: string;
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_CLIENT_ID: string;
+  TURNSTILE_SECRET_KEY: string;
 }
 declare namespace Cloudflare {
   interface GlobalProps {

@@ -63,6 +63,25 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
   resynced from WA close events like `(wa-after-hide)`.
 - Icons (`<wa-icon>`) load Font Awesome Free over the network by default.
 
+## Captcha (Cloudflare Turnstile)
+
+The sign-in (`landing`), sign-up (`join`) and forgot-password pages render a
+`<app-turnstile>` widget (`components/turnstile.component.ts`) and pass its token to
+the matching `AuthService` call, which sends it as the `x-captcha-response` header.
+The login worker's captcha plugin verifies it server-side (see `apps/login`).
+
+- `TurnstileComponent` lazily injects Cloudflare's `api.js` once per document
+  (explicit render), exposes the token via a `(verified)` output + `token` signal,
+  and a `reset()` method. **Tokens are single-use**, so each page calls
+  `reset()` in its request's error handler (e.g. wrong password) to get a fresh one
+  for the retry; the submit button stays disabled until a token exists.
+- The **public** site key comes from `environments/environment.ts`
+  (`turnstileSiteKey`) — the one place this app uses Angular's standard
+  environment-file pattern. `environment.ts` holds the real **production** key;
+  the `development` build config swaps in `environment.development.ts` (Cloudflare's
+  always-pass *test* key) via `fileReplacements` in `project.json`, so `nx serve`
+  works on any hostname. The secret key lives in `apps/login`.
+
 ## Layout (`src/app/`)
 
 | Path | Role |
@@ -75,7 +94,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `models/api.types.ts` | Client shapes of the server responses; reuses `@mishna/domain` value types, redefines anything carrying a `Date` (arrives as ISO string). |
 | `services/` | One thin service per API area (see below) — they own the URLs only. |
 | `queries/` | TanStack Query layer: `query-keys.ts` (cache-key registry) + `queries.ts` (`queryOptions` factories that wrap the service observables). See **Data caching** below. |
-| `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-list`, `today-card`, `join-form`. |
+| `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-card` (one mishna's text + English toggle + optional learn checkbox), `today-card`, `join-form`. |
 | `pages/` | Routed screens: `landing`, `join`, `forgot-password` + `reset-password` (public password-reset flow, backed by better-auth/Resend in `apps/login`), `dashboard`, `review`, `settings`, the "My Mishnayos" shell `my-mishnayos` + its `my-mishnayos-assignments` (whole-cycle portion as a per-mesechta list with learned/pending status) and `my-mishnayos-stats` (overall progress + stats + per-mesechta breakdown) tabs, and the admin shell `admin` + `admin-overview`, `admin-users` (paginated/searchable), `admin-user-detail`, `admin-groups` + `admin-group-detail`, `admin-assignments`. Admin lists use `ui/` (`app-data-table` + `app-paginator`) with server-side paging (≤50/page). |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
 
@@ -83,7 +102,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 
 | Service | Calls |
 |---------|-------|
-| `AuthService` | `GET /api/me` (session + join status + identity + `isAdmin`), better-auth `sign-in/email`, `sign-up/email`, `sign-in/social`, `sign-out`, and password reset (`request-password-reset` + `reset-password`). Holds a `me` signal; `isAdmin()` reads it. |
+| `AuthService` | `GET /api/me` (session + join status + identity + `isAdmin`), better-auth `sign-in/email`, `sign-up/email`, `sign-in/social`, `sign-out`, and password reset (`request-password-reset` + `reset-password`). Holds a `me` signal; `isAdmin()` reads it. `sign-in/email`, `sign-up/email` and `request-password-reset` take a Cloudflare Turnstile token, sent as the `x-captcha-response` header the login worker's captcha plugin validates (see **Captcha** below). |
 | `CycleService` | `GET /api/cycle` (public). |
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/me/chaluka` (whole-cycle portion + learned subset), `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
@@ -103,7 +122,7 @@ instead of re-fetching. The `QueryClient` is provided in `app.config.ts` (defaul
   adding a key in `query-keys.ts` and a factory in `queries.ts`, then consume it.
 - **Reads**: components call `injectQuery(() => xQueryOptions(svc, ...))` and read the
   result signals (`q.data()`, `q.isPending()`/`isLoading()`, `q.isError()`). For
-  reactive params (e.g. Review's date) the key is a function of a signal.
+  reactive params the key is a function of a signal.
 - **Guards** resolve `me` via `queryClient.ensureQueryData(meQueryOptions(auth))`, so
   `authGuard` + `adminGuard` + the dashboard dedup to one `GET /api/me` per nav burst.
 - **Writes** use `injectMutation` and invalidate the affected keys in `onSuccess`
@@ -115,7 +134,8 @@ instead of re-fetching. The `QueryClient` is provided in `app.config.ts` (defaul
 - `AuthService.me` signal is still populated as a side effect of `loadSession()`'s
   `tap`, so `isAdmin()` and `auth.me()` keep working off the cached fetch.
 
-All calls use **relative `/api/*`** (no `environment.ts`), which works in both
+All calls use **relative `/api/*`** (no per-environment API base — the only thing
+`environments/` carries is the Turnstile site key), which works in both
 environments because the API is always same-origin:
 - **Dev**: `proxy.conf.json` forwards `/api` to the server worker on `:8787`.
 - **Prod**: the SPA serves from `getchevrasmishnayos.com` (Pages custom domain), and
@@ -135,8 +155,12 @@ environments because the API is always same-origin:
   toast via `ToastService` (an imperative `wa-callout`, since Web Awesome has no toast
   component). Reads are offline-capable (see **PWA / offline**), but offline
   check-off + reconnect sync is deferred — see root `TODO.md`.
-- **Review**: currently the date-picker browser (any day's assignment). The
-  per-perek completion view in the UI plan is deferred (needs completions data).
+- **Review**: a per-perek review browser over the user's whole-cycle portion
+  (`GET /api/me/chaluka`). A sticky header has mesechta + perek selectors (populated
+  from the allotment) and a mishna strip showing which mishnayos are learned (dimmed
+  when not yet); the whole perek renders as reused `mishna-card`s (`showCheckbox=false`).
+  Clicking a strip number scrolls to that mishna. The last spot is persisted in
+  localStorage (`util/review-storage.ts`) and restored (and scrolled to) on return.
 - **Settings**: `settings.component.ts` edits email prefs — timezone (`wa-select`
   populated from `Intl.supportedValuesOf('timeZone')`, with a "Detect" button using
   `Intl.DateTimeFormat().resolvedOptions().timeZone`), the weekly/reminder weekday
