@@ -4,6 +4,7 @@ import {
   effect,
   inject,
   input,
+  model,
   output,
   signal,
 } from '@angular/core';
@@ -85,13 +86,15 @@ import { formatRef, formatRefHe } from '../util/format';
       }
 
       <div slot="footer" class="footer">
-        <wa-button
-          appearance="outlined"
-          (click)="showEnglish.set(!showEnglish())"
-        >
-          <wa-icon slot="start" name="language"></wa-icon>
-          {{ showEnglish() ? 'Hide English' : 'English' }}
-        </wa-button>
+        @if (showEnglishToggle()) {
+          <wa-button
+            appearance="outlined"
+            (click)="showEnglish.set(!showEnglish())"
+          >
+            <wa-icon slot="start" name="language"></wa-icon>
+            {{ showEnglish() ? 'Hide English' : 'English' }}
+          </wa-button>
+        }
         @if (showCheckbox()) {
           <wa-checkbox
             [attr.checked]="done() ? '' : null"
@@ -107,6 +110,10 @@ export class MishnaCardComponent {
   readonly done = input.required<boolean>();
   /** Show the "I Learned This" checkbox; when false, render a learned/not-yet tag. */
   readonly showCheckbox = input(true);
+  /** Render the footer English toggle; set false when a parent owns English visibility. */
+  readonly showEnglishToggle = input(true);
+  /** English visibility — internal when {@link showEnglishToggle}, else parent-driven. */
+  readonly showEnglish = model(false);
   readonly learned = output<void>();
 
   protected readonly format = formatRef;
@@ -114,7 +121,6 @@ export class MishnaCardComponent {
 
   protected readonly text = signal<MishnaText | null>(null);
   protected readonly loading = signal(true);
-  protected readonly showEnglish = signal(false);
 
   private readonly textService = inject(MishnaTextService);
   private loadToken = 0;
@@ -125,7 +131,11 @@ export class MishnaCardComponent {
       const ref = this.ref();
       const token = ++this.loadToken;
       this.loading.set(true);
-      this.showEnglish.set(false);
+      // Self-managed mode collapses English on each new mishna; when a parent owns
+      // the toggle, leave the bound value alone.
+      if (this.showEnglishToggle()) {
+        this.showEnglish.set(false);
+      }
       this.textService
         .lookup(ref)
         .then((t) => {

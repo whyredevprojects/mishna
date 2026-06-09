@@ -1,6 +1,8 @@
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  DestroyRef,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -50,7 +52,7 @@ interface MesechtaGroup {
       .controls {
         position: sticky;
         top: 0;
-        z-index: 1;
+        z-index: 5;
         display: flex;
         flex-direction: column;
         gap: var(--wa-space-s, 0.5rem);
@@ -58,6 +60,14 @@ interface MesechtaGroup {
         background: var(--wa-color-surface-default, #fff);
         border-block-end: var(--wa-border-width-s, 1px) solid
           var(--wa-color-surface-border, #e5e0d8);
+        transition: transform 0.25s ease;
+      }
+      /* Mobile: auto-hide the controls on scroll down, reveal on scroll up — they're
+         tall and otherwise eat the screen. Desktop keeps them always visible. */
+      @media (max-width: 767.98px) {
+        .controls.hidden {
+          transform: translateY(-100%);
+        }
       }
       .selectors {
         display: flex;
@@ -66,6 +76,9 @@ interface MesechtaGroup {
       }
       .selectors wa-select {
         flex: 1 1 12rem;
+      }
+      .english-toggle {
+        align-self: flex-start;
       }
       .strip {
         display: flex;
@@ -101,7 +114,11 @@ interface MesechtaGroup {
           <a routerLink="/dashboard">Pick a commitment</a> to get your chaluka.
         </wa-callout>
       } @else if (selected(); as sel) {
-        <div class="controls">
+        <div
+          class="controls"
+          [class.hidden]="navHidden()"
+          [style.top.px]="topOffset()"
+        >
           <div class="selectors">
             <wa-select
               label="Mesechta"
@@ -128,6 +145,16 @@ interface MesechtaGroup {
             </wa-select>
           </div>
 
+          <wa-button
+            class="english-toggle"
+            appearance="outlined"
+            size="small"
+            (click)="showEnglish.set(!showEnglish())"
+          >
+            <wa-icon slot="start" name="language"></wa-icon>
+            {{ showEnglish() ? 'Hide English' : 'English' }}
+          </wa-button>
+
           <div class="strip">
             @for (row of rows(); track row.ref.mishna) {
               <wa-button
@@ -148,6 +175,8 @@ interface MesechtaGroup {
                 [ref]="row.ref"
                 [done]="row.done"
                 [showCheckbox]="false"
+                [showEnglishToggle]="false"
+                [showEnglish]="showEnglish()"
               ></app-mishna-card>
             </div>
           }
@@ -166,6 +195,9 @@ export class ReviewComponent {
   /** The current spot: drives which mesechta/perek is shown, the saved place, and
    * the strip's active mishna / scroll target. */
   protected readonly selected = signal<MishnaRef | null>(null);
+
+  /** Whether English is shown for every card in the perek (one shared toggle). */
+  protected readonly showEnglish = signal(false);
 
   protected readonly total = computed(
     () => this.query.data()?.assigned.length ?? 0,
@@ -229,6 +261,13 @@ export class ReviewComponent {
   );
   private initialized = false;
 
+  private readonly destroyRef = inject(DestroyRef);
+  /** Mobile: whether the controls bar is hidden (scrolled down). */
+  protected readonly navHidden = signal(false);
+  /** Sticky offset so the controls sit below the app topbar, not under it. */
+  protected readonly topOffset = signal(0);
+  private lastScrollY = 0;
+
   constructor() {
     // Once the portion loads, restore the saved spot (if still in the portion) or
     // start at the first mishna; then scroll to it. Guarded so a later refetch
@@ -255,6 +294,40 @@ export class ReviewComponent {
         saveReviewSpot(sel);
       }
     });
+
+    afterNextRender(() => {
+      this.measureTopOffset();
+      this.lastScrollY = window.scrollY;
+      const onScroll = () => this.onScroll();
+      const onResize = () => this.measureTopOffset();
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onResize);
+      this.destroyRef.onDestroy(() => {
+        window.removeEventListener('scroll', onScroll);
+        window.removeEventListener('resize', onResize);
+      });
+    });
+  }
+
+  /** Height of the app topbar, so the sticky controls clear it. */
+  private measureTopOffset(): void {
+    const bar = document.querySelector('header.topbar');
+    this.topOffset.set(bar ? Math.round(bar.getBoundingClientRect().height) : 0);
+  }
+
+  /** Hide the controls when scrolling down past the topbar; reveal on scroll up. */
+  private onScroll(): void {
+    const y = window.scrollY;
+    const delta = y - this.lastScrollY;
+    if (Math.abs(delta) < 4) {
+      return;
+    }
+    if (y <= this.topOffset()) {
+      this.navHidden.set(false);
+    } else {
+      this.navHidden.set(delta > 0);
+    }
+    this.lastScrollY = y;
   }
 
   protected anchorId(mishna: number): string {
