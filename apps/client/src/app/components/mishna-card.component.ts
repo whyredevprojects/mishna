@@ -21,6 +21,9 @@ import { formatRef, formatRefHe } from '../util/format';
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
+      wa-card.learned::part(header) {
+        background-color: var(--wa-color-success-fill-quiet, #dcfce7);
+      }
       .header {
         display: flex;
         align-items: baseline;
@@ -60,7 +63,7 @@ import { formatRef, formatRefHe } from '../util/format';
     `,
   ],
   template: `
-    <wa-card>
+    <wa-card [class.learned]="!showCheckbox() && done()">
       <div slot="header" class="header">
         <strong>{{ format(ref()) }}</strong>
         @if (text(); as t) {
@@ -94,10 +97,6 @@ import { formatRef, formatRefHe } from '../util/format';
             [attr.checked]="done() ? '' : null"
             (change)="learned.emit()"
           >I Learned This Baal Peh</wa-checkbox>
-        } @else if (done()) {
-          <wa-tag variant="success">Learned</wa-tag>
-        } @else {
-          <wa-tag>Not yet</wa-tag>
         }
       </div>
     </wa-card>
@@ -108,8 +107,6 @@ export class MishnaCardComponent {
   readonly done = input.required<boolean>();
   /** Show the "I Learned This" checkbox; when false, render a learned/not-yet tag. */
   readonly showCheckbox = input(true);
-  /** Reset the English toggle to hidden whenever the ref changes (off for review). */
-  readonly resetEnglishOnChange = input(true);
   readonly learned = output<void>();
 
   protected readonly format = formatRef;
@@ -128,9 +125,7 @@ export class MishnaCardComponent {
       const ref = this.ref();
       const token = ++this.loadToken;
       this.loading.set(true);
-      if (this.resetEnglishOnChange()) {
-        this.showEnglish.set(false);
-      }
+      this.showEnglish.set(false);
       this.textService
         .lookup(ref)
         .then((t) => {

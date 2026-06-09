@@ -36,9 +36,10 @@ interface MesechtaGroup {
 
 /**
  * Review browser over the caller's whole-cycle portion (`GET /api/me/chaluka`):
- * pick a mesechta + perek from your allotment, read each mishna's text (with an
- * English toggle), see which you've already learned, and page through the perek.
- * The last spot is remembered in localStorage and restored on return.
+ * pick a mesechta + perek from your allotment and read the whole perek's text (each
+ * mishna with an English toggle), with a sticky mishna selector that scrolls to a
+ * mishna and shows which you've already learned. The last spot is remembered in
+ * localStorage and restored (and scrolled to) on return.
  */
 @Component({
   selector: 'app-review',
@@ -46,6 +47,18 @@ interface MesechtaGroup {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
+      .controls {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: var(--wa-space-s, 0.5rem);
+        padding-block: var(--wa-space-s, 0.5rem);
+        background: var(--wa-color-surface-default, #fff);
+        border-block-end: var(--wa-border-width-s, 1px) solid
+          var(--wa-color-surface-border, #e5e0d8);
+      }
       .selectors {
         display: flex;
         flex-wrap: wrap;
@@ -62,14 +75,10 @@ interface MesechtaGroup {
       .strip wa-button.dim {
         opacity: 0.5;
       }
-      .nav {
+      .cards {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--wa-space-s, 0.5rem);
-      }
-      .nav .count {
-        font-variant-numeric: tabular-nums;
+        flex-direction: column;
+        gap: var(--wa-space-m, 0.75rem);
       }
       .spinner-wrap {
         display: flex;
@@ -91,71 +100,58 @@ interface MesechtaGroup {
           You haven’t joined the cycle yet.
           <a routerLink="/dashboard">Pick a commitment</a> to get your chaluka.
         </wa-callout>
-      } @else if (selected(); as ref) {
-        <div class="selectors">
-          <wa-select
-            label="Mesechta"
-            [value]="mesechtaValue()"
-            (change)="onMesechta($event)"
-          >
-            @for (m of mesechtaGroups(); track m.mesechta) {
-              <wa-option [value]="m.mesechta"
-                >{{ m.mesechta }} ({{ m.done }}/{{ m.total }})</wa-option
-              >
-            }
-          </wa-select>
+      } @else if (selected(); as sel) {
+        <div class="controls">
+          <div class="selectors">
+            <wa-select
+              label="Mesechta"
+              [value]="sel.mesechta"
+              (change)="onMesechta($event)"
+            >
+              @for (m of mesechtaGroups(); track m.mesechta) {
+                <wa-option [value]="m.mesechta"
+                  >{{ m.mesechta }} ({{ m.done }}/{{ m.total }})</wa-option
+                >
+              }
+            </wa-select>
 
-          <wa-select
-            label="Perek"
-            [value]="perekValue()"
-            (change)="onPerek($event)"
-          >
-            @for (p of perakim(); track p.perek) {
-              <wa-option [value]="p.perek.toString()"
-                >Perek {{ p.perek }} ({{ p.done }}/{{ p.rows.length }})</wa-option
-              >
+            <wa-select
+              label="Perek"
+              [value]="sel.perek.toString()"
+              (change)="onPerek($event)"
+            >
+              @for (p of perakim(); track p.perek) {
+                <wa-option [value]="p.perek.toString()"
+                  >Perek {{ p.perek }} ({{ p.done }}/{{ p.rows.length }})</wa-option
+                >
+              }
+            </wa-select>
+          </div>
+
+          <div class="strip">
+            @for (row of rows(); track row.ref.mishna) {
+              <wa-button
+                size="small"
+                [attr.appearance]="row.ref.mishna === sel.mishna ? 'accent' : (row.done ? 'filled' : 'outlined')"
+                [attr.variant]="row.done ? 'success' : 'neutral'"
+                [class.dim]="!row.done && row.ref.mishna !== sel.mishna"
+                (click)="goToMishna(row.ref)"
+              >{{ row.ref.mishna }}</wa-button>
             }
-          </wa-select>
+          </div>
         </div>
 
-        <div class="strip">
-          @for (row of rows(); track row.ref.mishna; let i = $index) {
-            <wa-button
-              size="small"
-              [attr.appearance]="i === currentIndex() ? 'accent' : (row.done ? 'filled' : 'outlined')"
-              [attr.variant]="row.done ? 'success' : 'neutral'"
-              [class.dim]="!row.done && i !== currentIndex()"
-              (click)="select(row.ref)"
-            >{{ row.ref.mishna }}</wa-button>
+        <div class="cards">
+          @for (row of rows(); track row.ref.mishna) {
+            <div [id]="anchorId(row.ref.mishna)">
+              <app-mishna-card
+                [ref]="row.ref"
+                [done]="row.done"
+                [showCheckbox]="false"
+              ></app-mishna-card>
+            </div>
           }
         </div>
-
-        <div class="nav">
-          <wa-button
-            appearance="outlined"
-            [attr.disabled]="hasPrev() ? null : ''"
-            (click)="prev()"
-          >
-            <wa-icon slot="start" name="chevron-left"></wa-icon>
-            Previous
-          </wa-button>
-          <span class="muted count">{{ position() }} of {{ rows().length }}</span>
-          <wa-button
-            appearance="outlined"
-            [attr.disabled]="hasNext() ? null : ''"
-            (click)="next()"
-          >
-            Next
-            <wa-icon slot="end" name="chevron-right"></wa-icon>
-          </wa-button>
-        </div>
-
-        <app-mishna-card
-          [ref]="ref"
-          [done]="currentDone()"
-          [showCheckbox]="false"
-          [resetEnglishOnChange]="false"
-        ></app-mishna-card>
       }
     </div>
   `,
@@ -167,7 +163,8 @@ export class ReviewComponent {
     chalukaQueryOptions(this.assignments),
   );
 
-  /** The mishna currently being reviewed; everything else derives from it. */
+  /** The current spot: drives which mesechta/perek is shown, the saved place, and
+   * the strip's active mishna / scroll target. */
   protected readonly selected = signal<MishnaRef | null>(null);
 
   protected readonly total = computed(
@@ -224,29 +221,8 @@ export class ReviewComponent {
     const sel = this.selected();
     return sel ? this.perakim().find((p) => p.perek === sel.perek) : undefined;
   });
-  /** The mishnayos of the current perek (within-perek next/prev step over these). */
+  /** The mishnayos of the current perek — all rendered as cards. */
   protected readonly rows = computed(() => this.currentPerekGroup()?.rows ?? []);
-
-  protected readonly currentIndex = computed(() => {
-    const sel = this.selected();
-    return sel ? this.rows().findIndex((r) => r.ref.mishna === sel.mishna) : -1;
-  });
-  protected readonly currentDone = computed(
-    () => this.rows()[this.currentIndex()]?.done ?? false,
-  );
-  protected readonly position = computed(() => this.currentIndex() + 1);
-  protected readonly hasPrev = computed(() => this.currentIndex() > 0);
-  protected readonly hasNext = computed(
-    () => this.currentIndex() < this.rows().length - 1,
-  );
-
-  protected readonly mesechtaValue = computed(
-    () => this.selected()?.mesechta ?? '',
-  );
-  protected readonly perekValue = computed(() => {
-    const perek = this.selected()?.perek;
-    return perek == null ? '' : perek.toString();
-  });
 
   private readonly assignedKeys = computed(
     () => new Set((this.query.data()?.assigned ?? []).map(formatRef)),
@@ -255,7 +231,8 @@ export class ReviewComponent {
 
   constructor() {
     // Once the portion loads, restore the saved spot (if still in the portion) or
-    // start at the first mishna. Guarded so a later refetch doesn't reset the view.
+    // start at the first mishna; then scroll to it. Guarded so a later refetch
+    // doesn't reset the view.
     effect(() => {
       const groups = this.mesechtaGroups();
       if (this.initialized || groups.length === 0) {
@@ -268,6 +245,7 @@ export class ReviewComponent {
           ? saved
           : groups[0].perakim[0].rows[0].ref;
       this.selected.set(start);
+      this.scheduleScroll(start.mishna);
     });
 
     // Remember the current spot so /review returns here next time.
@@ -279,15 +257,20 @@ export class ReviewComponent {
     });
   }
 
-  protected select(ref: MishnaRef): void {
+  protected anchorId(mishna: number): string {
+    return `review-mishna-${mishna}`;
+  }
+
+  protected goToMishna(ref: MishnaRef): void {
     this.selected.set(ref);
+    this.scheduleScroll(ref.mishna);
   }
 
   protected onMesechta(event: Event): void {
     const name = (event.target as HTMLSelectElement).value;
     const group = this.mesechtaGroups().find((m) => m.mesechta === name);
     if (group) {
-      this.selected.set(group.perakim[0].rows[0].ref);
+      this.goToMishna(group.perakim[0].rows[0].ref);
     }
   }
 
@@ -295,22 +278,21 @@ export class ReviewComponent {
     const perek = Number((event.target as HTMLSelectElement).value);
     const group = this.perakim().find((p) => p.perek === perek);
     if (group) {
-      this.selected.set(group.rows[0].ref);
+      this.goToMishna(group.rows[0].ref);
     }
   }
 
-  protected prev(): void {
-    const i = this.currentIndex();
-    if (i > 0) {
-      this.selected.set(this.rows()[i - 1].ref);
-    }
-  }
-
-  protected next(): void {
-    const rows = this.rows();
-    const i = this.currentIndex();
-    if (i < rows.length - 1) {
-      this.selected.set(rows[i + 1].ref);
+  /** Scroll a mishna's card into view once the perek's cards have rendered. */
+  private scheduleScroll(mishna: number): void {
+    const scroll = () => {
+      document
+        .getElementById(this.anchorId(mishna))
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(scroll);
+    } else {
+      scroll();
     }
   }
 }

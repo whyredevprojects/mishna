@@ -136,10 +136,11 @@ environments because the API is always same-origin:
   component). Reads are offline-capable (see **PWA / offline**), but offline
   check-off + reconnect sync is deferred — see root `TODO.md`.
 - **Review**: a per-perek review browser over the user's whole-cycle portion
-  (`GET /api/me/chaluka`). Mesechta + perek selectors (populated from the allotment),
-  a perek strip showing which mishnayos are learned (dimmed when not yet), and a
-  reused `mishna-card` (`showCheckbox=false`) with within-perek prev/next. The last
-  spot is persisted in localStorage (`util/review-storage.ts`) and restored on return.
+  (`GET /api/me/chaluka`). A sticky header has mesechta + perek selectors (populated
+  from the allotment) and a mishna strip showing which mishnayos are learned (dimmed
+  when not yet); the whole perek renders as reused `mishna-card`s (`showCheckbox=false`).
+  Clicking a strip number scrolls to that mishna. The last spot is persisted in
+  localStorage (`util/review-storage.ts`) and restored (and scrolled to) on return.
 - **Settings**: `settings.component.ts` edits email prefs — timezone (`wa-select`
   populated from `Intl.supportedValuesOf('timeZone')`, with a "Detect" button using
   `Intl.DateTimeFormat().resolvedOptions().timeZone`), the weekly/reminder weekday
