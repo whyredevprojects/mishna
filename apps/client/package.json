@@ -11,7 +11,7 @@
     "@angular/router": "~21.2.0",
     "@awesome.me/webawesome": "^3.7.0",
     "@tanstack/angular-query-experimental": "^5.101.0",
-    "mishna-text": "^1.0.8",
+    "mishna-text": "^1.0.9",
     "rxjs": "~7.8.0"
   }
 }
