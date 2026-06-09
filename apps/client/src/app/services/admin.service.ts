@@ -5,6 +5,7 @@ import {
   AdminAssignmentsPage,
   AdminGroupDetail,
   AdminGroups,
+  AdminLot,
   AdminStats,
   AdminUserDetail,
   AdminUsers,
@@ -32,9 +33,26 @@ export class AdminService {
     return this.http.get<AdminGroups>('/api/admin/groups');
   }
 
-  /** One group with its members resolved to identity + block size. */
+  /** One group with its members resolved to identity + block size + lots. */
   group(id: string): Observable<AdminGroupDetail> {
     return this.http.get<AdminGroupDetail>(`/api/admin/groups/${id}`);
+  }
+
+  /** The static catalog of all 118 lots (number, label, range). */
+  lots(): Observable<AdminLot[]> {
+    return this.http.get<AdminLot[]>('/api/admin/lots');
+  }
+
+  /** Sets a member's lots within one group (admin override; allows double-assignment). */
+  setMemberLots(
+    groupId: string,
+    userId: string,
+    lots: number[],
+  ): Observable<unknown> {
+    return this.http.post(
+      `/api/admin/groups/${groupId}/members/${userId}/lots`,
+      { lots },
+    );
   }
 
   /** One page of users (server-side paging/search/sort). */

@@ -12,7 +12,14 @@ import {
   weekStartToDate,
 } from '@mishna/domain';
 import { AllocatorDO } from './allocator';
-import { assignmentEngine, calendar, chalakim, idGen, structure } from './domain';
+import {
+  assignmentEngine,
+  calendar,
+  chalakim,
+  idGen,
+  lotCatalog,
+  structure,
+} from './domain';
 import { D1GroupRepository } from './repository';
 import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
@@ -190,6 +197,27 @@ function parseCompletionBody(
     return null;
   }
   return { ref: ref as MishnaRef, groupId };
+}
+
+/** The set of valid lot numbers (1..118), for validating admin lot edits. */
+const validLotNumbers = new Set(chalakim.allLotNumbers());
+
+/**
+ * Parses a `{ lots: number[] }` body into a clean lot-number array, or null if
+ * malformed. Every entry must be an integer that names a real lot; an empty array
+ * is valid (it clears the member's lots in the group).
+ */
+function parseLotsBody(body: unknown): number[] | null {
+  const lots = (body as { lots?: unknown })?.lots;
+  if (!Array.isArray(lots)) {
+    return null;
+  }
+  for (const v of lots) {
+    if (typeof v !== 'number' || !Number.isInteger(v) || !validLotNumbers.has(v)) {
+      return null;
+    }
+  }
+  return lots as number[];
 }
 
 /** Whether `userId` belongs to `groupId` (the completion authorization check). */
@@ -708,6 +736,14 @@ app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
   const ids = memberRows.map((r) => r.user_id);
   const identities = await loadIdentitiesFor(c.env, ids);
 
+  // Lot numbers each member holds in this group (a user has at most one block here).
+  const lotsByUser = new Map<string, number[]>();
+  for (const b of blocks) {
+    const list = lotsByUser.get(b.userId) ?? [];
+    list.push(...b.lots);
+    lotsByUser.set(b.userId, list);
+  }
+
   const total = structure.totalMishnayot;
   const members = ids.map((uid) => {
     const who = identities.get(uid);
@@ -717,6 +753,7 @@ app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
       email: who?.email ?? null,
       emailVerified: who?.emailVerified ?? false,
       blockSize: userBlockSize(blocks, uid),
+      lots: (lotsByUser.get(uid) ?? []).sort((a, b) => a - b),
     };
   });
   return c.json({
@@ -726,6 +763,36 @@ app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
     members,
   });
 });
+
+// The static lot catalog (118 lots with mesechta label + range). Powers the admin
+// group-detail edit UI: label lookup for the Lots column and the "all lots" reference
+// dialog. Static, so the client caches it for a long time.
+app.get('/api/admin/lots', requireAdmin, (c) => c.json(lotCatalog));
+
+// Admin override: set a member's lots within one group. Validates the lot numbers,
+// then routes through the AllocatorDO (the same serialized write path as join/leave)
+// so it can't race a concurrent claim. Double-assignment is allowed — the UI warns.
+app.post(
+  '/api/admin/groups/:groupId/members/:userId/lots',
+  requireAdmin,
+  async (c) => {
+    const groupId = c.req.param('groupId');
+    const userId = c.req.param('userId');
+    const lots = parseLotsBody(await c.req.json().catch(() => ({})));
+    if (lots === null) {
+      return c.json(
+        { error: 'lots must be an array of lot numbers (1-118)' },
+        400,
+      );
+    }
+    const res = await allocator(c.env).fetch('https://allocator/set-lots', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ groupId, userId, lots }),
+    });
+    return new Response(res.body, res);
+  },
+);
 
 /** The Sunday-anchored week-start (YYYY-MM-DD) for `now` in the default timezone.
  *  The admin dashboard/assignments use one shared week, independent of any user. */

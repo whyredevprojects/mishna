@@ -639,6 +639,95 @@ describe('server API integration', () => {
       expect(notFound.status).toBe(404);
     });
 
+    it('serves the lot catalog (admin only)', async () => {
+      const denied = await SELF.fetch('https://server/api/admin/lots', {
+        headers: as('alice'),
+      });
+      expect(denied.status).toBe(403);
+
+      const res = await SELF.fetch('https://server/api/admin/lots', {
+        headers: as('admin'),
+      });
+      expect(res.status).toBe(200);
+      const lots = (await res.json()) as {
+        lot: number;
+        mesechta: string;
+        indexInMesechta: number;
+        label: string;
+        size: number;
+      }[];
+      expect(lots).toHaveLength(118);
+      expect(lots[0]).toMatchObject({ lot: 1, indexInMesechta: 1 });
+      expect(lots[0].label).toBe(`${lots[0].mesechta}:1`);
+      for (const l of lots) {
+        expect(l.size).toBeGreaterThan(0);
+      }
+    });
+
+    it("lets an admin set a member's lots, validating and allowing double-assignment", async () => {
+      await join('alice');
+      await join('bob');
+
+      // Both commitment-1 joiners land in the first non-exhausted group.
+      const listRes = await SELF.fetch('https://server/api/admin/groups', {
+        headers: as('admin'),
+      });
+      const { groups } = (await listRes.json()) as {
+        groups: { id: string; members: string[] }[];
+      };
+      const gid = groups.find(
+        (g) => g.members.includes('alice') && g.members.includes('bob'),
+      )?.id as string;
+      expect(gid).toBeTruthy();
+
+      async function lotsOf(userId: string): Promise<number[]> {
+        const res = await SELF.fetch(`https://server/api/admin/groups/${gid}`, {
+          headers: as('admin'),
+        });
+        const { members } = (await res.json()) as {
+          members: { id: string; lots: number[] }[];
+        };
+        return members.find((m) => m.id === userId)?.lots ?? [];
+      }
+
+      const setLots = (userId: string, lots: number[]) =>
+        SELF.fetch(
+          `https://server/api/admin/groups/${gid}/members/${userId}/lots`,
+          {
+            method: 'POST',
+            headers: { ...as('admin'), 'content-type': 'application/json' },
+            body: JSON.stringify({ lots }),
+          },
+        );
+
+      // Set alice's lots; the response is sorted + deduped.
+      const ok = await setLots('alice', [3, 1, 2, 2]);
+      expect(ok.status).toBe(200);
+      expect(await lotsOf('alice')).toEqual([1, 2, 3]);
+
+      // Double-assignment: bob takes lot 1, which alice still holds — both keep it.
+      const dbl = await setLots('bob', [1]);
+      expect(dbl.status).toBe(200);
+      expect(await lotsOf('bob')).toEqual([1]);
+      expect(await lotsOf('alice')).toContain(1);
+
+      // Invalid lot numbers are rejected before any write.
+      const bad = await setLots('alice', [999]);
+      expect(bad.status).toBe(400);
+      expect(await lotsOf('alice')).toEqual([1, 2, 3]);
+
+      // Non-admins can't edit lots.
+      const forbidden = await SELF.fetch(
+        `https://server/api/admin/groups/${gid}/members/alice/lots`,
+        {
+          method: 'POST',
+          headers: { ...as('alice'), 'content-type': 'application/json' },
+          body: JSON.stringify({ lots: [1] }),
+        },
+      );
+      expect(forbidden.status).toBe(403);
+    });
+
     it('lists a week of assignments and toggles a completion on the user behalf', async () => {
       await join('alice');
       const week = cycleStartWeek();

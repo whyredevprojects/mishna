@@ -20,6 +20,8 @@ export const queryKeys = {
   adminGroups: ['admin', 'groups'] as const,
   /** GET /api/admin/groups/:id. */
   adminGroup: (id: string) => ['admin', 'group', id] as const,
+  /** GET /api/admin/lots — the static lot catalog. */
+  adminLots: ['admin', 'lots'] as const,
   /** GET /api/admin/users (list, sans page params) — for broad invalidation. */
   adminUsers: ['admin', 'users'] as const,
   /** GET /api/admin/users — one page (keyed by the page params so each caches). */

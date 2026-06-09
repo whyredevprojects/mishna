@@ -74,6 +74,47 @@ describe('Group', () => {
     expect(blockOf(g, 'u1')).toBeUndefined();
   });
 
+  it('setUserLots replaces a user\'s lots with the exact set given', () => {
+    const g = newGroup();
+    g.addUser('u1', 2, 2, [], pickInOrder); // lots 1,2
+    g.setUserLots('u1', [3, 4], 2);
+    const block = blockOf(g, 'u1');
+    expect(block?.lots).toEqual([3, 4]);
+    expect(block?.totalSize).toBe(5); // lot 3 (2) + lot 4 (3)
+    expect(block?.commitment).toBe(2);
+  });
+
+  it('setUserLots dedupes and sorts the lot numbers', () => {
+    const g = newGroup();
+    g.addUser('u1', 1, 1, [], pickInOrder); // lot 1
+    g.setUserLots('u1', [4, 2, 4, 1], 1);
+    expect(blockOf(g, 'u1')?.lots).toEqual([1, 2, 4]);
+  });
+
+  it('setUserLots with no lots removes the user\'s block', () => {
+    const g = newGroup();
+    g.addUser('u1', 2, 2, [], pickInOrder);
+    g.setUserLots('u1', [], 2);
+    expect(blockOf(g, 'u1')).toBeUndefined();
+  });
+
+  it('setUserLots allows a lot another member holds (double-assignment)', () => {
+    const g = newGroup();
+    g.addUser('u1', 2, 2, [], pickInOrder); // lots 1,2
+    g.addUser('u2', 2, 2, [], pickInOrder); // lots 3,4
+    g.setUserLots('u2', [1], 2); // lot 1 is still u1's
+    expect(blockOf(g, 'u1')?.lots).toEqual([1, 2]);
+    expect(blockOf(g, 'u2')?.lots).toEqual([1]);
+    // Lots 3,4 are free again; the double-held lot 1 counts once.
+    expect(g.capacityLeft()).toBe(5); // lot 3 (2) + lot 4 (3)
+  });
+
+  it('setUserLots throws on an unknown lot number', () => {
+    const g = newGroup();
+    g.addUser('u1', 1, 1, [], pickInOrder);
+    expect(() => g.setUserLots('u1', [99], 1)).toThrow();
+  });
+
   it('round-trips through toState / fromState', () => {
     const g = newGroup();
     g.addUser('u1', 2, 2, [], pickInOrder);

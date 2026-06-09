@@ -144,6 +144,22 @@ export interface AdminGroupMember {
   email: string | null;
   emailVerified: boolean;
   blockSize: number;
+  /** The lot numbers (1..118) this member holds in this group, ascending. */
+  lots: number[];
+}
+
+/**
+ * One of the 118 pre-set lots, as carried on GET /api/admin/lots. `label` is
+ * `mesechta:indexInMesechta` (e.g. `Peah:1`); `start`/`end` bound its range.
+ */
+export interface AdminLot {
+  lot: number;
+  mesechta: string;
+  indexInMesechta: number;
+  label: string;
+  start: MishnaRef;
+  end: MishnaRef;
+  size: number;
 }
 
 /** GET /api/admin/groups/:id */

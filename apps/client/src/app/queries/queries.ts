@@ -91,6 +91,15 @@ export function adminGroupQueryOptions(admin: AdminService, id: string) {
   });
 }
 
+/** GET /api/admin/lots — the lot catalog is static, so keep it fresh for a long while. */
+export function adminLotsQueryOptions(admin: AdminService) {
+  return queryOptions({
+    queryKey: queryKeys.adminLots,
+    queryFn: () => firstValueFrom(admin.lots()),
+    staleTime: 60 * MINUTE,
+  });
+}
+
 /** GET /api/admin/users — one page. `keepPreviousData` so paging doesn't flash. */
 export function adminUsersQueryOptions(admin: AdminService, params: PageParams) {
   return queryOptions({
