@@ -87,6 +87,23 @@ export class Group {
     this.blocks = this.blocks.filter((b) => b.userId !== userId);
   }
 
+  /**
+   * Admin override: replaces `userId`'s block with one built from the exact lot
+   * numbers given (deduped, ascending). Unlike `addUser`, the lots need not be
+   * free — a lot already held by another member becomes double-assigned (the admin
+   * UI warns first), which `freeLots`/`capacityLeft` tolerate since taken lots are
+   * tracked as a Set. An empty `lots` removes the user's block entirely. Throws on
+   * an unknown lot number (via `getLotByNumber`).
+   */
+  setUserLots(userId: string, lots: number[], commitment: Commitment): void {
+    this.removeUser(userId);
+    const unique = [...new Set(lots)].sort((a, b) => a - b);
+    if (unique.length === 0) {
+      return;
+    }
+    this.blocks.push(this.buildBlock(userId, unique, commitment));
+  }
+
   toState(): GroupState {
     return {
       id: this.id,

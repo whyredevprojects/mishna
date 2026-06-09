@@ -26,6 +26,12 @@ interface LeaveBody {
   userId: string;
 }
 
+interface SetLotsBody {
+  groupId: string;
+  userId: string;
+  lots: number[];
+}
+
 export class AllocatorDO extends DurableObject<Env> {
   /** Tail of the serialization chain; each op runs after the previous settles. */
   private chain: Promise<unknown> = Promise.resolve();
@@ -55,6 +61,12 @@ export class AllocatorDO extends DurableObject<Env> {
     if (url.pathname === '/leave') {
       const body = (await request.json()) as LeaveBody;
       return this.serialize(() => this.leave(body.userId));
+    }
+    if (url.pathname === '/set-lots') {
+      const body = (await request.json()) as SetLotsBody;
+      return this.serialize(() =>
+        this.setLots(body.groupId, body.userId, body.lots),
+      );
     }
     return new Response('Not found', { status: 404 });
   }
@@ -86,5 +98,33 @@ export class AllocatorDO extends DurableObject<Env> {
       .bind(userId)
       .run();
     return Response.json({ joined: false });
+  }
+
+  /**
+   * Admin override: set `userId`'s lots in one specific group to `lots`. Runs on
+   * the same serialized chain as join/leave so it can't race a concurrent claim.
+   * Keeps the member's existing commitment (weekly pace). The route validates the
+   * lot numbers; double-assignment is allowed (the admin UI warns first).
+   */
+  private async setLots(
+    groupId: string,
+    userId: string,
+    lots: number[],
+  ): Promise<Response> {
+    const repo = new D1GroupRepository(this.env.DB, structure, chalakim, idGen);
+    const group = await repo.loadById(groupId);
+    if (!group) {
+      return Response.json({ error: 'group not found' }, { status: 404 });
+    }
+    const block = group.toState().blocks.find((b) => b.userId === userId);
+    if (!block) {
+      return Response.json(
+        { error: 'not a member of that group' },
+        { status: 404 },
+      );
+    }
+    group.setUserLots(userId, lots, block.commitment);
+    await repo.save(group);
+    return Response.json({ ok: true });
   }
 }

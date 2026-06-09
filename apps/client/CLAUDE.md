@@ -107,7 +107,7 @@ The login worker's captcha plugin verifies it server-side (see `apps/login`).
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/me/chaluka` (whole-cycle portion + learned subset), `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
 | `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
-| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `POST /api/admin/users/:id/send-verification` (resend the verification email to a pending user), `DELETE /api/admin/users/:id`. |
+| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/lots` (static lot catalog for the group-detail editor), `POST /api/admin/groups/:groupId/members/:userId/lots` (set a member's lots), `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `POST /api/admin/users/:id/send-verification` (resend the verification email to a pending user), `DELETE /api/admin/users/:id`. |
 
 ## Data caching (TanStack Query)
 
@@ -168,6 +168,12 @@ environments because the API is always same-origin:
 - **Admin send-now**: `admin-user-detail.component.ts` has "Send weekly"/"Send reminder"
   buttons (`AdminService.sendWeekly`/`sendReminder`) that queue an extra email, with a
   success/error toast. `ToastService` now has `success()` alongside `error()`.
+- **Admin lot editing**: `admin-group-detail.component.ts` shows each member's lots as
+  `54 (Peah:1), …` (labels from the cached `GET /api/admin/lots` catalog) and a pencil
+  opens inline numeric inputs (add/remove/Enter-to-add) with a "?" lot-reference dialog.
+  Save posts to `AdminService.setMemberLots`; a member already holding a typed lot is
+  flagged inline (double-assignment is allowed — see `apps/server`). One row edits at a
+  time; the catalog query is long-lived (`adminLotsQueryOptions`, static data).
 - **Weekly-goal (commitment) editing** is intentionally **not** offered yet: changing it
   mid-cycle would require re-allocation (a new block). Deferred until requested.
 

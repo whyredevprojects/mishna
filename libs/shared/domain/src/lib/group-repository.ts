@@ -20,6 +20,8 @@ export interface GroupRepository {
   save(group: Group): Promise<void>;
   /** Every group in which the user currently holds a block. */
   loadGroupsForUser(userId: string): Promise<Group[]>;
+  /** The group with the given id, or null if there's no such group. */
+  loadById(id: string): Promise<Group | null>;
 }
 
 /** In-memory GroupRepository for tests and local use. Stores GroupState snapshots. */
@@ -66,6 +68,11 @@ export class InMemoryGroupRepository implements GroupRepository {
       }
     }
     return result;
+  }
+
+  async loadById(id: string): Promise<Group | null> {
+    const state = this.states.get(id);
+    return state ? this.hydrate(state) : null;
   }
 
   /** Test/inspection helper: every stored group, hydrated. */

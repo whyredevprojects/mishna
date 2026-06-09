@@ -74,6 +74,14 @@ export class D1GroupRepository implements GroupRepository {
     return results.map((r) => this.hydrate(r.state));
   }
 
+  async loadById(id: string): Promise<Group | null> {
+    const row = await this.db
+      .prepare('SELECT state FROM groups WHERE id = ?')
+      .bind(id)
+      .first<GroupStateRow>();
+    return row ? this.hydrate(row.state) : null;
+  }
+
   // -- persistence ------------------------------------------------------------
 
   /** Upserts the group row and atomically rebuilds its membership rows. */

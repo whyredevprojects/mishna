@@ -52,6 +52,18 @@ describe('D1GroupRepository', () => {
     expect(reloaded?.toState()).toEqual(group.toState());
   });
 
+  it('loadById returns the group, or null for an unknown id', async () => {
+    const created = await repo.createGroup();
+    created.addUser('alice', 2, 2, [], pickInOrder);
+    await repo.save(created);
+
+    const loaded = await repo.loadById(created.id);
+    expect(loaded?.id).toBe(created.id);
+    expect(loaded?.toState()).toEqual(created.toState());
+
+    expect(await repo.loadById('nope')).toBeNull();
+  });
+
   it('loadGroupsForUser finds groups via denormalized membership', async () => {
     const group = await repo.createGroup();
     group.addUser('alice', 3, 3, [], pickInOrder);
