@@ -71,12 +71,21 @@ import { formatRef, formatRefHe } from '../util/format';
         gap: var(--wa-space-s, 0.5rem);
       }
       /* Collapsible (disclosure) mode — a compact row that opens to reveal the text. */
-      .row-head {
+      .row-top {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--wa-space-s, 0.5rem);
         padding-block: var(--wa-space-2xs, 0.25rem);
+      }
+      /* The disclosure trigger: the checkbox/tag sits beside it (not inside), so
+         toggling it never bubbles into this and expands the row. */
+      .row-head {
+        display: flex;
+        align-items: center;
+        gap: var(--wa-space-xs, 0.375rem);
+        flex: 1;
+        min-width: 0;
         cursor: pointer;
       }
       .row-head:focus-visible {
@@ -85,12 +94,7 @@ import { formatRef, formatRefHe } from '../util/format';
         outline-offset: 2px;
         border-radius: var(--wa-border-radius-s, 0.25rem);
       }
-      .row-main {
-        display: flex;
-        align-items: center;
-        gap: var(--wa-space-xs, 0.375rem);
-      }
-      .row-main .ref {
+      .row-head .ref {
         font-variant-numeric: tabular-nums;
       }
       .chev {
@@ -105,23 +109,30 @@ import { formatRef, formatRefHe } from '../util/format';
   template: `
     @if (collapsible()) {
       <div class="disclosure">
-        <div
-          class="row-head"
-          role="button"
-          tabindex="0"
-          [attr.aria-expanded]="expanded()"
-          (click)="toggle()"
-          (keydown.enter)="toggle()"
-          (keydown.space)="onSpace($event)"
-        >
-          <span class="row-main">
+        <div class="row-top">
+          <div
+            class="row-head"
+            role="button"
+            tabindex="0"
+            [attr.aria-expanded]="expanded()"
+            (click)="toggle()"
+            (keydown.enter)="toggle()"
+            (keydown.space)="onSpace($event)"
+          >
             <wa-icon
               class="chev"
               [attr.name]="expanded() ? 'chevron-down' : 'chevron-right'"
             ></wa-icon>
             <span class="ref">{{ ref().perek }}:{{ ref().mishna }}</span>
-          </span>
-          @if (done()) {
+          </div>
+          @if (showCheckbox()) {
+            <wa-checkbox
+              size="small"
+              [attr.checked]="done() ? '' : null"
+              [attr.aria-label]="'Mark ' + format(ref()) + ' learned'"
+              (change)="learned.emit()"
+            ></wa-checkbox>
+          } @else if (done()) {
             <wa-tag size="small" variant="success">Learned</wa-tag>
           } @else {
             <wa-tag size="small">Pending</wa-tag>

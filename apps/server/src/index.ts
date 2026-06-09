@@ -311,11 +311,29 @@ app.get('/api/me', requireAuth, async (c) => {
 // and join date. Powers the "My Chaluka" higher-level progress + stats view.
 app.get('/api/me/chaluka', requireAuth, async (c) => {
   const userId = c.get('userId');
-  const blocks = userBlocks(await userGroups(c.env, userId), userId);
-  const ranges = blocks
-    .flatMap((b) => b.ranges)
-    .sort((a, b) => structure.indexOf(a.start) - structure.indexOf(b.start));
-  const assigned = ranges.flatMap((r) => [...structure.iterateRange(r)]);
+  const groups = await userGroups(c.env, userId);
+  // Each of the user's block ranges, tagged with the group that owns it, so a
+  // completion can be attributed to the right group. A user holds at most one
+  // block per group, but their lots spill into a second group at an overflow
+  // boundary, so the group must be tracked per range (hence per mishna).
+  const tagged = groups.flatMap((g) => {
+    const block = g.toState().blocks.find((b) => b.userId === userId);
+    return block ? block.ranges.map((range) => ({ range, groupId: g.id })) : [];
+  });
+  tagged.sort(
+    (a, b) => structure.indexOf(a.range.start) - structure.indexOf(b.range.start),
+  );
+
+  // assigned + groupIds are emitted in lockstep so they never drift: the group
+  // for assigned[i] is groupIds[i].
+  const assigned: MishnaRef[] = [];
+  const groupIds: string[] = [];
+  for (const { range, groupId } of tagged) {
+    for (const ref of structure.iterateRange(range)) {
+      assigned.push(ref);
+      groupIds.push(groupId);
+    }
+  }
   const completed = await completedAmong(c.env, userId, assigned);
 
   const row = await c.env.DB.prepare(
@@ -329,6 +347,7 @@ app.get('/api/me/chaluka', requireAuth, async (c) => {
     joinedAt: row ? new Date(row.joined_at).toISOString() : null,
     assigned,
     completed,
+    groupIds,
   });
 });
 

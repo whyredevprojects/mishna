@@ -49,4 +49,29 @@ describe('MishnaCardComponent', () => {
 
     expect(lookup).toHaveBeenCalledTimes(1);
   });
+
+  it('emits learned from the collapsible checkbox without expanding the row', async () => {
+    const fixture = TestBed.createComponent(MishnaCardComponent);
+    fixture.componentRef.setInput('ref', REF);
+    fixture.componentRef.setInput('done', false);
+    fixture.componentRef.setInput('collapsible', true);
+    fixture.componentRef.setInput('showCheckbox', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    let emitted = 0;
+    fixture.componentInstance.learned.subscribe(() => emitted++);
+
+    const checkbox = fixture.nativeElement.querySelector('wa-checkbox');
+    expect(checkbox).toBeTruthy();
+
+    // Toggling the checkbox emits `learned` and must NOT expand the row (the
+    // checkbox is a sibling of the disclosure trigger, so it never toggles it).
+    checkbox.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(emitted).toBe(1);
+    expect(lookup).not.toHaveBeenCalled();
+  });
 });

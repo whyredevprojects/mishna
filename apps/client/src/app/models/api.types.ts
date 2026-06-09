@@ -68,6 +68,12 @@ export interface Chaluka {
   joinedAt: string | null;
   assigned: MishnaRef[];
   completed: MishnaRef[];
+  /**
+   * Group id for each assigned mishna, parallel to `assigned` (the group for
+   * `assigned[i]` is `groupIds[i]`) — the id a completion is recorded under.
+   * Per-ref because a user's lots can spill across groups at an overflow boundary.
+   */
+  groupIds: string[];
 }
 
 /** One group's row in GET /api/admin/groups */

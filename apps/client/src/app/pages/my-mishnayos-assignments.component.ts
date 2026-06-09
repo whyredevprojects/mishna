@@ -2,28 +2,49 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
   computed,
+  effect,
   inject,
+  signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { injectQuery } from '@tanstack/angular-query-experimental';
+import {
+  injectMutation,
+  injectQuery,
+  QueryClient,
+} from '@tanstack/angular-query-experimental';
+import { firstValueFrom } from 'rxjs';
 import { MishnaRef } from '../models/api.types';
 import { AssignmentService } from '../services/assignment.service';
+import { ToastService } from '../services/toast.service';
 import { MishnaCardComponent } from '../components/mishna-card.component';
 import { chalukaQueryOptions } from '../queries/queries';
+import { queryKeys } from '../queries/query-keys';
 import { formatRef } from '../util/format';
+
+const SYNC_ERROR =
+  "We weren't able to update your progress. Please try again later.";
+
+/** One row in the list: a mishna, its learned status, and the group it belongs to. */
+interface AssignmentRow {
+  ref: MishnaRef;
+  done: boolean;
+  /** The group a completion for this mishna is recorded under. */
+  groupId: string;
+}
 
 /** One mesechta's mishnayot from the user's portion, each flagged learned-or-not. */
 interface MesechtaGroup {
   mesechta: string;
   done: number;
-  rows: { ref: MishnaRef; done: boolean }[];
+  rows: AssignmentRow[];
 }
 
 /**
  * "My Mishnayos" → Assignments tab: the user's whole-cycle portion as an extensive
- * mishna-by-mishna list, grouped by mesechta, each row showing learned/pending
- * status. Read-only — check-off lives on the "Today" view (which carries the
- * groupId each completion needs).
+ * mishna-by-mishna list, grouped by mesechta, each row a checkbox to mark that
+ * mishna learned/not-learned. Each toggle is optimistically applied and synced to
+ * apps/server (with the group the mishna belongs to); a failed sync reverts and
+ * shows an error toast — the same pattern the "Today" view uses.
  */
 @Component({
   selector: 'app-my-mishnayos-assignments',
@@ -81,7 +102,8 @@ interface MesechtaGroup {
                   [ref]="row.ref"
                   [done]="row.done"
                   [collapsible]="true"
-                  [showCheckbox]="false"
+                  [showCheckbox]="true"
+                  (learned)="toggle(row)"
                 ></app-mishna-card>
               }
             </div>
@@ -93,6 +115,8 @@ interface MesechtaGroup {
 })
 export class MyMishnayosAssignmentsComponent {
   private readonly assignments = inject(AssignmentService);
+  private readonly toast = inject(ToastService);
+  private readonly queryClient = inject(QueryClient);
 
   protected readonly key = formatRef;
 
@@ -104,26 +128,89 @@ export class MyMishnayosAssignmentsComponent {
     () => this.query.data()?.assigned.length ?? 0,
   );
 
+  /** Learned-mishna keys ({@link formatRef}), seeded from the server then toggled
+   *  optimistically (so the checkbox and the per-mesechta fraction update at once). */
+  private readonly checked = signal<Set<string>>(new Set());
+
+  // Syncs a single toggle to the server: optimistic in `onMutate`, rolls back in
+  // `onError`, and `onSettled` refreshes the cached portion (and the dashboard's
+  // "Today" view, which derives its completion state from the same completions).
+  private readonly toggleMutation = injectMutation<
+    unknown,
+    Error,
+    { ref: MishnaRef; groupId: string; learn: boolean },
+    { before: Set<string> }
+  >(() => ({
+    mutationFn: (vars) =>
+      firstValueFrom(
+        vars.learn
+          ? this.assignments.markLearned(vars.ref, vars.groupId)
+          : this.assignments.markUnlearned(vars.ref, vars.groupId),
+      ),
+    onMutate: (vars) => {
+      const before = this.checked();
+      const refKey = formatRef(vars.ref);
+      const next = new Set(before);
+      if (vars.learn) {
+        next.add(refKey);
+      } else {
+        next.delete(refKey);
+      }
+      this.checked.set(next);
+      return { before };
+    },
+    onError: (_err, _vars, context) => {
+      if (context) {
+        this.checked.set(context.before);
+      }
+      this.toast.error(SYNC_ERROR);
+    },
+    onSettled: () => {
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.chaluka });
+      this.queryClient.invalidateQueries({
+        queryKey: queryKeys.assignmentToday,
+      });
+    },
+  }));
+
+  constructor() {
+    // Seed local checks from the server portion; re-seeds when it refetches.
+    // Optimistic toggles mutate the local set only, so they don't trigger this.
+    effect(() => {
+      const data = this.query.data();
+      this.checked.set(new Set(data?.completed.map((r) => formatRef(r)) ?? []));
+    });
+  }
+
   /** The portion grouped by mesechta, in corpus order, with per-mishna status. */
   protected readonly groups = computed<MesechtaGroup[]>(() => {
     const data = this.query.data();
     if (!data) {
       return [];
     }
-    const done = new Set(data.completed.map((r) => formatRef(r)));
+    const done = this.checked();
     const byMesechta = new Map<string, MesechtaGroup>();
-    for (const ref of data.assigned) {
+    data.assigned.forEach((ref, i) => {
       let group = byMesechta.get(ref.mesechta);
       if (!group) {
         group = { mesechta: ref.mesechta, done: 0, rows: [] };
         byMesechta.set(ref.mesechta, group);
       }
       const isDone = done.has(formatRef(ref));
-      group.rows.push({ ref, done: isDone });
+      group.rows.push({ ref, done: isDone, groupId: data.groupIds[i] });
       if (isDone) {
         group.done++;
       }
-    }
+    });
     return [...byMesechta.values()];
   });
+
+  /** Optimistically toggle a mishna, syncing to the server and reverting on failure. */
+  protected toggle(row: AssignmentRow): void {
+    if (!row.groupId) {
+      return;
+    }
+    const learn = !this.checked().has(formatRef(row.ref));
+    this.toggleMutation.mutate({ ref: row.ref, groupId: row.groupId, learn });
+  }
 }

@@ -508,6 +508,7 @@ describe('server API integration', () => {
         joinedAt: string | null;
         assigned: MishnaRef[];
         completed: MishnaRef[];
+        groupIds: string[];
       };
       expect(body.commitment).toBe(2);
       expect(body.joinedAt).toBeTruthy();
@@ -518,6 +519,11 @@ describe('server API integration', () => {
         expect(() => structure.indexOf(ref)).not.toThrow();
       }
       expect(body.completed).toEqual([]);
+      // groupIds is parallel to assigned, one non-empty group id per mishna.
+      expect(body.groupIds).toHaveLength(body.assigned.length);
+      expect(body.groupIds.every((id) => typeof id === 'string' && id !== '')).toBe(
+        true,
+      );
 
       // Mark the portion's first mishna learned; it shows up in `completed`. Its
       // group is the one carrying the week-0 assignment (the portion's start).
@@ -530,6 +536,9 @@ describe('server API integration', () => {
           })
         ).json()) as { groupId: string }
       ).groupId;
+      // The head's group (groupIds[0]) is exactly the group the week-0 assignment
+      // attributes it to.
+      expect(body.groupIds[0]).toBe(groupId);
       await SELF.fetch('https://server/api/completions', {
         method: 'POST',
         headers: { ...as('alice'), 'content-type': 'application/json' },
