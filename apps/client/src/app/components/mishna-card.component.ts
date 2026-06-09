@@ -89,10 +89,16 @@ import { formatRef, formatRefHe } from '../util/format';
           <wa-icon slot="start" name="language"></wa-icon>
           {{ showEnglish() ? 'Hide English' : 'English' }}
         </wa-button>
-        <wa-checkbox
-          [attr.checked]="done() ? '' : null"
-          (change)="learned.emit()"
-        >I Learned This Baal Peh</wa-checkbox>
+        @if (showCheckbox()) {
+          <wa-checkbox
+            [attr.checked]="done() ? '' : null"
+            (change)="learned.emit()"
+          >I Learned This Baal Peh</wa-checkbox>
+        } @else if (done()) {
+          <wa-tag variant="success">Learned</wa-tag>
+        } @else {
+          <wa-tag>Not yet</wa-tag>
+        }
       </div>
     </wa-card>
   `,
@@ -100,6 +106,10 @@ import { formatRef, formatRefHe } from '../util/format';
 export class MishnaCardComponent {
   readonly ref = input.required<MishnaRef>();
   readonly done = input.required<boolean>();
+  /** Show the "I Learned This" checkbox; when false, render a learned/not-yet tag. */
+  readonly showCheckbox = input(true);
+  /** Reset the English toggle to hidden whenever the ref changes (off for review). */
+  readonly resetEnglishOnChange = input(true);
   readonly learned = output<void>();
 
   protected readonly format = formatRef;
@@ -118,7 +128,9 @@ export class MishnaCardComponent {
       const ref = this.ref();
       const token = ++this.loadToken;
       this.loading.set(true);
-      this.showEnglish.set(false);
+      if (this.resetEnglishOnChange()) {
+        this.showEnglish.set(false);
+      }
       this.textService
         .lookup(ref)
         .then((t) => {

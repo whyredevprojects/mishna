@@ -75,7 +75,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 | `models/api.types.ts` | Client shapes of the server responses; reuses `@mishna/domain` value types, redefines anything carrying a `Date` (arrives as ISO string). |
 | `services/` | One thin service per API area (see below) — they own the URLs only. |
 | `queries/` | TanStack Query layer: `query-keys.ts` (cache-key registry) + `queries.ts` (`queryOptions` factories that wrap the service observables). See **Data caching** below. |
-| `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-list`, `today-card`, `join-form`. |
+| `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-card` (one mishna's text + English toggle + optional learn checkbox), `today-card`, `join-form`. |
 | `pages/` | Routed screens: `landing`, `join`, `forgot-password` + `reset-password` (public password-reset flow, backed by better-auth/Resend in `apps/login`), `dashboard`, `review`, `settings`, the "My Mishnayos" shell `my-mishnayos` + its `my-mishnayos-assignments` (whole-cycle portion as a per-mesechta list with learned/pending status) and `my-mishnayos-stats` (overall progress + stats + per-mesechta breakdown) tabs, and the admin shell `admin` + `admin-overview`, `admin-users` (paginated/searchable), `admin-user-detail`, `admin-groups` + `admin-group-detail`, `admin-assignments`. Admin lists use `ui/` (`app-data-table` + `app-paginator`) with server-side paging (≤50/page). |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
 
@@ -103,7 +103,7 @@ instead of re-fetching. The `QueryClient` is provided in `app.config.ts` (defaul
   adding a key in `query-keys.ts` and a factory in `queries.ts`, then consume it.
 - **Reads**: components call `injectQuery(() => xQueryOptions(svc, ...))` and read the
   result signals (`q.data()`, `q.isPending()`/`isLoading()`, `q.isError()`). For
-  reactive params (e.g. Review's date) the key is a function of a signal.
+  reactive params the key is a function of a signal.
 - **Guards** resolve `me` via `queryClient.ensureQueryData(meQueryOptions(auth))`, so
   `authGuard` + `adminGuard` + the dashboard dedup to one `GET /api/me` per nav burst.
 - **Writes** use `injectMutation` and invalidate the affected keys in `onSuccess`
@@ -135,8 +135,11 @@ environments because the API is always same-origin:
   toast via `ToastService` (an imperative `wa-callout`, since Web Awesome has no toast
   component). Reads are offline-capable (see **PWA / offline**), but offline
   check-off + reconnect sync is deferred — see root `TODO.md`.
-- **Review**: currently the date-picker browser (any day's assignment). The
-  per-perek completion view in the UI plan is deferred (needs completions data).
+- **Review**: a per-perek review browser over the user's whole-cycle portion
+  (`GET /api/me/chaluka`). Mesechta + perek selectors (populated from the allotment),
+  a perek strip showing which mishnayos are learned (dimmed when not yet), and a
+  reused `mishna-card` (`showCheckbox=false`) with within-perek prev/next. The last
+  spot is persisted in localStorage (`util/review-storage.ts`) and restored on return.
 - **Settings**: `settings.component.ts` edits email prefs — timezone (`wa-select`
   populated from `Intl.supportedValuesOf('timeZone')`, with a "Detect" button using
   `Intl.DateTimeFormat().resolvedOptions().timeZone`), the weekly/reminder weekday
