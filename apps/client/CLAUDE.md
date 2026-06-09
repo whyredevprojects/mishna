@@ -75,10 +75,12 @@ The login worker's captcha plugin verifies it server-side (see `apps/login`).
   and a `reset()` method. **Tokens are single-use**, so each page calls
   `reset()` in its request's error handler (e.g. wrong password) to get a fresh one
   for the retry; the submit button stays disabled until a token exists.
-- The **public** site key is a hardcoded constant in `config/turnstile.ts`
-  (domain-bound, safe to commit — keeps the "no `environment.ts`" convention). It
-  currently holds Cloudflare's always-pass *test* key; swap in the real widget's
-  site key for prod. The secret key lives in `apps/login`.
+- The **public** site key comes from `environments/environment.ts`
+  (`turnstileSiteKey`) — the one place this app uses Angular's standard
+  environment-file pattern. `environment.ts` holds the real **production** key;
+  the `development` build config swaps in `environment.development.ts` (Cloudflare's
+  always-pass *test* key) via `fileReplacements` in `project.json`, so `nx serve`
+  works on any hostname. The secret key lives in `apps/login`.
 
 ## Layout (`src/app/`)
 
@@ -132,7 +134,8 @@ instead of re-fetching. The `QueryClient` is provided in `app.config.ts` (defaul
 - `AuthService.me` signal is still populated as a side effect of `loadSession()`'s
   `tap`, so `isAdmin()` and `auth.me()` keep working off the cached fetch.
 
-All calls use **relative `/api/*`** (no `environment.ts`), which works in both
+All calls use **relative `/api/*`** (no per-environment API base — the only thing
+`environments/` carries is the Turnstile site key), which works in both
 environments because the API is always same-origin:
 - **Dev**: `proxy.conf.json` forwards `/api` to the server worker on `:8787`.
 - **Prod**: the SPA serves from `getchevrasmishnayos.com` (Pages custom domain), and

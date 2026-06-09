@@ -174,9 +174,10 @@ the server worker, which forwards `/api/auth/*` here via the `AUTH` service bind
   For local dev, put it in `.dev.vars`. `RESEND_FROM_EMAIL` is a plain var in
   `wrangler.toml` (`noreply@getchevrasmishnayos.com`, the verified Resend domain).
 - `wrangler secret put TURNSTILE_SECRET_KEY` (Cloudflare Turnstile bot protection).
-  Create the widget in the Cloudflare dashboard with hostnames
-  `getchevrasmishnayos.com` **and** `localhost` (one key serves both) — its **site
-  key** goes in `apps/client/src/app/config/turnstile.ts`, its **secret key** here.
+  Create the widget in the Cloudflare dashboard for `getchevrasmishnayos.com` — its
+  **site key** goes in `apps/client/src/environments/environment.ts`, its **secret
+  key** here. (Dev uses Cloudflare's always-pass test keys, wired via
+  `environment.development.ts` + `.dev.vars`.)
   For local dev, put `TURNSTILE_SECRET_KEY` in `.dev.vars` (the test secret
   `1x0000000000000000000000000000000AA` always passes). Without this secret the
   captcha plugin is **disabled** (see "Captcha" above).

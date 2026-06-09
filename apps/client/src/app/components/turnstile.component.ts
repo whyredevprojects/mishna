@@ -7,7 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { TURNSTILE_SITE_KEY } from '../config/turnstile';
+import { environment } from '../../environments/environment';
 
 /** The slice of the Cloudflare Turnstile JS API we use (explicit rendering). */
 interface TurnstileApi {
@@ -85,7 +85,7 @@ export class TurnstileComponent implements AfterViewInit, OnDestroy {
         const api = window.turnstile;
         if (!api) return;
         this.widgetId = api.render(this.widget().nativeElement, {
-          sitekey: TURNSTILE_SITE_KEY,
+          sitekey: environment.turnstileSiteKey,
           callback: (token: string) => {
             this.token.set(token);
             this.verified.emit(token);
