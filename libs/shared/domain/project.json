@@ -18,6 +18,11 @@
             "input": "libs/shared/domain/src/data",
             "glob": "mishnah_dataset.json",
             "output": "src/data"
+          },
+          {
+            "input": "libs/shared/domain/src/data",
+            "glob": "chaluka.json",
+            "output": "src/data"
           }
         ]
       }

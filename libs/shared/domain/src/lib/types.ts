@@ -18,6 +18,14 @@ export interface BlockRange {
   end: MishnaRef;
 }
 
+/** One "chelek" (lot): a contiguous slice of the corpus and its lot number. */
+export interface MishnaLot {
+  /** 1-based chelek number from chaluka.csv (1..118), in corpus order. */
+  lot: number;
+  /** The contiguous range of mishnayot this lot covers. */
+  range: BlockRange;
+}
+
 /** How many mishnas a user commits to learning per week. */
 export type Commitment = 1 | 2 | 3;
 

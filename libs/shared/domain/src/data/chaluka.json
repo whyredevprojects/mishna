@@ -1,0 +1,1890 @@
+[
+  {
+    "lot": 1,
+    "mesechta": "Berakhot",
+    "range": {
+      "start": {
+        "mesechta": "Berakhot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Berakhot",
+        "perek": 5,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 2,
+    "mesechta": "Berakhot",
+    "range": {
+      "start": {
+        "mesechta": "Berakhot",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Berakhot",
+        "perek": 9,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 3,
+    "mesechta": "Peah",
+    "range": {
+      "start": {
+        "mesechta": "Peah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Peah",
+        "perek": 4,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 4,
+    "mesechta": "Peah",
+    "range": {
+      "start": {
+        "mesechta": "Peah",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Peah",
+        "perek": 8,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 5,
+    "mesechta": "Demai",
+    "range": {
+      "start": {
+        "mesechta": "Demai",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Demai",
+        "perek": 7,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 6,
+    "mesechta": "Kilayim",
+    "range": {
+      "start": {
+        "mesechta": "Kilayim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kilayim",
+        "perek": 4,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 7,
+    "mesechta": "Kilayim",
+    "range": {
+      "start": {
+        "mesechta": "Kilayim",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kilayim",
+        "perek": 9,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 8,
+    "mesechta": "Sheviit",
+    "range": {
+      "start": {
+        "mesechta": "Sheviit",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Sheviit",
+        "perek": 5,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 9,
+    "mesechta": "Sheviit",
+    "range": {
+      "start": {
+        "mesechta": "Sheviit",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Sheviit",
+        "perek": 10,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 10,
+    "mesechta": "Terumot",
+    "range": {
+      "start": {
+        "mesechta": "Terumot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Terumot",
+        "perek": 6,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 11,
+    "mesechta": "Terumot",
+    "range": {
+      "start": {
+        "mesechta": "Terumot",
+        "perek": 7,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Terumot",
+        "perek": 11,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 12,
+    "mesechta": "Maasrot",
+    "range": {
+      "start": {
+        "mesechta": "Maasrot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Maasrot",
+        "perek": 5,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 13,
+    "mesechta": "Maaser Sheni",
+    "range": {
+      "start": {
+        "mesechta": "Maaser Sheni",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Maaser Sheni",
+        "perek": 5,
+        "mishna": 15
+      }
+    }
+  },
+  {
+    "lot": 14,
+    "mesechta": "Challah",
+    "range": {
+      "start": {
+        "mesechta": "Challah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Challah",
+        "perek": 4,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 15,
+    "mesechta": "Orlah",
+    "range": {
+      "start": {
+        "mesechta": "Orlah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Orlah",
+        "perek": 3,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 16,
+    "mesechta": "Bikkurim",
+    "range": {
+      "start": {
+        "mesechta": "Bikkurim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bikkurim",
+        "perek": 4,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 17,
+    "mesechta": "Shabbat",
+    "range": {
+      "start": {
+        "mesechta": "Shabbat",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shabbat",
+        "perek": 5,
+        "mishna": 4
+      }
+    }
+  },
+  {
+    "lot": 18,
+    "mesechta": "Shabbat",
+    "range": {
+      "start": {
+        "mesechta": "Shabbat",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shabbat",
+        "perek": 10,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 19,
+    "mesechta": "Shabbat",
+    "range": {
+      "start": {
+        "mesechta": "Shabbat",
+        "perek": 11,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shabbat",
+        "perek": 15,
+        "mishna": 3
+      }
+    }
+  },
+  {
+    "lot": 20,
+    "mesechta": "Shabbat",
+    "range": {
+      "start": {
+        "mesechta": "Shabbat",
+        "perek": 16,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shabbat",
+        "perek": 19,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 21,
+    "mesechta": "Shabbat",
+    "range": {
+      "start": {
+        "mesechta": "Shabbat",
+        "perek": 20,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shabbat",
+        "perek": 24,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 22,
+    "mesechta": "Eruvin",
+    "range": {
+      "start": {
+        "mesechta": "Eruvin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Eruvin",
+        "perek": 5,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 23,
+    "mesechta": "Eruvin",
+    "range": {
+      "start": {
+        "mesechta": "Eruvin",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Eruvin",
+        "perek": 10,
+        "mishna": 15
+      }
+    }
+  },
+  {
+    "lot": 24,
+    "mesechta": "Pesachim",
+    "range": {
+      "start": {
+        "mesechta": "Pesachim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Pesachim",
+        "perek": 5,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 25,
+    "mesechta": "Pesachim",
+    "range": {
+      "start": {
+        "mesechta": "Pesachim",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Pesachim",
+        "perek": 10,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 26,
+    "mesechta": "Shekalim",
+    "range": {
+      "start": {
+        "mesechta": "Shekalim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shekalim",
+        "perek": 4,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 27,
+    "mesechta": "Shekalim",
+    "range": {
+      "start": {
+        "mesechta": "Shekalim",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shekalim",
+        "perek": 8,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 28,
+    "mesechta": "Yoma",
+    "range": {
+      "start": {
+        "mesechta": "Yoma",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Yoma",
+        "perek": 4,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 29,
+    "mesechta": "Yoma",
+    "range": {
+      "start": {
+        "mesechta": "Yoma",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Yoma",
+        "perek": 8,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 30,
+    "mesechta": "Sukkah",
+    "range": {
+      "start": {
+        "mesechta": "Sukkah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Sukkah",
+        "perek": 5,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 31,
+    "mesechta": "Beitzah",
+    "range": {
+      "start": {
+        "mesechta": "Beitzah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Beitzah",
+        "perek": 5,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 32,
+    "mesechta": "Rosh Hashanah",
+    "range": {
+      "start": {
+        "mesechta": "Rosh Hashanah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Rosh Hashanah",
+        "perek": 4,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 33,
+    "mesechta": "Ta'anit",
+    "range": {
+      "start": {
+        "mesechta": "Ta'anit",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Ta'anit",
+        "perek": 4,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 34,
+    "mesechta": "Megillah",
+    "range": {
+      "start": {
+        "mesechta": "Megillah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Megillah",
+        "perek": 4,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 35,
+    "mesechta": "Moed Katan",
+    "range": {
+      "start": {
+        "mesechta": "Moed Katan",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Moed Katan",
+        "perek": 3,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 36,
+    "mesechta": "Chagigah",
+    "range": {
+      "start": {
+        "mesechta": "Chagigah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Chagigah",
+        "perek": 3,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 37,
+    "mesechta": "Yevamot",
+    "range": {
+      "start": {
+        "mesechta": "Yevamot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Yevamot",
+        "perek": 6,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 38,
+    "mesechta": "Yevamot",
+    "range": {
+      "start": {
+        "mesechta": "Yevamot",
+        "perek": 7,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Yevamot",
+        "perek": 11,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 39,
+    "mesechta": "Yevamot",
+    "range": {
+      "start": {
+        "mesechta": "Yevamot",
+        "perek": 12,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Yevamot",
+        "perek": 16,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 40,
+    "mesechta": "Ketubot",
+    "range": {
+      "start": {
+        "mesechta": "Ketubot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Ketubot",
+        "perek": 4,
+        "mishna": 12
+      }
+    }
+  },
+  {
+    "lot": 41,
+    "mesechta": "Ketubot",
+    "range": {
+      "start": {
+        "mesechta": "Ketubot",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Ketubot",
+        "perek": 8,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 42,
+    "mesechta": "Ketubot",
+    "range": {
+      "start": {
+        "mesechta": "Ketubot",
+        "perek": 9,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Ketubot",
+        "perek": 13,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 43,
+    "mesechta": "Nedarim",
+    "range": {
+      "start": {
+        "mesechta": "Nedarim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Nedarim",
+        "perek": 6,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 44,
+    "mesechta": "Nedarim",
+    "range": {
+      "start": {
+        "mesechta": "Nedarim",
+        "perek": 7,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Nedarim",
+        "perek": 11,
+        "mishna": 12
+      }
+    }
+  },
+  {
+    "lot": 45,
+    "mesechta": "Nazir",
+    "range": {
+      "start": {
+        "mesechta": "Nazir",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Nazir",
+        "perek": 4,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 46,
+    "mesechta": "Nazir",
+    "range": {
+      "start": {
+        "mesechta": "Nazir",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Nazir",
+        "perek": 9,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 47,
+    "mesechta": "Sotah",
+    "range": {
+      "start": {
+        "mesechta": "Sotah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Sotah",
+        "perek": 5,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 48,
+    "mesechta": "Sotah",
+    "range": {
+      "start": {
+        "mesechta": "Sotah",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Sotah",
+        "perek": 9,
+        "mishna": 15
+      }
+    }
+  },
+  {
+    "lot": 49,
+    "mesechta": "Gittin",
+    "range": {
+      "start": {
+        "mesechta": "Gittin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Gittin",
+        "perek": 5,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 50,
+    "mesechta": "Gittin",
+    "range": {
+      "start": {
+        "mesechta": "Gittin",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Gittin",
+        "perek": 9,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 51,
+    "mesechta": "Kiddushin",
+    "range": {
+      "start": {
+        "mesechta": "Kiddushin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kiddushin",
+        "perek": 4,
+        "mishna": 14
+      }
+    }
+  },
+  {
+    "lot": 52,
+    "mesechta": "Bava Kamma",
+    "range": {
+      "start": {
+        "mesechta": "Bava Kamma",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bava Kamma",
+        "perek": 5,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 53,
+    "mesechta": "Bava Kamma",
+    "range": {
+      "start": {
+        "mesechta": "Bava Kamma",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bava Kamma",
+        "perek": 10,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 54,
+    "mesechta": "Bava Metzia",
+    "range": {
+      "start": {
+        "mesechta": "Bava Metzia",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bava Metzia",
+        "perek": 5,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 55,
+    "mesechta": "Bava Metzia",
+    "range": {
+      "start": {
+        "mesechta": "Bava Metzia",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bava Metzia",
+        "perek": 10,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 56,
+    "mesechta": "Bava Batra",
+    "range": {
+      "start": {
+        "mesechta": "Bava Batra",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bava Batra",
+        "perek": 5,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 57,
+    "mesechta": "Bava Batra",
+    "range": {
+      "start": {
+        "mesechta": "Bava Batra",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bava Batra",
+        "perek": 10,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 58,
+    "mesechta": "Sanhedrin",
+    "range": {
+      "start": {
+        "mesechta": "Sanhedrin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Sanhedrin",
+        "perek": 6,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 59,
+    "mesechta": "Sanhedrin",
+    "range": {
+      "start": {
+        "mesechta": "Sanhedrin",
+        "perek": 7,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Sanhedrin",
+        "perek": 11,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 60,
+    "mesechta": "Makkot",
+    "range": {
+      "start": {
+        "mesechta": "Makkot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Makkot",
+        "perek": 3,
+        "mishna": 16
+      }
+    }
+  },
+  {
+    "lot": 61,
+    "mesechta": "Shevuot",
+    "range": {
+      "start": {
+        "mesechta": "Shevuot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shevuot",
+        "perek": 4,
+        "mishna": 13
+      }
+    }
+  },
+  {
+    "lot": 62,
+    "mesechta": "Shevuot",
+    "range": {
+      "start": {
+        "mesechta": "Shevuot",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Shevuot",
+        "perek": 8,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 63,
+    "mesechta": "Eduyot",
+    "range": {
+      "start": {
+        "mesechta": "Eduyot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Eduyot",
+        "perek": 3,
+        "mishna": 12
+      }
+    }
+  },
+  {
+    "lot": 64,
+    "mesechta": "Eduyot",
+    "range": {
+      "start": {
+        "mesechta": "Eduyot",
+        "perek": 4,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Eduyot",
+        "perek": 8,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 65,
+    "mesechta": "Avodah Zarah",
+    "range": {
+      "start": {
+        "mesechta": "Avodah Zarah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Avodah Zarah",
+        "perek": 5,
+        "mishna": 12
+      }
+    }
+  },
+  {
+    "lot": 66,
+    "mesechta": "Pirkei Avot",
+    "range": {
+      "start": {
+        "mesechta": "Pirkei Avot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Pirkei Avot",
+        "perek": 3,
+        "mishna": 18
+      }
+    }
+  },
+  {
+    "lot": 67,
+    "mesechta": "Pirkei Avot",
+    "range": {
+      "start": {
+        "mesechta": "Pirkei Avot",
+        "perek": 4,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Pirkei Avot",
+        "perek": 6,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 68,
+    "mesechta": "Horayot",
+    "range": {
+      "start": {
+        "mesechta": "Horayot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Horayot",
+        "perek": 3,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 69,
+    "mesechta": "Zevachim",
+    "range": {
+      "start": {
+        "mesechta": "Zevachim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Zevachim",
+        "perek": 6,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 70,
+    "mesechta": "Zevachim",
+    "range": {
+      "start": {
+        "mesechta": "Zevachim",
+        "perek": 7,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Zevachim",
+        "perek": 10,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 71,
+    "mesechta": "Zevachim",
+    "range": {
+      "start": {
+        "mesechta": "Zevachim",
+        "perek": 11,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Zevachim",
+        "perek": 14,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 72,
+    "mesechta": "Menachot",
+    "range": {
+      "start": {
+        "mesechta": "Menachot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Menachot",
+        "perek": 5,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 73,
+    "mesechta": "Menachot",
+    "range": {
+      "start": {
+        "mesechta": "Menachot",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Menachot",
+        "perek": 9,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 74,
+    "mesechta": "Menachot",
+    "range": {
+      "start": {
+        "mesechta": "Menachot",
+        "perek": 10,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Menachot",
+        "perek": 13,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 75,
+    "mesechta": "Chullin",
+    "range": {
+      "start": {
+        "mesechta": "Chullin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Chullin",
+        "perek": 6,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 76,
+    "mesechta": "Chullin",
+    "range": {
+      "start": {
+        "mesechta": "Chullin",
+        "perek": 7,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Chullin",
+        "perek": 12,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 77,
+    "mesechta": "Bekhorot",
+    "range": {
+      "start": {
+        "mesechta": "Bekhorot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bekhorot",
+        "perek": 5,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 78,
+    "mesechta": "Bekhorot",
+    "range": {
+      "start": {
+        "mesechta": "Bekhorot",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Bekhorot",
+        "perek": 9,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 79,
+    "mesechta": "Arakhin",
+    "range": {
+      "start": {
+        "mesechta": "Arakhin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Arakhin",
+        "perek": 5,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 80,
+    "mesechta": "Arakhin",
+    "range": {
+      "start": {
+        "mesechta": "Arakhin",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Arakhin",
+        "perek": 9,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 81,
+    "mesechta": "Temurah",
+    "range": {
+      "start": {
+        "mesechta": "Temurah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Temurah",
+        "perek": 7,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 82,
+    "mesechta": "Keritot",
+    "range": {
+      "start": {
+        "mesechta": "Keritot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Keritot",
+        "perek": 6,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 83,
+    "mesechta": "Meilah",
+    "range": {
+      "start": {
+        "mesechta": "Meilah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Meilah",
+        "perek": 6,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 84,
+    "mesechta": "Tamid",
+    "range": {
+      "start": {
+        "mesechta": "Tamid",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Tamid",
+        "perek": 7,
+        "mishna": 4
+      }
+    }
+  },
+  {
+    "lot": 85,
+    "mesechta": "Middot",
+    "range": {
+      "start": {
+        "mesechta": "Middot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Middot",
+        "perek": 5,
+        "mishna": 4
+      }
+    }
+  },
+  {
+    "lot": 86,
+    "mesechta": "Kinnim",
+    "range": {
+      "start": {
+        "mesechta": "Kinnim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kinnim",
+        "perek": 3,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 87,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 4,
+        "mishna": 4
+      }
+    }
+  },
+  {
+    "lot": 88,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 8,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 89,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 9,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 12,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 90,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 13,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 16,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 91,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 17,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 19,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 92,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 20,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 23,
+        "mishna": 5
+      }
+    }
+  },
+  {
+    "lot": 93,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 24,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 26,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 94,
+    "mesechta": "Kelim",
+    "range": {
+      "start": {
+        "mesechta": "Kelim",
+        "perek": 27,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Kelim",
+        "perek": 30,
+        "mishna": 4
+      }
+    }
+  },
+  {
+    "lot": 95,
+    "mesechta": "Oholot",
+    "range": {
+      "start": {
+        "mesechta": "Oholot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Oholot",
+        "perek": 5,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 96,
+    "mesechta": "Oholot",
+    "range": {
+      "start": {
+        "mesechta": "Oholot",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Oholot",
+        "perek": 9,
+        "mishna": 16
+      }
+    }
+  },
+  {
+    "lot": 97,
+    "mesechta": "Oholot",
+    "range": {
+      "start": {
+        "mesechta": "Oholot",
+        "perek": 10,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Oholot",
+        "perek": 13,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 98,
+    "mesechta": "Oholot",
+    "range": {
+      "start": {
+        "mesechta": "Oholot",
+        "perek": 14,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Oholot",
+        "perek": 18,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 99,
+    "mesechta": "Negaim",
+    "range": {
+      "start": {
+        "mesechta": "Negaim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Negaim",
+        "perek": 4,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 100,
+    "mesechta": "Negaim",
+    "range": {
+      "start": {
+        "mesechta": "Negaim",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Negaim",
+        "perek": 8,
+        "mishna": 10
+      }
+    }
+  },
+  {
+    "lot": 101,
+    "mesechta": "Negaim",
+    "range": {
+      "start": {
+        "mesechta": "Negaim",
+        "perek": 9,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Negaim",
+        "perek": 11,
+        "mishna": 12
+      }
+    }
+  },
+  {
+    "lot": 102,
+    "mesechta": "Negaim",
+    "range": {
+      "start": {
+        "mesechta": "Negaim",
+        "perek": 12,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Negaim",
+        "perek": 14,
+        "mishna": 13
+      }
+    }
+  },
+  {
+    "lot": 103,
+    "mesechta": "Parah",
+    "range": {
+      "start": {
+        "mesechta": "Parah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Parah",
+        "perek": 4,
+        "mishna": 4
+      }
+    }
+  },
+  {
+    "lot": 104,
+    "mesechta": "Parah",
+    "range": {
+      "start": {
+        "mesechta": "Parah",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Parah",
+        "perek": 8,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 105,
+    "mesechta": "Parah",
+    "range": {
+      "start": {
+        "mesechta": "Parah",
+        "perek": 9,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Parah",
+        "perek": 12,
+        "mishna": 11
+      }
+    }
+  },
+  {
+    "lot": 106,
+    "mesechta": "Tahorot",
+    "range": {
+      "start": {
+        "mesechta": "Tahorot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Tahorot",
+        "perek": 4,
+        "mishna": 13
+      }
+    }
+  },
+  {
+    "lot": 107,
+    "mesechta": "Tahorot",
+    "range": {
+      "start": {
+        "mesechta": "Tahorot",
+        "perek": 5,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Tahorot",
+        "perek": 7,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 108,
+    "mesechta": "Tahorot",
+    "range": {
+      "start": {
+        "mesechta": "Tahorot",
+        "perek": 8,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Tahorot",
+        "perek": 10,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 109,
+    "mesechta": "Mikvaot",
+    "range": {
+      "start": {
+        "mesechta": "Mikvaot",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Mikvaot",
+        "perek": 5,
+        "mishna": 6
+      }
+    }
+  },
+  {
+    "lot": 110,
+    "mesechta": "Mikvaot",
+    "range": {
+      "start": {
+        "mesechta": "Mikvaot",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Mikvaot",
+        "perek": 10,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 111,
+    "mesechta": "Niddah",
+    "range": {
+      "start": {
+        "mesechta": "Niddah",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Niddah",
+        "perek": 5,
+        "mishna": 9
+      }
+    }
+  },
+  {
+    "lot": 112,
+    "mesechta": "Niddah",
+    "range": {
+      "start": {
+        "mesechta": "Niddah",
+        "perek": 6,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Niddah",
+        "perek": 10,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 113,
+    "mesechta": "Makhshirin",
+    "range": {
+      "start": {
+        "mesechta": "Makhshirin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Makhshirin",
+        "perek": 3,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 114,
+    "mesechta": "Makhshirin",
+    "range": {
+      "start": {
+        "mesechta": "Makhshirin",
+        "perek": 4,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Makhshirin",
+        "perek": 6,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 115,
+    "mesechta": "Zavim",
+    "range": {
+      "start": {
+        "mesechta": "Zavim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Zavim",
+        "perek": 5,
+        "mishna": 12
+      }
+    }
+  },
+  {
+    "lot": 116,
+    "mesechta": "Tevul Yom",
+    "range": {
+      "start": {
+        "mesechta": "Tevul Yom",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Tevul Yom",
+        "perek": 4,
+        "mishna": 7
+      }
+    }
+  },
+  {
+    "lot": 117,
+    "mesechta": "Yadayim",
+    "range": {
+      "start": {
+        "mesechta": "Yadayim",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Yadayim",
+        "perek": 4,
+        "mishna": 8
+      }
+    }
+  },
+  {
+    "lot": 118,
+    "mesechta": "Oktzin",
+    "range": {
+      "start": {
+        "mesechta": "Oktzin",
+        "perek": 1,
+        "mishna": 1
+      },
+      "end": {
+        "mesechta": "Oktzin",
+        "perek": 3,
+        "mishna": 12
+      }
+    }
+  }
+]
