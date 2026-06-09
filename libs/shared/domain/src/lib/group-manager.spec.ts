@@ -1,53 +1,59 @@
 import { GroupManager } from './group-manager';
 import { InMemoryGroupRepository } from './group-repository';
 import { MishnaStructure } from './mishna-structure';
-import { fakeCalendar, sequentialIdGen, tinyDataset } from './test-fixtures';
+import { pickInOrder, sequentialIdGen, tinyChalakim, tinyDataset } from './test-fixtures';
 
 describe('GroupManager', () => {
-  const structure = new MishnaStructure(tinyDataset); // 10 mishnayot per group
+  const structure = new MishnaStructure(tinyDataset);
+  const chalakim = tinyChalakim(); // 4 lots per group
 
-  // remaining = commitment * ceil(daysRemaining / 7)
-  const setup = (daysRemaining: number) => {
-    const repo = new InMemoryGroupRepository(structure, sequentialIdGen('g'));
-    const manager = new GroupManager(repo, fakeCalendar({ daysRemaining }));
+  const setup = () => {
+    const repo = new InMemoryGroupRepository(
+      structure,
+      chalakim,
+      sequentialIdGen('g'),
+    );
+    const manager = new GroupManager(repo, pickInOrder);
     return { repo, manager };
   };
 
-  it('spills a large commitment across multiple groups', async () => {
-    const { repo, manager } = setup(175); // remaining = 1 * ceil(175/7) = 25
-    await manager.join('u1', 1, new Date());
-
-    const groups = await repo.loadAll();
-    expect(groups).toHaveLength(3); // 10 + 10 + 5
-    const allocated = groups.reduce(
-      (sum, g) =>
-        sum +
-        (g.toState().blocks.find((b) => b.userId === 'u1')?.totalSize ?? 0),
-      0,
+  const userLots = async (repo: InMemoryGroupRepository, userId: string) =>
+    (await repo.loadGroupsForUser(userId)).flatMap((g) =>
+      g.toState().blocks.filter((b) => b.userId === userId).flatMap((b) => b.lots),
     );
-    expect(allocated).toBe(25);
-  });
 
-  it('stops exactly at the commitment within a single group', async () => {
-    const { repo, manager } = setup(42); // remaining = ceil(42/7) = 6
-    await manager.join('u1', 1, new Date());
+  it('assigns commitment-many lots within a single group', async () => {
+    const { repo, manager } = setup();
+    await manager.join('u1', 2);
+
     const groups = await repo.loadAll();
     expect(groups).toHaveLength(1);
-    expect(groups[0].toState().blocks[0].totalSize).toBe(6);
-    expect(groups[0].isExhausted()).toBe(false);
+    expect(await userLots(repo, 'u1')).toEqual([1, 2]);
+  });
+
+  it('spills across groups when one runs out, never repeating a lot', async () => {
+    const { repo, manager } = setup();
+    await manager.join('u1', 3); // lots 1,2,3 in g-0; lot 4 left
+    await manager.join('u2', 3); // lot 4 from g-0, then a fresh g-1 for the rest
+
+    const groups = await repo.loadAll();
+    expect(groups).toHaveLength(2);
+
+    const lots = await userLots(repo, 'u2');
+    expect(lots).toHaveLength(3);
+    // No lot number repeated, so the user never learns the same mishnayot twice.
+    expect(new Set(lots).size).toBe(3);
   });
 
   it('removes the user from every group they belong to', async () => {
-    const { repo, manager } = setup(175); // remaining = ceil(175/7) = 25
-    await manager.join('u1', 1, new Date());
-    expect(await repo.loadGroupsForUser('u1')).toHaveLength(3);
+    const { repo, manager } = setup();
+    await manager.join('u1', 3);
+    await manager.join('u2', 3); // forces u2 across two groups
+    expect(await repo.loadGroupsForUser('u2')).toHaveLength(2);
 
-    await manager.removeUser('u1');
-    expect(await repo.loadGroupsForUser('u1')).toHaveLength(0);
-    // ranges came back as capacity (gaps), nothing left allocated to u1
-    const groups = await repo.loadAll();
-    for (const g of groups) {
-      expect(g.capacityLeft()).toBe(10);
-    }
+    await manager.removeUser('u2');
+    expect(await repo.loadGroupsForUser('u2')).toHaveLength(0);
+    // u1 still holds their lots.
+    expect(await userLots(repo, 'u1')).toEqual([1, 2, 3]);
   });
 });

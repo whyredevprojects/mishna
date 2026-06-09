@@ -1,99 +1,86 @@
 import { Group } from './group';
 import { MishnaStructure } from './mishna-structure';
-import { sequentialIdGen, tinyDataset } from './test-fixtures';
-import { BlockRange } from './types';
+import { pickInOrder, sequentialIdGen, tinyChalakim, tinyDataset } from './test-fixtures';
 
 // Tiny corpus global indices:
 //  0 Aleph1:1  1 Aleph1:2  2 Aleph2:1  3 Aleph2:2  4 Aleph2:3
 //  5 Bet1:1    6 Bet1:2    7 Bet2:1    8 Bet2:2    9 Bet2:3
+// Lots (see tinyChalakim): 1→[0,1] 2→[2,3,4] 3→[5,6] 4→[7,8,9]
 
 describe('Group', () => {
   const structure = new MishnaStructure(tinyDataset);
-  const pair = (r: BlockRange): [number, number] => [
-    structure.indexOf(r.start),
-    structure.indexOf(r.end),
-  ];
-  const newGroup = () => new Group(structure, sequentialIdGen(), { id: 'g' });
+  const chalakim = tinyChalakim();
+  const newGroup = () =>
+    new Group(structure, chalakim, sequentialIdGen(), { id: 'g' });
   const blockOf = (g: Group, userId: string) =>
     g.toState().blocks.find((b) => b.userId === userId);
 
-  it('allocates the tail to a single user as one contiguous range', () => {
+  it('assigns the requested number of random lots and derives ranges/size', () => {
     const g = newGroup();
-    expect(g.addUser('u1', 4, 1)).toEqual({ allocated: 4 });
+    // pickInOrder takes the lowest-numbered free lots: 1 and 2.
+    expect(g.addUser('u1', 2, 2, [], pickInOrder)).toEqual({
+      allocated: 2,
+      lots: [1, 2],
+    });
     const block = blockOf(g, 'u1');
-    expect(block?.ranges.map(pair)).toEqual([[0, 3]]);
-    expect(block?.totalSize).toBe(4);
+    expect(block?.lots).toEqual([1, 2]);
+    expect(block?.totalSize).toBe(5); // lot 1 (2) + lot 2 (3)
+    expect(block?.ranges).toHaveLength(2);
+    expect(block?.commitment).toBe(2);
   });
 
-  it('gives successive users contiguous non-overlapping ranges', () => {
+  it('gives successive users disjoint lots', () => {
     const g = newGroup();
-    g.addUser('u1', 4, 1);
-    g.addUser('u2', 2, 1);
-    expect(blockOf(g, 'u1')?.ranges.map(pair)).toEqual([[0, 3]]);
-    expect(blockOf(g, 'u2')?.ranges.map(pair)).toEqual([[4, 5]]);
+    g.addUser('u1', 2, 2, [], pickInOrder); // lots 1,2
+    g.addUser('u2', 2, 2, [], pickInOrder); // lots 3,4
+    expect(blockOf(g, 'u1')?.lots).toEqual([1, 2]);
+    expect(blockOf(g, 'u2')?.lots).toEqual([3, 4]);
   });
 
-  it('returns less than requested when the group is exhausted', () => {
+  it('allocates fewer than requested when the group runs out of lots', () => {
     const g = newGroup();
-    expect(g.addUser('u1', 100, 1)).toEqual({ allocated: 10 });
+    expect(g.addUser('u1', 3, 3, [], pickInOrder)).toEqual({
+      allocated: 3,
+      lots: [1, 2, 3],
+    });
+    // Only lot 4 is left; a request for 3 yields just 1.
+    expect(g.addUser('u2', 3, 3, [], pickInOrder)).toEqual({
+      allocated: 1,
+      lots: [4],
+    });
     expect(g.isExhausted()).toBe(true);
-    expect(g.addUser('u2', 3, 1)).toEqual({ allocated: 0 });
-    expect(blockOf(g, 'u2')).toBeUndefined();
+    expect(g.addUser('u3', 1, 1, [], pickInOrder)).toEqual({
+      allocated: 0,
+      lots: [],
+    });
+    expect(blockOf(g, 'u3')).toBeUndefined();
   });
 
-  it('removeUser returns the ranges to the gap queue', () => {
+  it('excludes lot numbers the caller already holds elsewhere', () => {
     const g = newGroup();
-    g.addUser('u1', 4, 1); // 0-3
-    g.addUser('u2', 2, 1); // 4-5
-    expect(g.capacityLeft()).toBe(4); // tail 6-9
+    // The user already holds lots 1 and 2 in another group.
+    expect(g.addUser('u1', 2, 3, [1, 2], pickInOrder)).toEqual({
+      allocated: 2,
+      lots: [3, 4],
+    });
+  });
+
+  it('removeUser frees the user lots back to capacity', () => {
+    const g = newGroup();
+    g.addUser('u1', 2, 2, [], pickInOrder); // lots 1,2 (sizes 2+3)
+    expect(g.capacityLeft()).toBe(5); // lots 3,4 → 2+3
     g.removeUser('u1');
-    expect(g.capacityLeft()).toBe(8); // gap 0-3 + tail 6-9
+    expect(g.capacityLeft()).toBe(10); // whole corpus free again
     expect(blockOf(g, 'u1')).toBeUndefined();
-  });
-
-  it('drains gaps front-to-back before the tail, splitting partially', () => {
-    const g = newGroup();
-    g.addUser('u1', 4, 1); // 0-3
-    g.addUser('u2', 2, 1); // 4-5, tail now at 6
-    g.removeUser('u1'); // gap 0-3
-    // u3 wants 6: 4 from the gap, then 2 from the tail -> non-contiguous block
-    expect(g.addUser('u3', 6, 1)).toEqual({ allocated: 6 });
-    expect(blockOf(g, 'u3')?.ranges.map(pair)).toEqual([
-      [0, 3],
-      [6, 7],
-    ]);
-  });
-
-  it('consumes a gap partially, leaving the remainder', () => {
-    const g = newGroup();
-    g.addUser('u1', 4, 1); // 0-3
-    g.removeUser('u1'); // gap 0-3
-    g.addUser('u2', 2, 1); // takes 0-1 from the gap
-    expect(blockOf(g, 'u2')?.ranges.map(pair)).toEqual([[0, 1]]);
-    // remaining gap is 2-3; a third user picks it up next
-    g.addUser('u3', 1, 1);
-    expect(blockOf(g, 'u3')?.ranges.map(pair)).toEqual([[2, 2]]);
-  });
-
-  it('merges adjacent gaps into one', () => {
-    const g = newGroup();
-    g.addUser('u1', 4, 1); // 0-3
-    g.addUser('u2', 4, 1); // 4-7
-    g.removeUser('u1'); // gap 0-3
-    g.removeUser('u2'); // gap 4-7 -> merges with 0-3
-    // a single user can now take the whole merged 0-7 contiguously
-    g.addUser('u3', 8, 1);
-    expect(blockOf(g, 'u3')?.ranges.map(pair)).toEqual([[0, 7]]);
   });
 
   it('round-trips through toState / fromState', () => {
     const g = newGroup();
-    g.addUser('u1', 4, 1);
-    g.addUser('u2', 2, 1);
-    g.removeUser('u1'); // leave a gap so tail + gaps both have state
+    g.addUser('u1', 2, 2, [], pickInOrder);
+    g.addUser('u2', 1, 1, [], pickInOrder);
     const state = g.toState();
 
-    const restored = Group.fromState(structure, sequentialIdGen(), state);
+    const restored = Group.fromState(structure, chalakim, sequentialIdGen(), state);
     expect(restored.toState()).toEqual(state);
     expect(restored.capacityLeft()).toBe(g.capacityLeft());
   });

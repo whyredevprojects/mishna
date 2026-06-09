@@ -1,239 +1,174 @@
+import { MishnaChalakim } from './mishna-chalakim';
 import { MishnaStructure } from './mishna-structure';
-import { Block, BlockRange, Commitment, Gap, IdGenerator, MishnaRef } from './types';
+import { Block, BlockRange, Commitment, IdGenerator, RandomSource } from './types';
 
 // ---------------------------------------------------------------------------
 // Group
 //
-// A set of users whose blocks together cover the group's slice of the corpus.
-// Owns its blocks, its gap queue (ranges vacated by dropouts), and the tail
-// (the next never-yet-allocated mishna). All corpus traversal is delegated to
-// the injected MishnaStructure.
+// One full covering of the corpus, handed out as pre-set lots (chalakim). The
+// group owns its members' blocks; each block is the set of lot numbers that user
+// holds here. Every lot (1..118) is owned by at most one user, so a group's
+// members' lots tile the whole corpus exactly once. A group is exhausted when all
+// of its lots are taken.
 //
-// Allocation order: drain gaps front-to-back, then continue from the tail. A
-// group is exhausted when the tail has run off the end and no gaps remain.
+// Allocation is random: `addUser` picks free lots uniformly (via an injected
+// RandomSource). All corpus/lot lookups are delegated to the injected
+// MishnaStructure and MishnaChalakim.
 // ---------------------------------------------------------------------------
 
 /** Serializable snapshot of a Group, for the persistence layer. */
 export interface GroupState {
   id: string;
-  /** Next mishna to allocate from the tail; null once the tail is exhausted. */
-  tailRef: MishnaRef | null;
   blocks: Block[];
-  gaps: Gap[];
 }
 
 export interface GroupInit {
   id: string;
-  tailRef?: MishnaRef | null;
   blocks?: Block[];
-  gaps?: Gap[];
 }
 
 export class Group {
   readonly id: string;
-  private tailRef: MishnaRef | null;
   private blocks: Block[];
-  private gaps: Gap[];
 
   constructor(
     private readonly structure: MishnaStructure,
+    private readonly chalakim: MishnaChalakim,
     private readonly idGen: IdGenerator,
     init: GroupInit,
   ) {
     this.id = init.id;
-    this.tailRef =
-      init.tailRef === undefined ? structure.firstRef() : init.tailRef;
     this.blocks = init.blocks ?? [];
-    this.gaps = init.gaps ?? [];
   }
 
   static fromState(
     structure: MishnaStructure,
+    chalakim: MishnaChalakim,
     idGen: IdGenerator,
     state: GroupState,
   ): Group {
-    return new Group(structure, idGen, state);
+    return new Group(structure, chalakim, idGen, state);
   }
 
   // -- public interface ------------------------------------------------------
 
   /**
-   * Allocates up to `size` mishnayot to the user and returns how much was
-   * actually allocated (less than `size` only when the group is exhausted).
-   * Gaps are consumed front-to-back first, then the tail.
+   * Assigns up to `count` random free lots to the user (fewer only when the group
+   * runs out of lots), excluding any lot numbers in `exclude` — the lots the user
+   * already holds in other groups, so they never get the same lot (and the same
+   * mishnayot) twice. Returns how many lots were assigned and which ones.
    */
   addUser(
     userId: string,
-    size: number,
+    count: number,
     commitment: Commitment,
-  ): { allocated: number } {
-    if (size < 1) {
-      return { allocated: 0 };
+    exclude: number[],
+    random: RandomSource,
+  ): { allocated: number; lots: number[] } {
+    if (count < 1) {
+      return { allocated: 0, lots: [] };
     }
-
-    const ranges: BlockRange[] = [];
-    let remaining = size;
-
-    // 1. drain gaps front-to-back
-    let fromGap: BlockRange | null;
-    while (remaining > 0 && (fromGap = this.useGap(remaining)) !== null) {
-      ranges.push(fromGap);
-      remaining -= this.structure.rangeSize(fromGap);
+    const free = this.freeLots(exclude);
+    const picked = sampleWithoutReplacement(
+      free,
+      Math.min(count, free.length),
+      random,
+    );
+    if (picked.length === 0) {
+      return { allocated: 0, lots: [] };
     }
-
-    // 2. continue from the tail
-    let fromTail: BlockRange | null;
-    while (remaining > 0 && (fromTail = this.takeTail(remaining)) !== null) {
-      ranges.push(fromTail);
-      remaining -= this.structure.rangeSize(fromTail);
-    }
-
-    const allocated = size - remaining;
-    if (allocated > 0) {
-      const merged = this.mergeRanges(ranges);
-      this.blocks.push({
-        id: this.idGen(),
-        userId,
-        ranges: merged,
-        totalSize: allocated,
-        commitment,
-      });
-    }
-    return { allocated };
+    picked.sort((a, b) => a - b); // ascending lot number = corpus order
+    this.blocks.push(this.buildBlock(userId, picked, commitment));
+    return { allocated: picked.length, lots: picked };
   }
 
-  /** Returns the user's block ranges to the gap queue and drops the block. */
+  /** Drops the user's block, freeing their lots back to the group. */
   removeUser(userId: string): void {
-    const idx = this.blocks.findIndex((b) => b.userId === userId);
-    if (idx === -1) {
-      return;
-    }
-    const [block] = this.blocks.splice(idx, 1);
-    for (const range of block.ranges) {
-      this.insertGap({
-        id: this.idGen(),
-        start: range.start,
-        size: this.structure.rangeSize(range),
-      });
-    }
+    this.blocks = this.blocks.filter((b) => b.userId !== userId);
   }
 
   toState(): GroupState {
     return {
       id: this.id,
-      tailRef: this.tailRef,
-      blocks: this.blocks.map((b) => ({ ...b, ranges: [...b.ranges] })),
-      gaps: this.gaps.map((g) => ({ ...g })),
+      blocks: this.blocks.map((b) => ({
+        ...b,
+        lots: [...b.lots],
+        ranges: b.ranges.map((r) => ({ ...r })),
+      })),
     };
   }
 
-  /** Whether the entire slice is allocated — tail run off the end, no gaps. */
+  /** Whether every lot is taken — no free lots remain. */
   isExhausted(): boolean {
-    return this.tailRef === null && this.gaps.length === 0;
+    return this.freeLots().length === 0;
   }
 
-  /** Mishnayot still available to allocate: all gaps plus the remaining tail. */
+  /** Mishnayot still available to allocate: the sum of the free lots' sizes. */
   capacityLeft(): number {
-    const gapTotal = this.gaps.reduce((sum, g) => sum + g.size, 0);
-    const tailTotal =
-      this.tailRef === null
-        ? 0
-        : this.structure.totalMishnayot - this.structure.indexOf(this.tailRef);
-    return gapTotal + tailTotal;
+    return this.freeLots().reduce((sum, lot) => sum + this.lotSize(lot), 0);
   }
 
   // -- private ---------------------------------------------------------------
 
-  /** Takes up to `size` from the front gap; null when no gaps remain. */
-  private useGap(size: number): BlockRange | null {
-    const gap = this.peekGap();
-    if (gap === null) {
-      return null;
+  /** Lot numbers already owned by some member of this group. */
+  private takenLots(): Set<number> {
+    const taken = new Set<number>();
+    for (const block of this.blocks) {
+      for (const lot of block.lots) {
+        taken.add(lot);
+      }
     }
-    const take = Math.min(gap.size, size);
-    const range = this.structure.computeBlock(gap.start, take);
-    if (take === gap.size) {
-      this.consumeGap();
-    } else {
-      this.shrinkGap(take);
+    return taken;
+  }
+
+  /** Free lot numbers (corpus order), minus the group's taken lots and `exclude`. */
+  private freeLots(exclude: Iterable<number> = []): number[] {
+    const taken = this.takenLots();
+    for (const lot of exclude) {
+      taken.add(lot);
     }
-    return range;
+    return this.chalakim.allLotNumbers().filter((lot) => !taken.has(lot));
   }
 
-  /** Takes up to `size` from the tail and advances it; null if exhausted. */
-  private takeTail(size: number): BlockRange | null {
-    if (this.tailRef === null) {
-      return null;
-    }
-    const range = this.structure.computeBlock(this.tailRef, size);
-    this.tailRef = this.structure.advance(range.end, 1);
-    return range;
+  /** Mishnayot in a lot. */
+  private lotSize(lot: number): number {
+    return this.structure.rangeSize(this.chalakim.getLotByNumber(lot).range);
   }
 
-  private peekGap(): Gap | null {
-    return this.gaps[0] ?? null;
-  }
-
-  private consumeGap(): void {
-    this.gaps.shift();
-  }
-
-  /** Advances the front gap's start by `size` and shrinks it. */
-  private shrinkGap(size: number): void {
-    const gap = this.gaps[0];
-    const newStart = this.structure.advance(gap.start, size);
-    if (newStart === null) {
-      // Shrinking past the end leaves nothing; drop the gap.
-      this.gaps.shift();
-      return;
-    }
-    gap.start = newStart;
-    gap.size -= size;
-  }
-
-  /** Inserts a gap in corpus order, merging with any contiguous neighbours. */
-  private insertGap(gap: Gap): void {
-    this.gaps.push(gap);
-    this.gaps.sort(
-      (a, b) =>
-        this.structure.indexOf(a.start) - this.structure.indexOf(b.start),
+  /** Builds a user's block from their lot numbers, deriving ranges + totalSize. */
+  private buildBlock(
+    userId: string,
+    lots: number[],
+    commitment: Commitment,
+  ): Block {
+    const ranges: BlockRange[] = lots.map(
+      (lot) => this.chalakim.getLotByNumber(lot).range,
     );
-    this.gaps = this.mergeGaps(this.gaps);
+    const totalSize = ranges.reduce(
+      (sum, range) => sum + this.structure.rangeSize(range),
+      0,
+    );
+    return { id: this.idGen(), userId, lots, ranges, totalSize, commitment };
   }
+}
 
-  private gapEndIndex(gap: Gap): number {
-    return this.structure.indexOf(gap.start) + gap.size - 1;
+/**
+ * Picks `k` distinct items uniformly at random from `pool` (a partial
+ * Fisher-Yates shuffle), using the injected `random`. With a `random` that always
+ * returns 0 it picks the first `k` items in order — handy for deterministic tests.
+ */
+function sampleWithoutReplacement(
+  pool: number[],
+  k: number,
+  random: RandomSource,
+): number[] {
+  const arr = [...pool];
+  const out: number[] = [];
+  for (let i = 0; i < k; i++) {
+    const span = arr.length - i;
+    const j = i + Math.min(span - 1, Math.floor(random() * span));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    out.push(arr[i]);
   }
-
-  /** Merges contiguous gaps in an already-sorted list. */
-  private mergeGaps(sorted: Gap[]): Gap[] {
-    const out: Gap[] = [];
-    for (const gap of sorted) {
-      const prev = out[out.length - 1];
-      if (prev && this.structure.indexOf(gap.start) === this.gapEndIndex(prev) + 1) {
-        prev.size += gap.size;
-      } else {
-        out.push({ ...gap });
-      }
-    }
-    return out;
-  }
-
-  /** Merges contiguous ranges in an already-ordered list. */
-  private mergeRanges(ordered: BlockRange[]): BlockRange[] {
-    const out: BlockRange[] = [];
-    for (const range of ordered) {
-      const prev = out[out.length - 1];
-      if (
-        prev &&
-        this.structure.indexOf(range.start) ===
-          this.structure.indexOf(prev.end) + 1
-      ) {
-        prev.end = range.end;
-      } else {
-        out.push({ ...range });
-      }
-    }
-    return out;
-  }
+  return out;
 }

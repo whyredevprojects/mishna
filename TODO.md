@@ -20,6 +20,34 @@ dashboard and email always agree. This would require threading email prefs into 
 (currently stateless, date-only) assignment path — a bigger change. Deferred until we decide
 the drift actually matters in practice.
 
+## Big lots can finish after the deadline (pace = commitment)
+
+Allocation hands each user `commitment` random lots and paces them at `commitment`
+mishnayos/week. Lots are **15–57 mishnayos** (median 35; the 118 lots tile all 4192). Since
+a user's portion is `commitment` lots ≈ `commitment × avg-lot`, the commitment cancels and
+**weeks-to-finish ≈ the average size of the lots they happened to draw** — independent of
+the commitment number.
+
+**Consequence:** a regular cycle is ~50.5 weeks (354-day year), a leap one ~54.8 (384-day).
+A user who draws larger-than-average lots overshoots it. Worst case: a **commitment-1 user
+who draws a 57-mishna lot needs 57 weeks** at 1/week, so they finish *after* Rosh Chodesh
+Sivan instead of comfortably early. (We chose "fixed n = commitment, ok to finish early,"
+which is right for the median ~35-mishna lot — only above-median draws miss the deadline.)
+
+**Fix (sketch):** pace at `n = max(commitment, ceil(totalSize / weeksInCycle))` — fast
+enough that everyone finishes by the cycle end, but never slower than the pace they chose.
+
+- Add `weeksInCycle(date)` to `CycleCalendar` (`libs/shared/domain/src/lib/cycle-calendar.ts`):
+  `Math.ceil((this.cycleEndAbs(date) - this.cycleStartAbs(date)) / 7)` — the cycle's length
+  in 7-day buckets.
+- In `AssignmentEngine.getAssignment` (`libs/shared/domain/src/lib/assignment-engine.ts`),
+  derive `n` from the summed `blocks[].totalSize` and `weeksInCycle(date)` and use it for
+  both the offset (`week * n`) and the take count, instead of `commitment` directly;
+  `getWeekAssignment` inherits it. Update `assignment-engine.spec.ts`.
+- UI note: "N / week" stays correct as a **minimum** (a user may be paced faster when their
+  lots are large). Capping at `commitment` instead would keep the displayed pace exact but
+  reintroduce the late finish.
+
 ## Offline completion recovery
 
 Today, marking a mishna learned requires the network: `TodayCardComponent` optimistically

@@ -69,7 +69,8 @@ describe('server API integration', () => {
     me = await SELF.fetch('https://server/api/me', { headers: as('alice') });
     expect(await me.json()).toMatchObject({ joined: true, commitment: 1 });
 
-    // In week 0 of the cycle, the first joiner's first mishna is the corpus head.
+    // In week 0 of the cycle, the joiner gets their commitment-many mishnayot from
+    // their (randomly assigned) lots — one mishna for a commitment of 1.
     const cycleStart = calendar.cycleStart(new Date());
     const dateStr = cycleStart.toISOString().slice(0, 10);
     const assign = await SELF.fetch(
@@ -82,7 +83,7 @@ describe('server API integration', () => {
     };
     expect(assignment.userId).toBe('alice');
     expect(assignment.mishnas).toHaveLength(1);
-    expect(assignment.mishnas[0]).toEqual(structure.firstRef());
+    expect(() => structure.indexOf(assignment.mishnas[0])).not.toThrow();
 
     // today's endpoint also resolves.
     const today = await SELF.fetch('https://server/api/assignments/today', {
@@ -146,8 +147,9 @@ describe('server API integration', () => {
 
     expect(alice.userId).toBe('alice');
     expect(bob.userId).toBe('bob');
-    expect(alice.mishnas[0]).toEqual(structure.firstRef());
+    expect(alice.mishnas).toHaveLength(1);
     expect(bob.mishnas).toHaveLength(1);
+    // Disjoint lots within the group → different mishnayot for each member.
     expect(bob.mishnas[0]).not.toEqual(alice.mishnas[0]);
   });
 
@@ -509,17 +511,21 @@ describe('server API integration', () => {
       };
       expect(body.commitment).toBe(2);
       expect(body.joinedAt).toBeTruthy();
-      // The portion is the whole-cycle allocation (commitment * weeks remaining),
-      // in corpus order — the first joiner's portion starts at the corpus head.
-      expect(body.assigned).toHaveLength(2 * calendar.weeksRemaining(new Date()));
-      expect(body.assigned[0]).toEqual(structure.firstRef());
+      // The portion is the union of the user's two lots, in corpus order. Sizes
+      // vary by lot, so just assert it's non-empty and every ref is valid.
+      expect(body.assigned.length).toBeGreaterThan(0);
+      for (const ref of body.assigned) {
+        expect(() => structure.indexOf(ref)).not.toThrow();
+      }
       expect(body.completed).toEqual([]);
 
-      // Mark the head learned; it shows up in `completed`.
+      // Mark the portion's first mishna learned; it shows up in `completed`. Its
+      // group is the one carrying the week-0 assignment (the portion's start).
       const head = body.assigned[0];
+      const cycleStartStr = calendar.cycleStart(new Date()).toISOString().slice(0, 10);
       const groupId = (
         (await (
-          await SELF.fetch('https://server/api/assignments/today', {
+          await SELF.fetch(`https://server/api/assignments?date=${cycleStartStr}`, {
             headers: as('alice'),
           })
         ).json()) as { groupId: string }
@@ -547,13 +553,10 @@ describe('server API integration', () => {
       });
     }
 
-    /** The Sunday on/before the cycle start — the week that holds a joiner's first
-     *  mishnayot, so assignment rows are non-empty regardless of the real date. */
+    /** The cycle-start date (week 0), so assignment rows hold a joiner's first
+     *  mishnayot — non-empty regardless of the real date or which lots they drew. */
     function cycleStartWeek(): string {
-      const start = calendar.cycleStart(new Date());
-      const sunday = new Date(start);
-      sunday.setUTCDate(sunday.getUTCDate() - sunday.getUTCDay());
-      return sunday.toISOString().slice(0, 10);
+      return calendar.cycleStart(new Date()).toISOString().slice(0, 10);
     }
 
     it('paginates and searches the user list', async () => {

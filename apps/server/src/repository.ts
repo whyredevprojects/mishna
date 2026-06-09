@@ -2,6 +2,7 @@ import {
   Group,
   GroupRepository,
   IdGenerator,
+  MishnaChalakim,
   MishnaStructure,
 } from '@mishna/domain';
 
@@ -28,11 +29,17 @@ export class D1GroupRepository implements GroupRepository {
   constructor(
     private readonly db: D1Database,
     private readonly structure: MishnaStructure,
+    private readonly chalakim: MishnaChalakim,
     private readonly idGen: IdGenerator,
   ) {}
 
   private hydrate(stateJson: string): Group {
-    return Group.fromState(this.structure, this.idGen, JSON.parse(stateJson));
+    return Group.fromState(
+      this.structure,
+      this.chalakim,
+      this.idGen,
+      JSON.parse(stateJson),
+    );
   }
 
   async loadNonExhaustedGroup(): Promise<Group | null> {
@@ -43,7 +50,9 @@ export class D1GroupRepository implements GroupRepository {
   }
 
   async createGroup(): Promise<Group> {
-    const group = new Group(this.structure, this.idGen, { id: this.idGen() });
+    const group = new Group(this.structure, this.chalakim, this.idGen, {
+      id: this.idGen(),
+    });
     await this.persist(group);
     return group;
   }

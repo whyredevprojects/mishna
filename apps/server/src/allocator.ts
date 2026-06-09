@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Commitment, GroupManager } from '@mishna/domain';
 import { D1GroupRepository } from './repository';
-import { calendar, idGen, structure } from './domain';
+import { chalakim, idGen, random, structure } from './domain';
 
 // ---------------------------------------------------------------------------
 // AllocatorDO
@@ -10,7 +10,7 @@ import { calendar, idGen, structure } from './domain';
 // join/leave to ONE instance (idFromName("allocator")), and this object runs
 // them through an in-process promise chain so the load->mutate->save cycle is
 // strictly serialized. That closes the race the domain README hand-waves: two
-// simultaneous joins can't both read the same tail and double-allocate it.
+// simultaneous joins can't both claim the same free lot and hand it to two users.
 //
 // (Durable Objects don't serialize across `await` boundaries on their own once
 // external I/O like D1 is involved, so the explicit chain is what guarantees
@@ -42,8 +42,8 @@ export class AllocatorDO extends DurableObject<Env> {
   }
 
   private manager(): GroupManager {
-    const repo = new D1GroupRepository(this.env.DB, structure, idGen);
-    return new GroupManager(repo, calendar);
+    const repo = new D1GroupRepository(this.env.DB, structure, chalakim, idGen);
+    return new GroupManager(repo, random);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -69,7 +69,7 @@ export class AllocatorDO extends DurableObject<Env> {
       return Response.json({ error: 'already joined' }, { status: 409 });
     }
 
-    await this.manager().join(userId, commitment, new Date());
+    await this.manager().join(userId, commitment);
 
     await this.env.DB.prepare(
       'INSERT INTO participants (user_id, commitment, joined_at) VALUES (?, ?, ?)',

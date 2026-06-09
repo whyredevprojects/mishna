@@ -55,6 +55,11 @@ export class MishnaChalakim {
   allLots(): MishnaLot[] {
     return [...this.byLot.values()];
   }
+
+  /** Every lot number (1..118) in corpus order. */
+  allLotNumbers(): number[] {
+    return [...this.byLot.keys()];
+  }
 }
 
 /** The raw bundled chaluka artifact, for callers that want the flat list. */

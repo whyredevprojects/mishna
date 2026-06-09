@@ -1,4 +1,5 @@
 import { Group, GroupState } from './group';
+import { MishnaChalakim } from './mishna-chalakim';
 import { MishnaStructure } from './mishna-structure';
 import { IdGenerator } from './types';
 
@@ -11,9 +12,9 @@ import { IdGenerator } from './types';
 // ---------------------------------------------------------------------------
 
 export interface GroupRepository {
-  /** A group that still has capacity, or null if all groups are full. */
+  /** A group that still has free lots, or null if all groups are full. */
   loadNonExhaustedGroup(): Promise<Group | null>;
-  /** Creates, persists, and returns a fresh group spanning the whole corpus. */
+  /** Creates, persists, and returns a fresh group covering the whole corpus. */
   createGroup(): Promise<Group>;
   /** Persists the group's current state. */
   save(group: Group): Promise<void>;
@@ -27,11 +28,12 @@ export class InMemoryGroupRepository implements GroupRepository {
 
   constructor(
     private readonly structure: MishnaStructure,
+    private readonly chalakim: MishnaChalakim,
     private readonly idGen: IdGenerator,
   ) {}
 
   private hydrate(state: GroupState): Group {
-    return Group.fromState(this.structure, this.idGen, state);
+    return Group.fromState(this.structure, this.chalakim, this.idGen, state);
   }
 
   async loadNonExhaustedGroup(): Promise<Group | null> {
@@ -45,7 +47,9 @@ export class InMemoryGroupRepository implements GroupRepository {
   }
 
   async createGroup(): Promise<Group> {
-    const group = new Group(this.structure, this.idGen, { id: this.idGen() });
+    const group = new Group(this.structure, this.chalakim, this.idGen, {
+      id: this.idGen(),
+    });
     this.states.set(group.id, group.toState());
     return group;
   }

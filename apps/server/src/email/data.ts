@@ -1,5 +1,5 @@
 import { Block, Group, MishnaRef } from '@mishna/domain';
-import { idGen, structure } from '../domain';
+import { chalakim, idGen, structure } from '../domain';
 
 // ---------------------------------------------------------------------------
 // Data access for the email path. Reads from two D1 databases:
@@ -185,8 +185,12 @@ export async function loadGroupBlocksFor(
       .bind(...chunk)
       .all<{ group_id: string; user_id: string; state: string }>();
     for (const r of results) {
-      const blocks = Group.fromState(structure, idGen, JSON.parse(r.state)).toState()
-        .blocks;
+      const blocks = Group.fromState(
+        structure,
+        chalakim,
+        idGen,
+        JSON.parse(r.state),
+      ).toState().blocks;
       const mine = blocks
         .filter((b) => b.userId === r.user_id)
         .map((block) => ({ groupId: r.group_id, block }));
@@ -239,8 +243,12 @@ export async function loadBlocksFor(
       .bind(...chunk)
       .all<{ user_id: string; state: string }>();
     for (const r of results) {
-      const blocks = Group.fromState(structure, idGen, JSON.parse(r.state)).toState()
-        .blocks;
+      const blocks = Group.fromState(
+        structure,
+        chalakim,
+        idGen,
+        JSON.parse(r.state),
+      ).toState().blocks;
       const existing = byUser.get(r.user_id);
       if (existing) existing.push(...blocks);
       else byUser.set(r.user_id, [...blocks]);
@@ -338,7 +346,9 @@ export async function loadBlocks(env: Env, userId: string): Promise<Block[]> {
     .bind(userId)
     .all<{ state: string }>();
   return results.flatMap(
-    (r) => Group.fromState(structure, idGen, JSON.parse(r.state)).toState().blocks,
+    (r) =>
+      Group.fromState(structure, chalakim, idGen, JSON.parse(r.state)).toState()
+        .blocks,
   );
 }
 

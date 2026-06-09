@@ -12,7 +12,7 @@ import {
   weekStartToDate,
 } from '@mishna/domain';
 import { AllocatorDO } from './allocator';
-import { assignmentEngine, calendar, idGen, structure } from './domain';
+import { assignmentEngine, calendar, chalakim, idGen, structure } from './domain';
 import { D1GroupRepository } from './repository';
 import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
@@ -40,7 +40,7 @@ function allocator(env: Env) {
 
 /** Every group the user holds a block in. */
 function userGroups(env: Env, userId: string): Promise<Group[]> {
-  const repo = new D1GroupRepository(env.DB, structure, idGen);
+  const repo = new D1GroupRepository(env.DB, structure, chalakim, idGen);
   return repo.loadGroupsForUser(userId);
 }
 
@@ -457,7 +457,7 @@ app.post('/api/join', requireAuth, async (c) => {
   return new Response(res.body, res);
 });
 
-// Leave the cycle, returning the user's ranges to their groups' gap queues.
+// Leave the cycle, freeing the user's lots back to their groups.
 app.post('/api/leave', requireAuth, async (c) => {
   const userId = c.get('userId');
   const res = await allocator(c.env).fetch('https://allocator/leave', {
@@ -650,7 +650,7 @@ app.get('/api/admin/users/:id', requireAdmin, async (c) => {
     .bind(id)
     .first<{ commitment: number }>();
 
-  const repo = new D1GroupRepository(c.env.DB, structure, idGen);
+  const repo = new D1GroupRepository(c.env.DB, structure, chalakim, idGen);
   const groups = await repo.loadGroupsForUser(id);
   const groupSummaries = groups.map((g) => ({
     id: g.id,
@@ -675,8 +675,12 @@ app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
   if (!groupRow) {
     return c.json({ error: 'group not found' }, 404);
   }
-  const blocks = Group.fromState(structure, idGen, JSON.parse(groupRow.state)).toState()
-    .blocks;
+  const blocks = Group.fromState(
+    structure,
+    chalakim,
+    idGen,
+    JSON.parse(groupRow.state),
+  ).toState().blocks;
   const { results: memberRows } = await c.env.DB.prepare(
     'SELECT user_id FROM group_members WHERE group_id = ?',
   )
@@ -806,8 +810,8 @@ app.get('/api/admin/assignments', requireAdmin, async (c) => {
   return c.json({ weekStart, rows, total });
 });
 
-// Return a user's mishnayot to their groups' gap queues (same path as /api/leave,
-// but acting on an arbitrary user). Leaves the auth account intact.
+// Free a user's lots back to their groups (same path as /api/leave, but acting on
+// an arbitrary user). Leaves the auth account intact.
 app.post('/api/admin/users/:id/remove-assignments', requireAdmin, async (c) => {
   const id = c.req.param('id');
   const res = await allocator(c.env).fetch('https://allocator/leave', {

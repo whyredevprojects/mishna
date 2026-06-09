@@ -1,7 +1,8 @@
 import { CycleCalendar } from './cycle-calendar';
+import { MishnaChalakim } from './mishna-chalakim';
 import { MishnaStructure } from './mishna-structure';
 import { MishnahDataset } from './mishna-types';
-import { Block, Commitment, IdGenerator } from './types';
+import { Block, Commitment, IdGenerator, MishnaLot, RandomSource } from './types';
 
 /**
  * A tiny hand-built corpus whose boundary math is checkable by hand.
@@ -46,11 +47,66 @@ export const tinyDataset: MishnahDataset = {
   totals: { sedarim: 1, masechtot: 2, perakim: 4, mishnayot: 10 },
 };
 
+/**
+ * A MishnaChalakim over `tinyDataset` (10 mishnayot) split into 4 lots that never
+ * cross a mesechta boundary, matching the real corpus's discipline:
+ *
+ *   lot 1  Aleph 1:1–1:2   global 0,1      (2 mishnayot)
+ *   lot 2  Aleph 2:1–2:3   global 2,3,4    (3 mishnayot)
+ *   lot 3  Bet   1:1–1:2   global 5,6      (2 mishnayot)
+ *   lot 4  Bet   2:1–2:3   global 7,8,9    (3 mishnayot)
+ */
+export function tinyChalakim(): MishnaChalakim {
+  const lots: MishnaLot[] = [
+    {
+      lot: 1,
+      range: {
+        start: { mesechta: 'Aleph', perek: 1, mishna: 1 },
+        end: { mesechta: 'Aleph', perek: 1, mishna: 2 },
+      },
+    },
+    {
+      lot: 2,
+      range: {
+        start: { mesechta: 'Aleph', perek: 2, mishna: 1 },
+        end: { mesechta: 'Aleph', perek: 2, mishna: 3 },
+      },
+    },
+    {
+      lot: 3,
+      range: {
+        start: { mesechta: 'Bet', perek: 1, mishna: 1 },
+        end: { mesechta: 'Bet', perek: 1, mishna: 2 },
+      },
+    },
+    {
+      lot: 4,
+      range: {
+        start: { mesechta: 'Bet', perek: 2, mishna: 1 },
+        end: { mesechta: 'Bet', perek: 2, mishna: 3 },
+      },
+    },
+  ];
+  const byLot = new Map(lots.map((l) => [l.lot, l]));
+  const byMesechta = new Map<string, MishnaLot[]>();
+  for (const l of lots) {
+    const key = l.range.start.mesechta;
+    byMesechta.set(key, [...(byMesechta.get(key) ?? []), l]);
+  }
+  return new MishnaChalakim(byMesechta, byLot);
+}
+
 /** A deterministic, monotonically increasing id generator for tests. */
 export function sequentialIdGen(prefix = 'id'): IdGenerator {
   let n = 0;
   return () => `${prefix}-${n++}`;
 }
+
+/**
+ * A RandomSource that always returns 0, so `Group.addUser` picks the lowest-
+ * numbered (corpus-order) free lots first — deterministic and hand-checkable.
+ */
+export const pickInOrder: RandomSource = () => 0;
 
 /**
  * A CycleCalendar stub returning fixed day numbers, for deterministic tests.
@@ -71,7 +127,10 @@ export function fakeCalendar(opts: {
   } as unknown as CycleCalendar;
 }
 
-/** Builds a Block from [startIndex, endIndex] global-index range pairs. */
+/**
+ * Builds a Block from [startIndex, endIndex] global-index range pairs. `lots` is
+ * left empty — the assignment-engine tests slice on `ranges` and ignore it.
+ */
 export function makeBlock(
   structure: MishnaStructure,
   userId: string,
@@ -83,7 +142,7 @@ export function makeBlock(
     end: structure.refAt(b),
   }));
   const totalSize = pairs.reduce((sum, [a, b]) => sum + (b - a + 1), 0);
-  return { id: `block-${userId}`, userId, ranges, totalSize, commitment };
+  return { id: `block-${userId}`, userId, lots: [], ranges, totalSize, commitment };
 }
 
 /** Flattens a Block's ranges back into global indices, for tiling assertions. */

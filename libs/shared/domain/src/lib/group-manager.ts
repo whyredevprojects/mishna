@@ -1,39 +1,48 @@
-import { CycleCalendar } from './cycle-calendar';
 import { GroupRepository } from './group-repository';
-import { Commitment } from './types';
+import { Commitment, RandomSource } from './types';
 
 // ---------------------------------------------------------------------------
 // GroupManager
 //
-// Orchestrates allocation across groups. A user's full commitment may not fit
-// in a single group, so join() loops — filling one group, moving to (or
-// creating) the next — until the whole commitment is placed. Each mutated group
-// is saved back through the repository.
+// Orchestrates lot allocation across groups. A user takes `commitment` random
+// lots. They normally all fit in one group, but if a group runs out of lots
+// mid-join, the remainder comes from the next group (or a fresh one) — and join()
+// carries the lots already taken so a user never gets the same lot twice across
+// groups. Each mutated group is saved back through the repository.
 //
-// Concurrency: the protected invariant is tail integrity. On D1 writes are
-// serialized, so saving the mutated group is sufficient — a racing join reloads
-// the already-advanced tail and continues from there. No locks needed.
+// Concurrency: the invariant is that two lots are never handed to two users at
+// once. On D1 writes are serialized (the AllocatorDO), so saving the mutated
+// group is sufficient — a racing join reloads the already-claimed lots and picks
+// from what's left. No locks needed.
 // ---------------------------------------------------------------------------
 
 export class GroupManager {
   constructor(
     private readonly repo: GroupRepository,
-    private readonly calendar: CycleCalendar,
+    private readonly random: RandomSource,
   ) {}
 
   /**
-   * Joins a user for the current cycle. Their total allocation is
-   * `commitment * weeksRemaining`, spread across as many groups as needed.
+   * Joins a user for the current cycle, assigning them `commitment` random lots,
+   * spread across as many groups as needed (almost always one).
    */
-  async join(userId: string, commitment: Commitment, today: Date): Promise<void> {
-    let remaining = commitment * this.calendar.weeksRemaining(today);
+  async join(userId: string, commitment: Commitment): Promise<void> {
+    let remaining = commitment;
+    const taken: number[] = [];
 
     while (remaining > 0) {
       const group =
         (await this.repo.loadNonExhaustedGroup()) ??
         (await this.repo.createGroup());
-      const { allocated } = group.addUser(userId, remaining, commitment);
+      const { allocated, lots } = group.addUser(
+        userId,
+        remaining,
+        commitment,
+        taken,
+        this.random,
+      );
       await this.repo.save(group);
+      taken.push(...lots);
       remaining -= allocated;
 
       // A non-exhausted or fresh group always allocates > 0; guard regardless
@@ -44,7 +53,7 @@ export class GroupManager {
     }
   }
 
-  /** Removes a user from every group, returning their ranges as gaps. */
+  /** Removes a user from every group, freeing their lots. */
   async removeUser(userId: string): Promise<void> {
     const groups = await this.repo.loadGroupsForUser(userId);
     for (const group of groups) {

@@ -2,7 +2,10 @@ import {
   AssignmentEngine,
   CycleCalendar,
   IdGenerator,
+  MishnaChalakim,
   MishnaStructure,
+  RandomSource,
+  createMishnaChalakim,
   createMishnaStructure,
 } from '@mishna/domain';
 
@@ -18,6 +21,8 @@ import {
 // ---------------------------------------------------------------------------
 
 export const structure: MishnaStructure = createMishnaStructure();
+export const chalakim: MishnaChalakim = createMishnaChalakim();
 export const calendar = new CycleCalendar();
 export const assignmentEngine = new AssignmentEngine(structure, calendar);
 export const idGen: IdGenerator = () => crypto.randomUUID();
+export const random: RandomSource = () => Math.random();

@@ -6,20 +6,21 @@ import { MishnaStructure } from './mishna-structure';
 import {
   blockIndices,
   fakeCalendar,
+  pickInOrder,
   sequentialIdGen,
+  tinyChalakim,
   tinyDataset,
 } from './test-fixtures';
 
 describe('integration', () => {
   const structure = new MishnaStructure(tinyDataset); // 10 mishnayot
+  const chalakim = tinyChalakim(); // lots: 1→[0,1] 2→[2,3,4] 3→[5,6] 4→[7,8,9]
 
-  it('tiles the corpus exactly after joins, a dropout, and a re-join', () => {
-    const g = new Group(structure, sequentialIdGen(), { id: 'g' });
-    g.addUser('u1', 3, 1); // 0-2
-    g.addUser('u2', 3, 1); // 3-5
-    g.addUser('u3', 4, 1); // 6-9  -> corpus full
-    g.removeUser('u2'); // gap 3-5
-    g.addUser('u4', 3, 1); // refills 3-5
+  it("a group's members' lots tile the corpus exactly once", () => {
+    const g = new Group(structure, chalakim, sequentialIdGen(), { id: 'g' });
+    g.addUser('u1', 2, 2, [], pickInOrder); // lots 1,2
+    g.addUser('u2', 1, 1, [], pickInOrder); // lot 3
+    g.addUser('u3', 1, 1, [], pickInOrder); // lot 4
 
     const covered = g
       .toState()
@@ -30,29 +31,29 @@ describe('integration', () => {
     expect(covered).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  it('one user fills one group and their weekly assignments tile that group', async () => {
-    const repo = new InMemoryGroupRepository(structure, sequentialIdGen('g'));
-    // ceil(70/7) = 10 weeks * commitment 1 = 10 mishnayot -> fills the group
-    const manager = new GroupManager(repo, fakeCalendar({ daysRemaining: 70 }));
-    await manager.join('u1', 1, new Date());
+  it("weekly assignments walk a user's lots commitment-per-week, then run out", async () => {
+    const repo = new InMemoryGroupRepository(
+      structure,
+      chalakim,
+      sequentialIdGen('g'),
+    );
+    const manager = new GroupManager(repo, pickInOrder);
+    await manager.join('u1', 2); // lots 1,2 → global 0..4, totalSize 5, pace 2/week
 
-    const groups = await repo.loadAll();
-    expect(groups).toHaveLength(1);
-    const blocks = groups[0].toState().blocks.filter((b) => b.userId === 'u1');
+    const blocks = (await repo.loadGroupsForUser('u1'))
+      .flatMap((g) => g.toState().blocks)
+      .filter((b) => b.userId === 'u1');
 
-    // walk all 10 weeks; the union of assignments must be the whole corpus
     const seen: number[] = [];
-    for (let week = 0; week < 10; week++) {
+    for (let week = 0; week < 4; week++) {
       const engine = new AssignmentEngine(
         structure,
         fakeCalendar({ daysSinceCycleStart: week * 7 }),
       );
       const { mishnas } = engine.getAssignment(blocks, new Date());
-      expect(mishnas).toHaveLength(1); // commitment 1
-      seen.push(structure.indexOf(mishnas[0]));
+      seen.push(...mishnas.map((m) => structure.indexOf(m)));
     }
-    expect(seen.sort((a, b) => a - b)).toEqual([
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-    ]);
+    // week 0: 0,1 · week 1: 2,3 · week 2: 4 (last one) · week 3: nothing left
+    expect(seen).toEqual([0, 1, 2, 3, 4]);
   });
 });

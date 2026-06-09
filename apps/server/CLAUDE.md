@@ -26,13 +26,15 @@ also binds **read-only** as `AUTH_DB` (for recipient email/name on the email pat
 in memory, no cross-DB JOIN).
 
 - `groups(id, state, exhausted, capacity_left, updated_at)` — `state` is the JSON
-  `GroupState` from `Group.toState()`; `exhausted`/`capacity_left` are denormalized
-  from it on every save so queries don't parse JSON.
+  `GroupState` from `Group.toState()`; each block carries the user's **lot numbers**
+  (1..118) plus their derived ranges. A group is one full covering of the corpus, so
+  `exhausted` means all 118 lots are taken; `capacity_left` is the free lots' mishnayot.
+  Both are denormalized from `state` on every save so queries don't parse JSON.
 - `group_members(group_id, user_id)` — denormalized membership (index on `user_id`),
   rebuilt from `state.blocks[].userId` on each `save` so `loadGroupsForUser` is an
   indexed join.
-- `participants(user_id, commitment, joined_at)` — who joined and their commitment;
-  drives `/api/me` and rejects double-joins.
+- `participants(user_id, commitment, joined_at)` — who joined and their commitment (=
+  the number of random lots they drew); drives `/api/me` and rejects double-joins.
 - `completions(user_id, group_id, mesechta, perek, mishna, completed_at)` — one row per
   mishna a user has marked learned, within a specific group. `group_id` is resolved
   server-side from the user's block and handed down with the assignment, so per-group
@@ -56,8 +58,8 @@ so the row and its members never drift apart.
 
 All `join`/`leave` route through **one** `AllocatorDO` instance
 (`idFromName("allocator")`). Inside, an in-process promise chain serializes the
-load→mutate→save cycle, so two simultaneous joins can't both read the same tail and
-double-allocate it (D1 alone doesn't serialize across `await`s once a DO is involved).
+load→mutate→save cycle, so two simultaneous joins can't both claim the same free lot and
+hand it to two users (D1 alone doesn't serialize across `await`s once a DO is involved).
 Reads — assignments, `/me`, admin — hit D1 directly and need no coordination.
 
 ## Auth
@@ -200,6 +202,9 @@ npm run db:migrate:remote    # production D1 — run as part of deploy
 Both wrap `wrangler d1 migrations apply mishna-app …` and only run the pending files.
 The existing `0001`/`0002` use `IF NOT EXISTS` so adopting migrations was safe on the
 already-provisioned databases; new migrations can be plain DDL (they only ever run once).
+`0005_lot_reset.sql` is a one-time **data** reset (not DDL): the switch to lot-based
+allocation changed the `groups.state` JSON shape, so it clears
+`groups`/`group_members`/`participants`/`completions` and everyone re-joins.
 
 ## One-time setup
 

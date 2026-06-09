@@ -26,30 +26,39 @@ export interface MishnaLot {
   range: BlockRange;
 }
 
-/** How many mishnas a user commits to learning per week. */
+/**
+ * A user's commitment for the cycle: the number of random lots (chalakim) they
+ * are assigned, which is also their weekly pace in mishnayot. So `3` means three
+ * random lots and three mishnayot learned per week. A user finishes when their
+ * lots run out, which is generally before the cycle ends.
+ */
 export type Commitment = 1 | 2 | 3;
 
 /**
- * What a user is assigned within a single group. May be non-contiguous within
- * the group because it can be assembled from reclaimed gaps plus a tail range.
- * Always group-scoped — a user has at most one Block per group.
+ * What a user is assigned within a single group: a set of pre-set lots
+ * (chalakim). The lots are scattered across the corpus, so `ranges` is
+ * non-contiguous — one contiguous range per lot, ordered by corpus position.
+ * `ranges` and `totalSize` are derived from `lots`. Always group-scoped — a user
+ * has at most one Block per group.
  */
 export interface Block {
   id: string;
   userId: string;
-  /** Ordered by corpus position; non-contiguous only when assembled from gaps + tail. */
+  /** The lot numbers (1..118) this user holds in the group, ascending (= corpus order). */
+  lots: number[];
+  /** Each held lot's range, ordered by corpus position. Derived from `lots`. */
   ranges: BlockRange[];
   /** Denormalized sum of mishnas across all ranges. */
   totalSize: number;
   commitment: Commitment;
 }
 
-/** A vacated range left behind by a dropout. `end` is derivable via MishnaStructure. */
-export interface Gap {
-  id: string;
-  start: MishnaRef;
-  size: number;
-}
+/**
+ * Injected source of randomness in [0, 1), like `Math.random`. Injected (not
+ * read internally) so lot selection stays deterministic under test, the same
+ * discipline as `IdGenerator`.
+ */
+export type RandomSource = () => number;
 
 /** What a user must learn on a specific date. Derived on demand, never stored. */
 export interface Assignment {

@@ -1,6 +1,11 @@
 import { env } from 'cloudflare:test';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Group, MishnaRef, createMishnaStructure } from '@mishna/domain';
+import {
+  Group,
+  MishnaRef,
+  createMishnaChalakim,
+  createMishnaStructure,
+} from '@mishna/domain';
 import { applyMigrations } from '../apply-migrations';
 import { loadBlocks } from './data';
 import { planSends } from './orchestrator';
@@ -8,6 +13,7 @@ import { weekRefs } from './quota';
 import { OutgoingEmail, PreparedEmail, processJobs } from './sender';
 
 const structure = createMishnaStructure();
+const chalakim = createMishnaChalakim();
 const idGen = () => crypto.randomUUID();
 
 // NY (EDT, UTC-4) on this instant is Wednesday 2026-06-03 08:00. dow=3 (Wed).
@@ -72,10 +78,11 @@ async function seedParticipant(opts: {
     .run();
 }
 
-/** Give the user a block covering the corpus head, so a week has mishnayot. */
+/** Give the user lots covering the corpus head, so a week has mishnayot. */
 async function seedGroupFor(userId: string): Promise<void> {
-  const group = new Group(structure, idGen, { id: `g-${userId}` });
-  group.addUser(userId, 100, 1);
+  const group = new Group(structure, chalakim, idGen, { id: `g-${userId}` });
+  // `() => 0` takes the lowest-numbered lots first, i.e. the corpus head.
+  group.addUser(userId, 4, 1, [], () => 0);
   const state = group.toState();
   await env.DB.prepare(
     'INSERT INTO groups (id, state, exhausted, capacity_left, updated_at) VALUES (?, ?, 0, 0, 0)',

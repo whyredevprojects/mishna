@@ -1,6 +1,10 @@
 import { env } from 'cloudflare:test';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { IdGenerator, createMishnaStructure } from '@mishna/domain';
+import {
+  IdGenerator,
+  createMishnaChalakim,
+  createMishnaStructure,
+} from '@mishna/domain';
 import { D1GroupRepository } from './repository';
 import { applyMigrations } from './apply-migrations';
 
@@ -10,7 +14,11 @@ function makeIdGen(): IdGenerator {
   return () => `id-${n++}`;
 }
 
+/** `() => 0` picks the lowest-numbered lots, so allocations are deterministic. */
+const pickInOrder = () => 0;
+
 const structure = createMishnaStructure();
+const chalakim = createMishnaChalakim();
 
 describe('D1GroupRepository', () => {
   beforeAll(() => applyMigrations(env.DB));
@@ -20,7 +28,7 @@ describe('D1GroupRepository', () => {
     await env.DB.exec('DELETE FROM groups');
     await env.DB.exec('DELETE FROM group_members');
     await env.DB.exec('DELETE FROM participants');
-    repo = new D1GroupRepository(env.DB, structure, makeIdGen());
+    repo = new D1GroupRepository(env.DB, structure, chalakim, makeIdGen());
   });
 
   it('createGroup persists a fresh group that loadNonExhaustedGroup finds', async () => {
@@ -37,7 +45,7 @@ describe('D1GroupRepository', () => {
 
   it('save round-trips group state via toState/fromState', async () => {
     const group = await repo.createGroup();
-    group.addUser('alice', 5, 1);
+    group.addUser('alice', 2, 2, [], pickInOrder);
     await repo.save(group);
 
     const reloaded = await repo.loadNonExhaustedGroup();
@@ -46,8 +54,8 @@ describe('D1GroupRepository', () => {
 
   it('loadGroupsForUser finds groups via denormalized membership', async () => {
     const group = await repo.createGroup();
-    group.addUser('alice', 3, 1);
-    group.addUser('bob', 2, 1);
+    group.addUser('alice', 3, 3, [], pickInOrder);
+    group.addUser('bob', 2, 2, [], pickInOrder);
     await repo.save(group);
 
     const forAlice = await repo.loadGroupsForUser('alice');
@@ -61,7 +69,7 @@ describe('D1GroupRepository', () => {
 
   it('save rebuilds membership when a user leaves', async () => {
     const group = await repo.createGroup();
-    group.addUser('alice', 3, 1);
+    group.addUser('alice', 3, 3, [], pickInOrder);
     await repo.save(group);
     expect(await repo.loadGroupsForUser('alice')).toHaveLength(1);
 
