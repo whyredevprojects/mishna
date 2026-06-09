@@ -7,12 +7,13 @@ import {
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { SiteHeaderComponent } from '../components/site-header.component';
+import { TurnstileComponent } from '../components/turnstile.component';
 
 /** Public "forgot password" page: collects an email and asks the login worker to
  * send a reset link. Always shows the same neutral confirmation (no enumeration). */
 @Component({
   selector: 'app-forgot-password',
-  imports: [SiteHeaderComponent, RouterLink],
+  imports: [SiteHeaderComponent, TurnstileComponent, RouterLink],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
@@ -62,10 +63,15 @@ import { SiteHeaderComponent } from '../components/site-header.component';
               (keydown.enter)="submit()"
             ></wa-input>
 
+            <app-turnstile
+              (verified)="captchaToken.set($event)"
+            ></app-turnstile>
+
             <wa-button
               class="submit"
               variant="brand"
               [attr.loading]="loading() ? '' : null"
+              [attr.disabled]="captchaToken() ? null : ''"
               (click)="submit()"
             >
               Send reset link
@@ -85,14 +91,16 @@ export class ForgotPasswordComponent {
   private readonly auth = inject(AuthService);
 
   protected readonly email = signal('');
+  protected readonly captchaToken = signal<string | null>(null);
   protected readonly loading = signal(false);
   protected readonly sent = signal(false);
 
   protected submit(): void {
-    if (this.loading() || !this.email()) return;
+    const token = this.captchaToken();
+    if (this.loading() || !this.email() || !token) return;
     this.loading.set(true);
     const redirectTo = `${window.location.origin}/reset-password`;
-    this.auth.requestPasswordReset(this.email(), redirectTo).subscribe({
+    this.auth.requestPasswordReset(this.email(), redirectTo, token).subscribe({
       // Same outcome on success or failure — never reveal whether the email exists.
       next: () => {
         this.loading.set(false);

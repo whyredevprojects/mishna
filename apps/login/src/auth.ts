@@ -1,5 +1,5 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
-import { admin, customSession } from 'better-auth/plugins';
+import { admin, captcha, customSession } from 'better-auth/plugins';
 import { sendResetPasswordEmail, sendVerificationEmail } from './email';
 
 // Env-independent config. Shared with auth.config.ts so the offline schema
@@ -87,6 +87,26 @@ export function createAuth(env: Env) {
     // /api/admin/users/:id/set-role). The role path layers on top of the env seed;
     // it doesn't replace it.
     plugins: [
+      // Cloudflare Turnstile bot protection. This middleware reads the
+      // `x-captcha-response` header on POSTs to the default endpoints
+      // (`/sign-in/email`, `/sign-up/email`, `/request-password-reset`),
+      // verifies it against Turnstile's /siteverify, and rejects the request if
+      // it's missing/invalid. The secret key is a runtime Wrangler secret, so —
+      // like the email callbacks — it lives here, not in static authOptions. The
+      // plugin adds no tables, so the generated schema/migrations are unchanged.
+      //
+      // Gated on the secret being configured: with no secret an empty-string key
+      // would reject *every* sign-in/up, and it lets the worker's own tests (which
+      // run with no TURNSTILE_SECRET_KEY) exercise the auth flows unguarded.
+      // Production must set the secret (see CLAUDE.md) for protection to be on.
+      ...(env.TURNSTILE_SECRET_KEY
+        ? [
+            captcha({
+              provider: 'cloudflare-turnstile',
+              secretKey: env.TURNSTILE_SECRET_KEY,
+            }),
+          ]
+        : []),
       admin({ adminUserIds: adminIds }),
       customSession(async ({ user, session }) => ({
         user: {

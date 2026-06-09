@@ -10,3 +10,9 @@ ADMIN_USER_IDS=VMKlNiYicMtSHfSypa4NiSwJjTJri5WO
 # Resend API key for transactional auth email (verification + password reset).
 # For production set it with: wrangler secret put RESEND_API_KEY
 RESEND_API_KEY=replace-me
+
+# Cloudflare Turnstile secret key (bot protection on sign-in/sign-up/password-reset).
+# The value below is Cloudflare's "always passes" testing secret — fine for local
+# dev (pair it with the test site key in apps/client/src/app/config/turnstile.ts).
+# For production set the real secret with: wrangler secret put TURNSTILE_SECRET_KEY
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA

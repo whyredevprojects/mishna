@@ -63,6 +63,23 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
   resynced from WA close events like `(wa-after-hide)`.
 - Icons (`<wa-icon>`) load Font Awesome Free over the network by default.
 
+## Captcha (Cloudflare Turnstile)
+
+The sign-in (`landing`), sign-up (`join`) and forgot-password pages render a
+`<app-turnstile>` widget (`components/turnstile.component.ts`) and pass its token to
+the matching `AuthService` call, which sends it as the `x-captcha-response` header.
+The login worker's captcha plugin verifies it server-side (see `apps/login`).
+
+- `TurnstileComponent` lazily injects Cloudflare's `api.js` once per document
+  (explicit render), exposes the token via a `(verified)` output + `token` signal,
+  and a `reset()` method. **Tokens are single-use**, so each page calls
+  `reset()` in its request's error handler (e.g. wrong password) to get a fresh one
+  for the retry; the submit button stays disabled until a token exists.
+- The **public** site key is a hardcoded constant in `config/turnstile.ts`
+  (domain-bound, safe to commit — keeps the "no `environment.ts`" convention). It
+  currently holds Cloudflare's always-pass *test* key; swap in the real widget's
+  site key for prod. The secret key lives in `apps/login`.
+
 ## Layout (`src/app/`)
 
 | Path | Role |
@@ -83,7 +100,7 @@ UI is built with [Web Awesome](https://webawesome.com) web components (`wa-*`).
 
 | Service | Calls |
 |---------|-------|
-| `AuthService` | `GET /api/me` (session + join status + identity + `isAdmin`), better-auth `sign-in/email`, `sign-up/email`, `sign-in/social`, `sign-out`, and password reset (`request-password-reset` + `reset-password`). Holds a `me` signal; `isAdmin()` reads it. |
+| `AuthService` | `GET /api/me` (session + join status + identity + `isAdmin`), better-auth `sign-in/email`, `sign-up/email`, `sign-in/social`, `sign-out`, and password reset (`request-password-reset` + `reset-password`). Holds a `me` signal; `isAdmin()` reads it. `sign-in/email`, `sign-up/email` and `request-password-reset` take a Cloudflare Turnstile token, sent as the `x-captcha-response` header the login worker's captcha plugin validates (see **Captcha** below). |
 | `CycleService` | `GET /api/cycle` (public). |
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/me/chaluka` (whole-cycle portion + learned subset), `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `POST /api/join`, `POST /api/leave`. |
