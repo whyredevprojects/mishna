@@ -13,6 +13,7 @@ NX monorepo. All apps are Cloudflare Workers/Pages unless noted.
 | `apps/client/` | Angular frontend — landing page, login/signup, user dashboard, admin pages |
 | `apps/login/` | Cloudflare Worker — authentication via better-auth (Google OAuth, magic links, etc.) |
 | `apps/server/` | Cloudflare Worker — main REST API using Hono; serves the Angular app's data needs. Also owns email: an hourly cron triggers the `ReminderWorkflow` (a Cloudflare Workflow) that sends weekly/reminder emails via Resend, and admin "send now" sends one inline. |
+| `apps/mobile/` | Flutter app (Android/iOS) — the user-facing functionality (no admin) against the same APIs, plus on-device study reminders. Mishna text ships as bundled assets from the `mishna_text` pub package. Not part of the NX TS graph; `project.json` wraps `flutter analyze/test/build`. |
 | `libs/shared/domain/` | Core domain models and logic (framework-free) |
 
 ## Tech Stack
@@ -21,8 +22,8 @@ NX monorepo. All apps are Cloudflare Workers/Pages unless noted.
 - **API framework**: Hono (`apps/server`)
 - **Auth**: better-auth (`apps/login`)
 - **Email**: Resend, sent from a Cloudflare Workflow in `apps/server`
-- **Frontend**: Angular
-- **Language**: TypeScript throughout
+- **Frontend**: Angular (web), Flutter (`apps/mobile`)
+- **Language**: TypeScript throughout the web stack; Dart in `apps/mobile`
 
 ## Domain Model (libs/shared/domain)
 
