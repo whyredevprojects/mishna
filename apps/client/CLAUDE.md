@@ -138,7 +138,7 @@ All calls use **relative `/api/*`** (no per-environment API base — the only th
 `environments/` carries is the Turnstile site key), which works in both
 environments because the API is always same-origin:
 - **Dev**: `proxy.conf.json` forwards `/api` to the server worker on `:8787`.
-- **Prod**: the SPA serves from `getchevrasmishnayos.com` (Pages custom domain), and
+- **Prod**: the SPA serves from `app.getchevrasmishnayos.com` (Pages custom domain), and
   Cloudflare Worker `routes` claim `/api/*` on that same host — `/api/auth/*` → the
   login worker, the rest of `/api/*` → the server worker. Same origin means the
   better-auth session cookie is first-party; no CORS, no client config.

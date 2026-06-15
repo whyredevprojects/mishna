@@ -16,9 +16,12 @@ export const authOptions = {
   emailAndPassword: { enabled: true, minPasswordLength: 4 },
   // Origins better-auth accepts state-changing requests from. No trailing slash —
   // these are compared against the request's Origin header, which never has one.
-  // In production the client and auth share one host (getchevrasmishnayos.com), so
-  // this is same-origin; localhost:4200 is the Angular dev server.
-  trustedOrigins: ['http://localhost:4200', 'https://getchevrasmishnayos.com'],
+  // In production the client and auth share one host (app.getchevrasmishnayos.com),
+  // so this is same-origin; localhost:4200 is the Angular dev server.
+  trustedOrigins: [
+    'http://localhost:4200',
+    'https://app.getchevrasmishnayos.com',
+  ],
   plugins: [admin()],
 } satisfies Partial<BetterAuthOptions>;
 

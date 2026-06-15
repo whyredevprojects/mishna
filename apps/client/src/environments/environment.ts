@@ -5,7 +5,8 @@
  *
  * `turnstileSiteKey` is the Cloudflare Turnstile *public* site key (the secret
  * lives in apps/login). This is the real production widget, bound to
- * getchevrasmishnayos.com.
+ * app.getchevrasmishnayos.com (the app host; add it to the widget's allowed
+ * hostnames in the Cloudflare dashboard).
  */
 export const environment = {
   production: true,

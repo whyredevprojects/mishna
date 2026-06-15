@@ -5,7 +5,7 @@ client — sign-in/up, join the cycle, this week's mishnayos with learned check-
 the whole-cycle "My Mishnayos" list + stats, the Review browser, and settings —
 plus **on-device reminders** the web app doesn't have. Admin functionality is
 deliberately excluded. It talks to the **same** production APIs
-(`getchevrasmishnayos.com`): better-auth on `/api/auth/*`, the apps/server REST
+(`app.getchevrasmishnayos.com`): better-auth on `/api/auth/*`, the apps/server REST
 surface on the rest of `/api/*`. Nothing in the JS/TS workspace changed for it.
 
 Material 3, not a port of the web look-and-feel.
@@ -14,7 +14,7 @@ Material 3, not a port of the web look-and-feel.
 
 | Define | Default | Notes |
 |---|---|---|
-| `API_BASE_URL` | `https://getchevrasmishnayos.com` | Use `http://10.0.2.2:8787` against `npm run dev` from the Android emulator. |
+| `API_BASE_URL` | `https://app.getchevrasmishnayos.com` | Use `http://10.0.2.2:8787` against `npm run dev` from the Android emulator. |
 | `TURNSTILE_SITE_KEY` | the production site key | Use Cloudflare's always-pass `1x00000000000000000000AA` in dev (dev server has no captcha secret, but the widget still wants to render). |
 | `GOOGLE_SERVER_CLIENT_ID` | *(empty — Google button hidden)* | Set to apps/login's `GOOGLE_CLIENT_ID` (the web OAuth client id) to enable native Google sign-in; better-auth verifies the ID token's audience against it. |
 

@@ -5,12 +5,13 @@ main = "src/index.ts"
 account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
 
 # Same-origin production: the client (Cloudflare Pages) and both workers all live
-# on getchevrasmishnayos.com, so auth cookies are first-party (no CORS needed).
+# on app.getchevrasmishnayos.com, so auth cookies are first-party (no CORS needed).
+# (The apex/www host serves the separate static landing page in apps/www.)
 # This route claims the auth paths; the more-general server route (/api/*) handles
 # the rest. Cloudflare runs the most specific matching route, so /api/auth/* lands
 # here and everything else falls through to the server worker / Pages.
 routes = [
-  { pattern = "getchevrasmishnayos.com/api/auth/*", zone_name = "getchevrasmishnayos.com" }
+  { pattern = "app.getchevrasmishnayos.com/api/auth/*", zone_name = "getchevrasmishnayos.com" }
 ]
 
 # Local dev: distinct debugger/inspector port so it doesn't collide with the
@@ -27,7 +28,7 @@ database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
 # Same host as the client and server (the /api/auth/* route above points here), so
 # the session cookie is first-party. Overridden locally by `.dev.vars` for dev.
 [vars]
-BETTER_AUTH_URL = "https://getchevrasmishnayos.com"
+BETTER_AUTH_URL = "https://app.getchevrasmishnayos.com"
 # Sender for transactional auth email (verification + password reset). Same verified
 # Resend domain as apps/server's reminder sender. The RESEND_API_KEY is a secret
 # (wrangler secret put RESEND_API_KEY; .dev.vars for local dev).

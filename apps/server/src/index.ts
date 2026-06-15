@@ -152,7 +152,7 @@ function parseUtcDate(value: string | undefined): Date | null {
  * against its `adminUserIds`) and their browser `Origin`: better-auth rejects
  * state-changing (POST) admin calls that arrive without a trusted Origin
  * (`MISSING_OR_NULL_ORIGIN`). The caller's Origin is same-origin in prod
- * (getchevrasmishnayos.com) and localhost:4200 in dev — both in `trustedOrigins` — so
+ * (app.getchevrasmishnayos.com) and localhost:4200 in dev — both in `trustedOrigins` — so
  * forwarding it satisfies the check while keeping CSRF protection intact.
  * Used by the admin user-management routes.
  */

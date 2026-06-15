@@ -16,7 +16,7 @@ alias = { "react-dom/server.edge" = "react-dom/server.browser" }
 # more specific /api/auth/* route wins for auth paths; the rest land here. Anything
 # outside /api/* falls through to the Cloudflare Pages SPA.
 routes = [
-  { pattern = "getchevrasmishnayos.com/api/*", zone_name = "getchevrasmishnayos.com" }
+  { pattern = "app.getchevrasmishnayos.com/api/*", zone_name = "getchevrasmishnayos.com" }
 ]
 
 # Auth: the apps/login better-auth worker, reached via this service binding
@@ -78,7 +78,7 @@ crons = ["0 * * * *"]
 # The deployed client origin, which serves mishna-text's tractate JSON (its `data/` is
 # copied into the client's assets). The sender fetches Hebrew text from here. Override
 # locally via .dev.vars if needed.
-APP_ORIGIN = "https://getchevrasmishnayos.com"
+APP_ORIGIN = "https://app.getchevrasmishnayos.com"
 # Verified Resend sender. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
 RESEND_FROM_EMAIL = "Chevra Mishnayos <reminders@getchevrasmishnayos.com>"
 # About-page editor: repo coordinates for committing the www site's about.md via the

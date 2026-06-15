@@ -144,12 +144,13 @@ here — no need to duplicate the secret on the server worker.
 ## Production topology (same-origin)
 
 The client (Cloudflare Pages) and both workers all serve from one host,
-`getchevrasmishnayos.com`, so the session cookie is first-party and there is **no
-CORS**. Routing is by path at the edge (`routes` in each `wrangler.toml`), with
+`app.getchevrasmishnayos.com`, so the session cookie is first-party and there is **no
+CORS**. (The apex/`www` host serves the separate static landing page in `apps/www`.)
+Routing is by path at the edge (`routes` in each `wrangler.toml`), with
 Cloudflare running the most specific match:
 
-- `getchevrasmishnayos.com/api/auth/*` → **this** (login) worker
-- `getchevrasmishnayos.com/api/*` → the server worker
+- `app.getchevrasmishnayos.com/api/auth/*` → **this** (login) worker
+- `app.getchevrasmishnayos.com/api/*` → the server worker
 - everything else → the Pages SPA
 
 In **dev** there are no routes: `apps/client/proxy.conf.json` sends all `/api/*` to
@@ -157,10 +158,10 @@ the server worker, which forwards `/api/auth/*` here via the `AUTH` service bind
 
 ## Before first deploy
 
-- `BETTER_AUTH_URL` in `wrangler.toml` is `https://getchevrasmishnayos.com` (the
+- `BETTER_AUTH_URL` in `wrangler.toml` is `https://app.getchevrasmishnayos.com` (the
   public origin). `.dev.vars` overrides it to `http://localhost:8787` for dev.
 - `trustedOrigins` in `src/auth.ts` is `http://localhost:4200` +
-  `https://getchevrasmishnayos.com` (no trailing slash — matched against the Origin
+  `https://app.getchevrasmishnayos.com` (no trailing slash — matched against the Origin
   header).
 - `wrangler secret put BETTER_AUTH_SECRET`.
 - `wrangler secret put ADMIN_USER_IDS` (comma-separated user ids). For local dev,
@@ -168,20 +169,20 @@ the server worker, which forwards `/api/auth/*` here via the `AUTH` service bind
 - `wrangler secret put GOOGLE_CLIENT_ID` and `wrangler secret put
   GOOGLE_CLIENT_SECRET` (from a Google Cloud OAuth 2.0 Client). For local dev,
   put them in `.dev.vars`. Register **both** redirect URIs in the Google Cloud
-  console: `https://getchevrasmishnayos.com/api/auth/callback/google` (prod) and
+  console: `https://app.getchevrasmishnayos.com/api/auth/callback/google` (prod) and
   `http://localhost:8787/api/auth/callback/google` (dev).
 - `wrangler secret put RESEND_API_KEY` (for verification + password-reset email).
   For local dev, put it in `.dev.vars`. `RESEND_FROM_EMAIL` is a plain var in
   `wrangler.toml` (`noreply@getchevrasmishnayos.com`, the verified Resend domain).
 - `wrangler secret put TURNSTILE_SECRET_KEY` (Cloudflare Turnstile bot protection).
-  Create the widget in the Cloudflare dashboard for `getchevrasmishnayos.com` — its
+  Create the widget in the Cloudflare dashboard for `app.getchevrasmishnayos.com` — its
   **site key** goes in `apps/client/src/environments/environment.ts`, its **secret
   key** here. (Dev uses Cloudflare's always-pass test keys, wired via
   `environment.development.ts` + `.dev.vars`.)
   For local dev, put `TURNSTILE_SECRET_KEY` in `.dev.vars` (the test secret
   `1x0000000000000000000000000000000AA` always passes). Without this secret the
   captcha plugin is **disabled** (see "Captcha" above).
-- The Pages project must have `getchevrasmishnayos.com` as a custom domain (its
+- The Pages project must have `app.getchevrasmishnayos.com` as a custom domain (its
   zone must be on this Cloudflare account for the worker `routes` to bind).
 
 ## Tests

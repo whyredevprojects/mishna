@@ -4,7 +4,7 @@ import { ResolvedMishna } from '../../quota';
 // is a plain `.ts` with no default export, so the preview CLI does not list it as
 // a template — it only renders the *.tsx entries in this folder.
 
-export const SAMPLE_ORIGIN = 'https://getchevrasmishnayos.com';
+export const SAMPLE_ORIGIN = 'https://app.getchevrasmishnayos.com';
 
 /** A couple of tractates so the preview shows the group-by-tractate headings. */
 export const SAMPLE_ITEMS: ResolvedMishna[] = [

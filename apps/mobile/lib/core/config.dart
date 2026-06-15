@@ -8,11 +8,11 @@ class AppConfig {
   /// `--dart-define=API_BASE_URL=http://10.0.2.2:8787` (Android emulator).
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://getchevrasmishnayos.com',
+    defaultValue: 'https://app.getchevrasmishnayos.com',
   );
 
   /// Cloudflare Turnstile *public* site key. Defaults to the production widget
-  /// (bound to getchevrasmishnayos.com — the Turnstile WebView is anchored to
+  /// (bound to app.getchevrasmishnayos.com — the Turnstile WebView is anchored to
   /// that domain via its baseUrl). Override with Cloudflare's always-pass test
   /// key `1x00000000000000000000AA` against a dev server with no captcha secret.
   static const turnstileSiteKey = String.fromEnvironment(
