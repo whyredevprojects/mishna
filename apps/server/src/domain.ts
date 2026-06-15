@@ -46,7 +46,7 @@ export interface LotCatalogEntry {
 }
 
 /**
- * The 118 lots as a flat catalog, built once per isolate. `allLots()` is in corpus
+ * The 120 lots as a flat catalog, built once per isolate. `allLots()` is in corpus
  * order, so a running per-mesechta counter yields each lot's index within its
  * mesechta. Served as-is by `GET /api/admin/lots` (the edit UI's reference list).
  */

@@ -20,7 +20,7 @@ export interface BlockRange {
 
 /** One "chelek" (lot): a contiguous slice of the corpus and its lot number. */
 export interface MishnaLot {
-  /** 1-based chelek number from chaluka.csv (1..118), in corpus order. */
+  /** 1-based chelek number from chaluka.csv (1..120), in corpus order. */
   lot: number;
   /** The contiguous range of mishnayot this lot covers. */
   range: BlockRange;
@@ -44,7 +44,7 @@ export type Commitment = 1 | 2 | 3;
 export interface Block {
   id: string;
   userId: string;
-  /** The lot numbers (1..118) this user holds in the group, ascending (= corpus order). */
+  /** The lot numbers (1..120) this user holds in the group, ascending (= corpus order). */
   lots: number[];
   /** Each held lot's range, ordered by corpus position. Derived from `lots`. */
   ranges: BlockRange[];

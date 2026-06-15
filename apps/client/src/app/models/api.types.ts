@@ -144,12 +144,12 @@ export interface AdminGroupMember {
   email: string | null;
   emailVerified: boolean;
   blockSize: number;
-  /** The lot numbers (1..118) this member holds in this group, ascending. */
+  /** The lot numbers (1..120) this member holds in this group, ascending. */
   lots: number[];
 }
 
 /**
- * One of the 118 pre-set lots, as carried on GET /api/admin/lots. `label` is
+ * One of the 120 pre-set lots, as carried on GET /api/admin/lots. `label` is
  * `mesechta:indexInMesechta` (e.g. `Peah:1`); `start`/`end` bound its range.
  */
 export interface AdminLot {

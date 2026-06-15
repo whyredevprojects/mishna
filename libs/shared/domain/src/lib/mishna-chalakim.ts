@@ -4,7 +4,7 @@ import { BlockRange, MishnaLot } from './types';
 // ---------------------------------------------------------------------------
 // MishnaChalakim
 //
-// Serves the hand-authored "chelek" (lot) division of the corpus: 118 sequential
+// Serves the hand-authored "chelek" (lot) division of the corpus: 120 sequential
 // lots, each a contiguous range of mishnayot. A mesechta may be split across
 // several lots; a lot never crosses a mesechta boundary.
 //
@@ -40,7 +40,7 @@ export class MishnaChalakim {
   }
 
   /**
-   * The lot with the given lot number. Lot numbers are 1-indexed (1..118).
+   * The lot with the given lot number. Lot numbers are 1-indexed (1..120).
    * Throws if out of range.
    */
   getLotByNumber(lotNumber: number): MishnaLot {
@@ -56,7 +56,7 @@ export class MishnaChalakim {
     return [...this.byLot.values()];
   }
 
-  /** Every lot number (1..118) in corpus order. */
+  /** Every lot number (1..120) in corpus order. */
   allLotNumbers(): number[] {
     return [...this.byLot.keys()];
   }

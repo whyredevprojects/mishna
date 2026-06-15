@@ -23,7 +23,7 @@ the drift actually matters in practice.
 ## Big lots can finish after the deadline (pace = commitment)
 
 Allocation hands each user `commitment` random lots and paces them at `commitment`
-mishnayos/week. Lots are **15–57 mishnayos** (median 35; the 118 lots tile all 4192). Since
+mishnayos/week. Lots are **15–57 mishnayos** (median 34; the 120 lots tile all 4192). Since
 a user's portion is `commitment` lots ≈ `commitment × avg-lot`, the commitment cancels and
 **weeks-to-finish ≈ the average size of the lots they happened to draw** — independent of
 the commitment number.

@@ -5,11 +5,11 @@ describe('MishnaChalakim', () => {
   const chalakim = createMishnaChalakim();
   const structure = createMishnaStructure();
 
-  it('has 118 lots numbered 1..118 in corpus order', () => {
+  it('has 120 lots numbered 1..120 in corpus order', () => {
     const lots = chalakim.allLots();
-    expect(lots).toHaveLength(118);
+    expect(lots).toHaveLength(120);
     expect(lots.map((l) => l.lot)).toEqual(
-      Array.from({ length: 118 }, (_, i) => i + 1),
+      Array.from({ length: 120 }, (_, i) => i + 1),
     );
   });
 
@@ -52,12 +52,12 @@ describe('MishnaChalakim', () => {
   describe('getLotByNumber', () => {
     it('returns the lot for a 1-indexed lot number', () => {
       expect(structure.indexOf(chalakim.getLotByNumber(1).range.start)).toBe(0);
-      expect(structure.isLast(chalakim.getLotByNumber(118).range.end)).toBe(true);
+      expect(structure.isLast(chalakim.getLotByNumber(120).range.end)).toBe(true);
     });
 
     it('throws on out-of-range lot numbers', () => {
       expect(() => chalakim.getLotByNumber(0)).toThrow();
-      expect(() => chalakim.getLotByNumber(119)).toThrow();
+      expect(() => chalakim.getLotByNumber(121)).toThrow();
     });
   });
 });

@@ -38,7 +38,7 @@ export class AdminService {
     return this.http.get<AdminGroupDetail>(`/api/admin/groups/${id}`);
   }
 
-  /** The static catalog of all 118 lots (number, label, range). */
+  /** The static catalog of all 120 lots (number, label, range). */
   lots(): Observable<AdminLot[]> {
     return this.http.get<AdminLot[]>('/api/admin/lots');
   }
