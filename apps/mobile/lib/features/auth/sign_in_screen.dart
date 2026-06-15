@@ -93,7 +93,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Complete the entire Mishna together by Rosh Chodesh '
+                    'Memorize the entire Mishna together by Rosh Chodesh '
                     'Sivan — one mishna at a time.',
                     style: theme.textTheme.bodyLarge,
                     textAlign: TextAlign.center,

@@ -67,7 +67,7 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
         <div class="stack">
           <p class="tagline center">
-            Complete the entire Mishna together by Rosh Chodesh Sivan — one
+            Memorize the entire Mishna together by Rosh Chodesh Sivan — one
             mishna at a time.
           </p>
 
