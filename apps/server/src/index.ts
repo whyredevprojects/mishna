@@ -200,7 +200,7 @@ function parseCompletionBody(
   return { ref: ref as MishnaRef, groupId };
 }
 
-/** The set of valid lot numbers (1..118), for validating admin lot edits. */
+/** The set of valid lot numbers (1..120), for validating admin lot edits. */
 const validLotNumbers = new Set(chalakim.allLotNumbers());
 
 /**
@@ -775,7 +775,7 @@ app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
   });
 });
 
-// The static lot catalog (118 lots with mesechta label + range). Powers the admin
+// The static lot catalog (120 lots with mesechta label + range). Powers the admin
 // group-detail edit UI: label lookup for the Lots column and the "all lots" reference
 // dialog. Static, so the client caches it for a long time.
 app.get('/api/admin/lots', requireAdmin, (c) => c.json(lotCatalog));
@@ -792,7 +792,7 @@ app.post(
     const lots = parseLotsBody(await c.req.json().catch(() => ({})));
     if (lots === null) {
       return c.json(
-        { error: 'lots must be an array of lot numbers (1-118)' },
+        { error: 'lots must be an array of lot numbers (1-120)' },
         400,
       );
     }

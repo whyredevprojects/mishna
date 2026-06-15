@@ -130,7 +130,7 @@ interface LotInput {
                           type="number"
                           size="small"
                           min="1"
-                          max="118"
+                          max="120"
                           [value]="entry.value"
                           (input)="setAt(entry.id, $event)"
                           (keydown.enter)="addBlank()"
@@ -370,7 +370,7 @@ export class AdminGroupDetailComponent {
   protected save(row: AdminGroupMember): void {
     const { lots, valid } = this.parseDraft();
     if (!valid) {
-      this.toast.error('Lot numbers must be whole numbers between 1 and 118.');
+      this.toast.error('Lot numbers must be whole numbers between 1 and 120.');
       return;
     }
     this.setLotsMutation.mutate({ userId: row.id, lots });
@@ -385,7 +385,7 @@ export class AdminGroupDetailComponent {
         continue;
       }
       const n = Number(t);
-      if (!Number.isInteger(n) || n < 1 || n > 118) {
+      if (!Number.isInteger(n) || n < 1 || n > 120) {
         return { lots: [], valid: false };
       }
       lots.push(n);

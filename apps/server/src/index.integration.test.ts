@@ -656,7 +656,7 @@ describe('server API integration', () => {
         label: string;
         size: number;
       }[];
-      expect(lots).toHaveLength(118);
+      expect(lots).toHaveLength(120);
       expect(lots[0]).toMatchObject({ lot: 1, indexInMesechta: 1 });
       expect(lots[0].label).toBe(`${lots[0].mesechta}:1`);
       for (const l of lots) {

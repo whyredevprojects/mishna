@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-An app for organizing groups to collectively memorize the entire Mishna by Rosh Chodesh Sivan. The corpus is divided into 118 pre-set **lots (chalakim)**. Users commit to 1, 2, or 3 (= mishnayos per week, and the number of random lots they're assigned for the cycle). Groups are auto-created, each a full covering of all 118 lots, so the whole Mishna is covered. The cycle resets each Rosh Chodesh Sivan.
+An app for organizing groups to collectively memorize the entire Mishna by Rosh Chodesh Sivan. The corpus is divided into 120 pre-set **lots (chalakim)**. Users commit to 1, 2, or 3 (= mishnayos per week, and the number of random lots they're assigned for the cycle). Groups are auto-created, each a full covering of all 120 lots, so the whole Mishna is covered. The cycle resets each Rosh Chodesh Sivan.
 
 ## Monorepo Structure
 
@@ -31,7 +31,7 @@ Framework-free core, fully unit-tested. See `libs/shared/domain/CLAUDE.md` for t
 implementation map and `README.md` there for the design narrative.
 
 - **`MishnaStructure`** — static corpus model (4192 mishnayot); owns all corpus traversal (`computeBlock`, `indexOf`/`refAt`, `iterateRange`). Build the default via `createMishnaStructure()`.
-- **`MishnaChalakim`** — the 118 pre-set lots (`chaluka.json`); `getLotByNumber`, `lotsForMesechta`, `allLots`/`allLotNumbers`. Build via `createMishnaChalakim()`.
+- **`MishnaChalakim`** — the 120 pre-set lots (`chaluka.json`); `getLotByNumber`, `lotsForMesechta`, `allLots`/`allLotNumbers`. Build via `createMishnaChalakim()`.
 - **`CycleCalendar`** — the 1-Sivan-to-1-Sivan learning cycle via `@hebcal/core` (`cycleStart`, `daysSinceCycleStart`, `daysRemaining`, `weeksSinceCycleStart`, `weeksRemaining`).
 - **`Group`** — one full covering of the corpus, allocated as lots; `addUser` claims random free lots, `removeUser` frees them; `toState` / `fromState`. A user's `Block` carries its lot numbers plus derived ranges.
 - **`AssignmentEngine`** — stateless; `getAssignment(blocks, date)` derives a week's mishnayot on demand (offset = `weeksSinceCycleStart * commitment`). The user's portion is finite (their lots), so it empties out once they finish.
