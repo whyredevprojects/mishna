@@ -29,6 +29,62 @@ describe('Group', () => {
     expect(block?.commitment).toBe(2);
   });
 
+  // A RandomSource that returns the queued values in turn, then 0 forever. Lets a
+  // test steer the *random* picks (each picks pool[floor(r * pool.length)], the pool
+  // being the free lots in ascending order) while consecutive picks take no value.
+  const scripted =
+    (...values: number[]): (() => number) =>
+    () =>
+      values.length ? (values.shift() as number) : 0;
+
+  it('takes the next consecutive lot after the random first one', () => {
+    const g = newGroup();
+    // 0.3 * 4 → index 1 → lot 2 is the random first pick; the 2nd is lot 2+1 = 3.
+    expect(g.addUser('u1', 2, 2, [], scripted(0.3))).toEqual({
+      allocated: 2,
+      lots: [2, 3],
+    });
+  });
+
+  it('chains three consecutive lots from the random first one', () => {
+    const g = newGroup();
+    // First pick lot 2 (0.3 * 4 → 1), then 3, then 4 — a continuous run.
+    expect(g.addUser('u1', 3, 3, [], scripted(0.3))).toEqual({
+      allocated: 3,
+      lots: [2, 3, 4],
+    });
+  });
+
+  it('falls back to random when the next lot is off the end of the corpus', () => {
+    const g = newGroup();
+    // First pick lot 4 (0.8 * 4 → 3); lot 5 does not exist, so the 2nd pick is
+    // random again — 0 picks the lowest remaining free lot, lot 1.
+    expect(g.addUser('u1', 2, 2, [], scripted(0.8, 0))).toEqual({
+      allocated: 2,
+      lots: [1, 4],
+    });
+  });
+
+  it('falls back to random when the next lot is already taken', () => {
+    const g = newGroup();
+    g.addUser('u1', 1, 1, [], scripted(0.3)); // lot 2
+    // u2's first pick is lot 1 (0); the next lot 2 is u1's, so the 2nd pick is
+    // random and lands on lot 3.
+    expect(g.addUser('u2', 2, 2, [], scripted(0, 0))).toEqual({
+      allocated: 2,
+      lots: [1, 3],
+    });
+  });
+
+  it('continues the run from the `after` anchor', () => {
+    const g = newGroup();
+    // Seeded after lot 1: the first pick is the consecutive lot 2, not random.
+    expect(g.addUser('u1', 1, 1, [], scripted(0.8), 1)).toEqual({
+      allocated: 1,
+      lots: [2],
+    });
+  });
+
   it('gives successive users disjoint lots', () => {
     const g = newGroup();
     g.addUser('u1', 2, 2, [], pickInOrder); // lots 1,2

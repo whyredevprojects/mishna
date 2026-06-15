@@ -11,9 +11,10 @@ import { Block, BlockRange, Commitment, IdGenerator, RandomSource } from './type
 // members' lots tile the whole corpus exactly once. A group is exhausted when all
 // of its lots are taken.
 //
-// Allocation is random: `addUser` picks free lots uniformly (via an injected
-// RandomSource). All corpus/lot lookups are delegated to the injected
-// MishnaStructure and MishnaChalakim.
+// Allocation gives the first lot at random (via an injected RandomSource) and then
+// prefers the consecutive next lots, so a user gets a continuous run of Mishna; see
+// `addUser`. All corpus/lot lookups are delegated to the injected MishnaStructure
+// and MishnaChalakim.
 // ---------------------------------------------------------------------------
 
 /** Serializable snapshot of a Group, for the persistence layer. */
@@ -53,10 +54,17 @@ export class Group {
   // -- public interface ------------------------------------------------------
 
   /**
-   * Assigns up to `count` random free lots to the user (fewer only when the group
-   * runs out of lots), excluding any lot numbers in `exclude` — the lots the user
-   * already holds in other groups, so they never get the same lot (and the same
-   * mishnayot) twice. Returns how many lots were assigned and which ones.
+   * Assigns up to `count` free lots to the user (fewer only when the group runs out
+   * of lots), excluding any lot numbers in `exclude` — the lots the user already
+   * holds in other groups, so they never get the same lot (and the same mishnayot)
+   * twice. Returns how many lots were assigned and which ones.
+   *
+   * The first lot is random; each subsequent lot is the one immediately after the
+   * previous pick (`prev + 1`) so the user learns a continuous run of Mishna, and
+   * only falls back to a random free lot when that next lot isn't available (taken,
+   * excluded, or off the end of the corpus). `after` seeds the chain so consecutive
+   * assignment can continue from a lot the user already holds (e.g. across a group
+   * spill); leave it undefined to make the first pick random.
    */
   addUser(
     userId: string,
@@ -64,16 +72,25 @@ export class Group {
     commitment: Commitment,
     exclude: number[],
     random: RandomSource,
+    after?: number,
   ): { allocated: number; lots: number[] } {
     if (count < 1) {
       return { allocated: 0, lots: [] };
     }
-    const free = this.freeLots(exclude);
-    const picked = sampleWithoutReplacement(
-      free,
-      Math.min(count, free.length),
-      random,
-    );
+    const freeSet = new Set(this.freeLots(exclude)); // ascending corpus order
+    const picked: number[] = [];
+    let prev = after;
+    for (let i = 0; i < count && freeSet.size > 0; i++) {
+      let choice: number;
+      if (prev !== undefined && freeSet.has(prev + 1)) {
+        choice = prev + 1; // consecutive: the next lot
+      } else {
+        choice = pickRandom([...freeSet], random); // first lot / random fallback
+      }
+      picked.push(choice);
+      freeSet.delete(choice);
+      prev = choice;
+    }
     if (picked.length === 0) {
       return { allocated: 0, lots: [] };
     }
@@ -170,22 +187,11 @@ export class Group {
 }
 
 /**
- * Picks `k` distinct items uniformly at random from `pool` (a partial
- * Fisher-Yates shuffle), using the injected `random`. With a `random` that always
- * returns 0 it picks the first `k` items in order — handy for deterministic tests.
+ * Picks one item uniformly at random from `pool` using the injected `random`. With
+ * a `random` that always returns 0 it picks the first item — handy for
+ * deterministic tests (`pool` is in ascending corpus order, so that's the lowest
+ * free lot).
  */
-function sampleWithoutReplacement(
-  pool: number[],
-  k: number,
-  random: RandomSource,
-): number[] {
-  const arr = [...pool];
-  const out: number[] = [];
-  for (let i = 0; i < k; i++) {
-    const span = arr.length - i;
-    const j = i + Math.min(span - 1, Math.floor(random() * span));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    out.push(arr[i]);
-  }
-  return out;
+function pickRandom(pool: number[], random: RandomSource): number {
+  return pool[Math.floor(random() * pool.length)];
 }
