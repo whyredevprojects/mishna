@@ -45,6 +45,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   Future<void> _refresh() async {
     ref.invalidate(cycleProvider);
+    ref.invalidate(joinOptionsProvider);
     ref.invalidate(todayAssignmentProvider);
     await ref.read(authControllerProvider.notifier).refresh();
   }
@@ -64,7 +65,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           padding: const EdgeInsets.all(16),
           children: [
             if (!joined) ...[
-              JoinForm(onJoin: _join, loading: _joining),
+              ..._joinSection(),
             ] else ...[
               Text("This week's mishnayos", style: theme.textTheme.bodyMedium),
               const SizedBox(height: 8),
@@ -77,6 +78,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           ],
         ),
       ),
+    );
+  }
+
+  List<Widget> _joinSection() {
+    final theme = Theme.of(context);
+    final options = ref.watch(joinOptionsProvider);
+    return options.when(
+      data: (opts) => [
+        JoinForm(onJoin: _join, options: opts, loading: _joining),
+      ],
+      error: (_, _) => [
+        Card(
+          color: theme.colorScheme.errorContainer,
+          child: const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Could not load the join options. Pull to refresh.'),
+          ),
+        ),
+      ],
+      loading: () => [
+        const Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
     );
   }
 

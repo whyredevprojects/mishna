@@ -13,6 +13,7 @@ export { AssignmentEngine } from './lib/assignment-engine';
 export type { GroupRepository } from './lib/group-repository';
 export { InMemoryGroupRepository } from './lib/group-repository';
 export { GroupManager } from './lib/group-manager';
+export { computeJoinOptions } from './lib/join-options';
 export {
   localParts,
   weekStartOnOrBefore,

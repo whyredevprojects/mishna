@@ -130,8 +130,12 @@ The persistence layer is responsible for loading a `Group` fully into memory bef
 ### Commitment
 
 ```ts
-type Commitment = 1 | 2 | 3  // mishnas per week
+type Commitment = 1 | 2 | 3  // mishnas per week (the weekly pace, not a lot count)
 ```
+
+The number of lots a user gets is derived at signup from this pace times the weeks left
+in the cycle (the allocation "budget"), never fewer than one — see `GroupManager` below
+and `computeJoinOptions` for the signup framing.
 
 ---
 
@@ -158,12 +162,16 @@ Stateless. Given a user's blocks and a date, computes which mishnas are due.
 
 ```
 getAssignment(blocks: Block[], date: Date):
-  weekNumber = weeksSinceCycleStart(date)        // 0-indexed, floor(days / 7)
-  mishnaOffset = weekNumber * blocks[0].commitment
-  return flattenBlocks(blocks).slice(mishnaOffset, mishnaOffset + commitment)
+  start  = blocks[0].startDate ?? cycleStart(date)
+  week   = floor((daysSinceCycleStart(date) - daysSinceCycleStart(start)) / 7)  // 0 on the join week
+  pace   = ceil(totalSize(blocks) / weeksRemaining(start))   // finish by the cycle end
+  offset = week * pace
+  return flattenBlocks(blocks).slice(offset, offset + pace)
 ```
 
-A week is a 7-day bucket counted from the cycle start (1 Sivan); the slice is stable
+A week is a 7-day bucket counted from the user's **join date** (`startDate`), so their
+first week is the start of their lots — no mid-cycle catch-up. The pace spreads their whole
+portion over the weeks left in the cycle, so they finish around the end. The slice is stable
 across all 7 days and advances once per week.
 
 `flattenBlocks` streams mishnas across all blocks in corpus order, then across ranges within each block, without materializing the full list.

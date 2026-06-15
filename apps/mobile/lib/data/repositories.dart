@@ -94,6 +94,14 @@ class MishnaApiRepository {
     return Cycle.fromJson(res.data!);
   }
 
+  Future<List<JoinOption>> joinOptions() async {
+    final res = await _dio.get<Map<String, dynamic>>('/api/join-options');
+    final options = (res.data!['options'] as List<dynamic>)
+        .map((o) => JoinOption.fromJson(o as Map<String, dynamic>))
+        .toList();
+    return options;
+  }
+
   Future<Assignment> todayAssignment() async {
     final res =
         await _dio.get<Map<String, dynamic>>('/api/assignments/today');
@@ -142,6 +150,10 @@ final apiRepositoryProvider = Provider<MishnaApiRepository>(
 
 final cycleProvider = FutureProvider<Cycle>(
   (ref) => ref.watch(apiRepositoryProvider).cycle(),
+);
+
+final joinOptionsProvider = FutureProvider<List<JoinOption>>(
+  (ref) => ref.watch(apiRepositoryProvider).joinOptions(),
 );
 
 final todayAssignmentProvider = FutureProvider<Assignment>(

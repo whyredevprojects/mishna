@@ -4,17 +4,24 @@ Framework-free core domain: corpus structure, group allocation, weekly assignmen
 and the Rosh-Chodesh-Sivan cycle calendar. No storage, no framework, fully unit-tested.
 The design narrative lives in `README.md`; this file is the implementation map.
 
-A user's `Commitment` (1/2/3) is the number of pre-set **lots (chalakim)** they're
-assigned for the cycle — random lots, any mesechta/seder — and *also* their weekly pace
-in mishnayot. So a commitment of 3 means three random lots (~3×35 mishnayot total) learned
-three a week. A "week" is a 7-day bucket counted from the cycle start (1 Sivan):
-`getAssignment` slices the user's blocks at `weeksSinceCycleStart(date) * commitment` and
-takes `commitment` mishnayot, so the slice is stable across all 7 days and advances once
-per week. Because the portion is a fixed handful of lots (not sized to the cycle), a user
-runs out — finishes — generally before the cycle ends; that's expected. The email path
-anchors its week to the user's chosen weekly-email weekday, so the dashboard's "this week"
-(bucket for today) and the weekly email (bucket for the send day) can differ by a few days
-at bucket boundaries; the next email re-syncs. (Open question — see root `TODO.md`.)
+A user's `Commitment` (1/2/3) is their chosen weekly pace in mishnayot, **not** a lot
+count. At signup they get random pre-set **lots (chalakim)** up to a *budget* of
+`commitment × weeksRemaining(joinDate)` mishnayot — the manager keeps handing out lots
+until the next one would push them over the budget, and always gives at least one lot. So
+a joiner near the start of the cycle gets several lots; a late joiner gets fewer (down to
+one). `computeJoinOptions` produces the signup choices, framing each pace by the
+approximate lot count it works out to and collapsing the slower paces into a single
+"1 lot" option near the cycle end. Each `Block` records its `startDate` (the join date).
+
+Scheduling is anchored to that `startDate`, not the cycle start: a "week" is a 7-day
+bucket counted from the user's join date, so their first week is the *start* of their lots
+(no mid-cycle catch-up). `getAssignment` paces them at `ceil(totalSize / weeksRemaining)`
+mishnayot/week so they finish their lots around the cycle end, slices at
+`weeksSinceStart × pace`, and the slice is stable across all 7 days of a bucket. (A block
+persisted before `startDate` existed falls back to the cycle start.) The email path anchors
+its week to the user's chosen weekly-email weekday, so the dashboard's "this week" (bucket
+for today) and the weekly email (bucket for the send day) can differ by a few days at
+bucket boundaries; the next email re-syncs. (Open question — see root `TODO.md`.)
 
 ## Public surface (`src/index.ts`)
 
@@ -25,12 +32,13 @@ at bucket boundaries; the next email re-syncs. (Open question — see root `TODO
 | `MishnaChalakim` | The hand-authored "chelek" (lot) division: 118 sequential, contiguous `MishnaLot`s. `lotsForMesechta(nameEn)` (a mesechta may span several lots) / `getLotByNumber(1..118)` / `allLots()`. |
 | `createMishnaChalakim()` | Builds the default `MishnaChalakim` from bundled `chaluka.json`. The factory holds the index-building logic; the constructor just stores the maps. |
 | `CycleCalendar` | `cycleStart` / `cycleEnd` / `daysSinceCycleStart` / `daysRemaining` / `weeksSinceCycleStart` (floor days/7) / `weeksRemaining` (ceil days/7), via `@hebcal/core`. Cycle = 1 Sivan → next 1 Sivan. |
-| `Group` | One full covering of the corpus, handed out as lots. `addUser(userId, count, commitment, exclude, random)` claims up to `count` random free lots (excluding lot numbers the user already holds elsewhere); `removeUser` frees them; `toState`/`fromState` for persistence. A group's members' lots tile the corpus exactly once; it's exhausted when all 118 lots are taken. Needs a `MishnaChalakim` (the lot universe). |
-| `AssignmentEngine` | `getAssignment(blocks, date)` — streams the user's mishnayot and slices the week's portion (offset = `weeksSinceCycleStart * commitment`). `getWeekAssignment(blocks, weekStart)` — the slice for the week bucket containing `weekStart` (the email "quota"); identical to `getAssignment`'s slice. Stateless. |
+| `Group` | One full covering of the corpus, handed out as lots. `addUser(userId, commitment, startDate, budget, exclude, random, mustTakeAtLeastOne)` hands out random free lots up to `budget` mishnayot (excluding lot numbers the user already holds elsewhere), forcing one lot when `mustTakeAtLeastOne`, and reports why it stopped (`'budget'` vs `'groupFull'`); `removeUser` frees them; `toState`/`fromState` for persistence. A group's members' lots tile the corpus exactly once; it's exhausted when all lots are taken. Needs a `MishnaChalakim` (the lot universe). |
+| `AssignmentEngine` | `getAssignment(blocks, date)` — streams the user's mishnayot and slices the week's portion, anchored to `blocks[0].startDate` (offset = `weeksSinceStart × pace`, `pace = ceil(totalSize / weeksRemaining(start))`). `getWeekAssignment(blocks, weekStart)` — the slice for the week bucket containing `weekStart` (the email "quota"); identical to `getAssignment`'s slice. Stateless. |
+| `computeJoinOptions(structure, chalakim, calendar, date)` | The signup commitment choices (`JoinOption[]`) as of `date`: each pace annotated with its approximate lot count, collapsing the slower paces into a single "1 lot" option near the cycle end. Pure. |
 | Email scheduling (`email-schedule.ts`) | `EmailJob`/`EmailKind` (the email job shape used by `apps/server`'s email path), and pure timezone helpers `localParts(instant, tz)`, `weekStartOnOrBefore(parts, dow)`, `weekStartToDate(weekStart)` (built on `Intl`, UTC-day math). |
 | `GroupRepository` (port) + `InMemoryGroupRepository` | Persistence boundary. Production talks to D1; tests/local use the in-memory impl. |
-| `GroupManager` | `join(userId, commitment)` / `removeUser` — claims a user's `commitment` lots, spilling to the next group only if one runs out (carrying the lots already taken so a user never draws the same lot twice). Built with a `RandomSource`. |
-| Types | `MishnaRef`, `BlockRange`, `MishnaLot`, `Block` (carries `lots` + derived `ranges`/`totalSize`), `Commitment`, `RandomSource`, `Assignment`, `IdGenerator`, `GroupState`, `GroupInit`, `ChalukaEntry`. |
+| `GroupManager` | `join(userId, commitment, startDate)` / `removeUser` — claims a user's lots up to the `commitment × weeksRemaining(startDate)` budget (≥ one lot), spilling to the next group only if one runs out (carrying the lots already taken so a user never draws the same lot twice). Built with a `RandomSource` and a `CycleCalendar`. |
+| Types | `MishnaRef`, `BlockRange`, `MishnaLot`, `Block` (carries `lots` + derived `ranges`/`totalSize`, plus `commitment` and `startDate`), `Commitment` (weekly pace), `JoinOption`, `RandomSource`, `Assignment`, `IdGenerator`, `GroupState`, `GroupInit`, `ChalukaEntry`. |
 
 ## Data build steps
 

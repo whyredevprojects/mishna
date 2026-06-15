@@ -6,6 +6,7 @@ import {
   EmailKind,
   Group,
   MishnaRef,
+  computeJoinOptions,
   localParts,
   mishnahDataset,
   weekStartOnOrBefore,
@@ -309,6 +310,16 @@ app.get('/api/cycle', (c) => {
     daysElapsed,
     daysRemaining,
     totalDays: daysElapsed + daysRemaining,
+  });
+});
+
+// The signup commitment choices as of today: each weekly pace annotated with the
+// approximate number of lots it commits to from now to the cycle end, collapsing
+// to a single "1 lot" option near the end. Public — the signup form needs it
+// before the user has joined, and keeps the lot math out of the clients.
+app.get('/api/join-options', (c) => {
+  return c.json({
+    options: computeJoinOptions(structure, chalakim, calendar, new Date()),
   });
 });
 

@@ -8,6 +8,8 @@ export const queryKeys = {
   me: ['me'] as const,
   /** GET /api/cycle — public cycle bounds + progress. */
   cycle: ['cycle'] as const,
+  /** GET /api/join-options — the signup commitment choices as of today. */
+  joinOptions: ['join-options'] as const,
   /** GET /api/assignments/today — the server's notion of "today". */
   assignmentToday: ['assignment', 'today'] as const,
   /** GET /api/me/chaluka — the caller's whole-cycle portion + learned subset. */

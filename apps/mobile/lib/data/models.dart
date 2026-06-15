@@ -160,6 +160,37 @@ class Cycle {
       );
 }
 
+/// One signup commitment choice (GET /api/join-options). Framed as a weekly pace
+/// but annotated with the approximate lots it commits to from now to the cycle
+/// end; near the end the slower paces collapse into a single "1 lot" option.
+class JoinOption {
+  const JoinOption({
+    required this.commitment,
+    required this.approxLots,
+    required this.singleLot,
+    this.maxMishnas,
+    this.perDay,
+  });
+
+  final int commitment;
+  final int approxLots;
+  final bool singleLot;
+
+  /// Set only when [singleLot]: the largest a single lot can be.
+  final int? maxMishnas;
+
+  /// Set only when [singleLot]: mishnayot per day to finish that lot in time.
+  final int? perDay;
+
+  factory JoinOption.fromJson(Map<String, dynamic> json) => JoinOption(
+        commitment: json['commitment'] as int,
+        approxLots: json['approxLots'] as int,
+        singleLot: json['singleLot'] as bool,
+        maxMishnas: json['maxMishnas'] as int?,
+        perDay: json['perDay'] as int?,
+      );
+}
+
 /// GET /api/assignments/today — this week's mishnayot plus completion state.
 class Assignment {
   const Assignment({

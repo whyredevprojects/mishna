@@ -34,7 +34,10 @@ in memory, no cross-DB JOIN).
   rebuilt from `state.blocks[].userId` on each `save` so `loadGroupsForUser` is an
   indexed join.
 - `participants(user_id, commitment, joined_at)` — who joined and their commitment (=
-  the number of random lots they drew); drives `/api/me` and rejects double-joins.
+  their weekly pace in mishnayot; the lot count is derived at join from pace × weeks
+  remaining); drives `/api/me` and rejects double-joins. `joined_at` (epoch ms) is also
+  written into the user's `Block.startDate` (as a yyyy-mm-dd date) so assignment
+  scheduling anchors on the join date.
 - `completions(user_id, group_id, mesechta, perek, mishna, completed_at)` — one row per
   mishna a user has marked learned, within a specific group. `group_id` is resolved
   server-side from the user's block and handed down with the assignment, so per-group
@@ -84,6 +87,7 @@ state-changing admin POSTs that arrive without a trusted Origin).
 |---|---|
 | `GET /api/corpus` | The static `MishnahDataset` (public; lets the client skip bundling it). |
 | `GET /api/cycle` | `{ cycleStart, cycleEnd, daysElapsed, daysRemaining, totalDays }` for the current cycle (public; powers the landing-page progress bar without shipping `@hebcal/core` to the client). |
+| `GET /api/join-options` | `{ options: JoinOption[] }` — the signup commitment choices as of today (`computeJoinOptions`), each weekly pace annotated with its approximate lot count, collapsing to a single "1 lot" option near the cycle end (public; keeps the lot math out of the clients, esp. Flutter). |
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
 | `GET /api/me/chaluka` | `{ commitment, joinedAt, assigned: MishnaRef[], completed: MishnaRef[], groupIds: string[] }` — the caller's whole-cycle portion (every mishna in their blocks, corpus order) + the learned subset, for the "My Chaluka" progress/stats view (auth). `groupIds` is parallel to `assigned` (group for `assigned[i]` is `groupIds[i]`): the group each completion is recorded under, so the Assignments page can check mishnayot off (per-ref because lots spill across groups at an overflow boundary). |
 | `GET /api/me/preferences` | The caller's email prefs, defaults if no row (auth). |

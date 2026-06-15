@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
 
-/// Commitment picker (1/2/3 mishnayot per week) + Join button.
+import '../data/models.dart';
+
+/// Commitment picker + Join button. Choices are framed as mishnayot per week,
+/// but each shows roughly how many lots (chalakim) it commits to from now to the
+/// end of the cycle — fewer as the cycle progresses, collapsing to a single
+/// "1 lot" option near the end. Options come from the server (`/api/join-options`)
+/// so the lot math lives in one place.
 class JoinForm extends StatefulWidget {
-  const JoinForm({super.key, required this.onJoin, this.loading = false});
+  const JoinForm({
+    super.key,
+    required this.onJoin,
+    required this.options,
+    this.loading = false,
+  });
 
   final ValueChanged<int> onJoin;
+  final List<JoinOption> options;
   final bool loading;
 
   @override
@@ -12,7 +24,29 @@ class JoinForm extends StatefulWidget {
 }
 
 class _JoinFormState extends State<JoinForm> {
-  int _commitment = 1;
+  late int _commitment = widget.options.first.commitment;
+
+  @override
+  void didUpdateWidget(JoinForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The previously-selected pace may have been dropped near the cycle end.
+    if (!widget.options.any((o) => o.commitment == _commitment)) {
+      _commitment = widget.options.first.commitment;
+    }
+  }
+
+  String _mainLabel(JoinOption o) {
+    if (o.singleLot) return '1 lot';
+    final noun = o.commitment == 1 ? 'mishna' : 'mishnayos';
+    return '${o.commitment} $noun a week';
+  }
+
+  String _subLabel(JoinOption o) {
+    if (o.singleLot) {
+      return 'up to ${o.maxMishnas} mishnayos · about ${o.perDay} a day';
+    }
+    return 'about ${o.approxLots} ${o.approxLots == 1 ? 'lot' : 'lots'}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,16 +60,22 @@ class _JoinFormState extends State<JoinForm> {
             Text('Join the current cycle', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             const Text('How many mishnayot will you learn each week?'),
-            const SizedBox(height: 12),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 1, label: Text('1')),
-                ButtonSegment(value: 2, label: Text('2')),
-                ButtonSegment(value: 3, label: Text('3')),
-              ],
-              selected: {_commitment},
-              onSelectionChanged: (selection) =>
-                  setState(() => _commitment = selection.first),
+            const SizedBox(height: 4),
+            RadioGroup<int>(
+              groupValue: _commitment,
+              onChanged: (v) => setState(() => _commitment = v!),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final o in widget.options)
+                    RadioListTile<int>(
+                      value: o.commitment,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_mainLabel(o)),
+                      subtitle: Text(_subLabel(o)),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             FilledButton(

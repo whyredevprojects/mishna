@@ -1,6 +1,6 @@
 import { SELF, env } from 'cloudflare:test';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { CycleCalendar, MishnaRef, createMishnaStructure } from '@mishna/domain';
+import { MishnaRef, createMishnaStructure } from '@mishna/domain';
 import { applyMigrations } from './apply-migrations';
 import '.';
 
@@ -12,7 +12,6 @@ function as(userId: string): HeadersInit {
 }
 
 const structure = createMishnaStructure();
-const calendar = new CycleCalendar();
 
 describe('server API integration', () => {
   beforeAll(async () => {
@@ -69,10 +68,10 @@ describe('server API integration', () => {
     me = await SELF.fetch('https://server/api/me', { headers: as('alice') });
     expect(await me.json()).toMatchObject({ joined: true, commitment: 1 });
 
-    // In week 0 of the cycle, the joiner gets their commitment-many mishnayot from
-    // their (randomly assigned) lots — one mishna for a commitment of 1.
-    const cycleStart = calendar.cycleStart(new Date());
-    const dateStr = cycleStart.toISOString().slice(0, 10);
+    // The joiner's first week is their join date (scheduling is anchored there),
+    // so they get the start of their lots — a non-empty slice, not a mid-cycle
+    // catch-up.
+    const dateStr = new Date().toISOString().slice(0, 10);
     const assign = await SELF.fetch(
       `https://server/api/assignments?date=${dateStr}`,
       { headers: as('alice') },
@@ -82,7 +81,7 @@ describe('server API integration', () => {
       mishnas: MishnaRef[];
     };
     expect(assignment.userId).toBe('alice');
-    expect(assignment.mishnas).toHaveLength(1);
+    expect(assignment.mishnas.length).toBeGreaterThan(0);
     expect(() => structure.indexOf(assignment.mishnas[0])).not.toThrow();
 
     // today's endpoint also resolves.
@@ -132,8 +131,7 @@ describe('server API integration', () => {
       expect(join.status).toBe(200);
     }
 
-    const cycleStart = calendar.cycleStart(new Date());
-    const dateStr = cycleStart.toISOString().slice(0, 10);
+    const dateStr = new Date().toISOString().slice(0, 10);
     async function assignmentFor(id: string) {
       const res = await SELF.fetch(
         `https://server/api/assignments?date=${dateStr}`,
@@ -147,8 +145,8 @@ describe('server API integration', () => {
 
     expect(alice.userId).toBe('alice');
     expect(bob.userId).toBe('bob');
-    expect(alice.mishnas).toHaveLength(1);
-    expect(bob.mishnas).toHaveLength(1);
+    expect(alice.mishnas.length).toBeGreaterThan(0);
+    expect(bob.mishnas.length).toBeGreaterThan(0);
     // Disjoint lots within the group → different mishnayot for each member.
     expect(bob.mishnas[0]).not.toEqual(alice.mishnas[0]);
   });
@@ -352,7 +350,7 @@ describe('server API integration', () => {
 
     /** alice's day-0 assignment: the corpus head plus her resolved group. */
     async function aliceDayZero(): Promise<{ ref: MishnaRef; groupId: string }> {
-      const dateStr = calendar.cycleStart(new Date()).toISOString().slice(0, 10);
+      const dateStr = new Date().toISOString().slice(0, 10);
       const res = await SELF.fetch(
         `https://server/api/assignments?date=${dateStr}`,
         { headers: as('alice') },
@@ -414,7 +412,7 @@ describe('server API integration', () => {
       expect(row?.group_id).toBe(groupId);
 
       // The assignment now carries its own completion state for its mishnas.
-      const dateStr = calendar.cycleStart(new Date()).toISOString().slice(0, 10);
+      const dateStr = new Date().toISOString().slice(0, 10);
       const dayZero = await SELF.fetch(
         `https://server/api/assignments?date=${dateStr}`,
         { headers: as('alice') },
@@ -526,18 +524,19 @@ describe('server API integration', () => {
       );
 
       // Mark the portion's first mishna learned; it shows up in `completed`. Its
-      // group is the one carrying the week-0 assignment (the portion's start).
+      // group is the one carrying the joiner's first-week assignment (the
+      // portion's start).
       const head = body.assigned[0];
-      const cycleStartStr = calendar.cycleStart(new Date()).toISOString().slice(0, 10);
+      const todayStr = new Date().toISOString().slice(0, 10);
       const groupId = (
         (await (
-          await SELF.fetch(`https://server/api/assignments?date=${cycleStartStr}`, {
+          await SELF.fetch(`https://server/api/assignments?date=${todayStr}`, {
             headers: as('alice'),
           })
         ).json()) as { groupId: string }
       ).groupId;
-      // The head's group (groupIds[0]) is exactly the group the week-0 assignment
-      // attributes it to.
+      // The head's group (groupIds[0]) is exactly the group the first-week
+      // assignment attributes it to.
       expect(body.groupIds[0]).toBe(groupId);
       await SELF.fetch('https://server/api/completions', {
         method: 'POST',
@@ -562,10 +561,11 @@ describe('server API integration', () => {
       });
     }
 
-    /** The cycle-start date (week 0), so assignment rows hold a joiner's first
-     *  mishnayot — non-empty regardless of the real date or which lots they drew. */
-    function cycleStartWeek(): string {
-      return calendar.cycleStart(new Date()).toISOString().slice(0, 10);
+    /** Today's date — a joiner's first week (scheduling is anchored to the join
+     *  date), so assignment rows hold their first mishnayot regardless of which
+     *  lots they drew. */
+    function joinerFirstWeek(): string {
+      return new Date().toISOString().slice(0, 10);
     }
 
     it('paginates and searches the user list', async () => {
@@ -730,7 +730,7 @@ describe('server API integration', () => {
 
     it('lists a week of assignments and toggles a completion on the user behalf', async () => {
       await join('alice');
-      const week = cycleStartWeek();
+      const week = joinerFirstWeek();
       const res = await SELF.fetch(
         `https://server/api/admin/assignments?week=${week}`,
         { headers: as('admin') },

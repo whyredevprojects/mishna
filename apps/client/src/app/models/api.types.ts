@@ -1,9 +1,14 @@
 // Client-facing shapes of the apps/server REST responses. The domain ships
 // framework-free value types we reuse directly; anything carrying a `Date`
 // (e.g. Assignment) is redefined here since dates arrive as ISO strings.
-import type { Commitment, MishnaRef } from '@mishna/domain';
+import type { Commitment, JoinOption, MishnaRef } from '@mishna/domain';
 
-export type { Commitment, MishnaRef };
+export type { Commitment, JoinOption, MishnaRef };
+
+/** GET /api/join-options — the signup commitment choices as of today. */
+export interface JoinOptions {
+  options: JoinOption[];
+}
 
 /** The signed-in user's identity, as carried on GET /api/me. */
 export interface UserInfo {

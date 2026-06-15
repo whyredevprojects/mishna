@@ -27,10 +27,11 @@ export interface MishnaLot {
 }
 
 /**
- * A user's commitment for the cycle: the number of random lots (chalakim) they
- * are assigned, which is also their weekly pace in mishnayot. So `3` means three
- * random lots and three mishnayot learned per week. A user finishes when their
- * lots run out, which is generally before the cycle ends.
+ * A user's chosen weekly pace in mishnayot: `2` means "two mishnayot a week". It
+ * is no longer the lot count — the number of lots is derived at allocation from
+ * the pace times the weeks left in the cycle (the "budget"), so a joiner later in
+ * the cycle gets fewer lots. A user finishes when their lots run out, which is by
+ * design around the end of the cycle.
  */
 export type Commitment = 1 | 2 | 3;
 
@@ -51,6 +52,14 @@ export interface Block {
   /** Denormalized sum of mishnas across all ranges. */
   totalSize: number;
   commitment: Commitment;
+  /**
+   * ISO date (yyyy-mm-dd) the user joined and this block was allocated. The
+   * assignment engine schedules relative to it, so the user's first week is the
+   * start of their lots — no mid-cycle catch-up. Optional for backward
+   * compatibility with blocks persisted before this field existed; the engine
+   * falls back to the cycle start when it's absent.
+   */
+  startDate?: string;
 }
 
 /**
@@ -72,3 +81,26 @@ export interface Assignment {
  * tests pass a deterministic generator.
  */
 export type IdGenerator = () => string;
+
+/**
+ * One commitment choice offered at signup, framed in mishnayot per week but
+ * annotated with how many lots it works out to from today to the end of the
+ * cycle. Computed by `computeJoinOptions`; carries numbers only, each client
+ * formats its own copy.
+ */
+export interface JoinOption {
+  /** The weekly pace this option commits to (also the value POSTed on join). */
+  commitment: Commitment;
+  /** Approximate number of lots committed to, based on average lot size (>= 1). */
+  approxLots: number;
+  /**
+   * True near the cycle end, when this pace works out to less than one lot, so
+   * the user is guaranteed a single lot instead. `maxMishnas` and `perDay` are
+   * set only in this case.
+   */
+  singleLot: boolean;
+  /** When `singleLot`: the largest a single lot can be (upper bound). */
+  maxMishnas?: number;
+  /** When `singleLot`: mishnayot per day to finish that lot by the cycle end. */
+  perDay?: number;
+}

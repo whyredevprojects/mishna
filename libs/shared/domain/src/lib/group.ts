@@ -53,33 +53,53 @@ export class Group {
   // -- public interface ------------------------------------------------------
 
   /**
-   * Assigns up to `count` random free lots to the user (fewer only when the group
-   * runs out of lots), excluding any lot numbers in `exclude` — the lots the user
-   * already holds in other groups, so they never get the same lot (and the same
-   * mishnayot) twice. Returns how many lots were assigned and which ones.
+   * Hands the user random free lots up to a `budget` of mishnayot: keeps drawing
+   * random free lots and giving them out while the next one fits in the remaining
+   * budget, stopping at the first lot that would push them over. `exclude` is the
+   * lots the user already holds in other groups, so they never get the same lot
+   * (and the same mishnayot) twice. When `mustTakeAtLeastOne` is set the very
+   * first lot is taken even if it overflows the budget — the "never fewer than
+   * one lot" guarantee for the user's first group.
+   *
+   * `stopped` tells the caller why allocation ended: `'budget'` (the next lot
+   * would exceed the budget — stop entirely) or `'groupFull'` (the group ran out
+   * of free lots — the caller may spill into another group).
    */
   addUser(
     userId: string,
-    count: number,
     commitment: Commitment,
+    startDate: string,
+    budget: number,
     exclude: number[],
     random: RandomSource,
-  ): { allocated: number; lots: number[] } {
-    if (count < 1) {
-      return { allocated: 0, lots: [] };
+    mustTakeAtLeastOne: boolean,
+  ): {
+    allocated: number;
+    lots: number[];
+    mishnayot: number;
+    stopped: 'budget' | 'groupFull';
+  } {
+    const freeLots = this.freeLots(exclude);
+    const free = sampleWithoutReplacement(freeLots, freeLots.length, random);
+    const picked: number[] = [];
+    let mishnayot = 0;
+    let stopped: 'budget' | 'groupFull' = 'groupFull';
+    for (const lot of free) {
+      const size = this.lotSize(lot);
+      const forced = mustTakeAtLeastOne && picked.length === 0;
+      if (!forced && mishnayot + size > budget) {
+        stopped = 'budget';
+        break;
+      }
+      picked.push(lot);
+      mishnayot += size;
     }
-    const free = this.freeLots(exclude);
-    const picked = sampleWithoutReplacement(
-      free,
-      Math.min(count, free.length),
-      random,
-    );
     if (picked.length === 0) {
-      return { allocated: 0, lots: [] };
+      return { allocated: 0, lots: [], mishnayot: 0, stopped };
     }
     picked.sort((a, b) => a - b); // ascending lot number = corpus order
-    this.blocks.push(this.buildBlock(userId, picked, commitment));
-    return { allocated: picked.length, lots: picked };
+    this.blocks.push(this.buildBlock(userId, picked, commitment, startDate));
+    return { allocated: picked.length, lots: picked, mishnayot, stopped };
   }
 
   /** Drops the user's block, freeing their lots back to the group. */
@@ -95,13 +115,21 @@ export class Group {
    * tracked as a Set. An empty `lots` removes the user's block entirely. Throws on
    * an unknown lot number (via `getLotByNumber`).
    */
-  setUserLots(userId: string, lots: number[], commitment: Commitment): void {
+  setUserLots(
+    userId: string,
+    lots: number[],
+    commitment: Commitment,
+    startDate?: string,
+  ): void {
+    const existing = this.blocks.find((b) => b.userId === userId)?.startDate;
     this.removeUser(userId);
     const unique = [...new Set(lots)].sort((a, b) => a - b);
     if (unique.length === 0) {
       return;
     }
-    this.blocks.push(this.buildBlock(userId, unique, commitment));
+    this.blocks.push(
+      this.buildBlock(userId, unique, commitment, startDate ?? existing),
+    );
   }
 
   toState(): GroupState {
@@ -157,6 +185,7 @@ export class Group {
     userId: string,
     lots: number[],
     commitment: Commitment,
+    startDate?: string,
   ): Block {
     const ranges: BlockRange[] = lots.map(
       (lot) => this.chalakim.getLotByNumber(lot).range,
@@ -165,7 +194,15 @@ export class Group {
       (sum, range) => sum + this.structure.rangeSize(range),
       0,
     );
-    return { id: this.idGen(), userId, lots, ranges, totalSize, commitment };
+    return {
+      id: this.idGen(),
+      userId,
+      lots,
+      ranges,
+      totalSize,
+      commitment,
+      startDate,
+    };
   }
 }
 

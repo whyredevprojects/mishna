@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:test';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  CycleCalendar,
   Group,
   MishnaRef,
   createMishnaChalakim,
@@ -18,6 +19,13 @@ const idGen = () => crypto.randomUUID();
 
 // NY (EDT, UTC-4) on this instant is Wednesday 2026-06-03 08:00. dow=3 (Wed).
 const NOW_NY_WED_8AM = new Date('2026-06-03T12:00:00Z');
+
+// Blocks are scheduled from their start date; anchor the seeded block to the
+// cycle start so a test week falls in range exactly as before.
+const CYCLE_START = new CycleCalendar()
+  .cycleStart(NOW_NY_WED_8AM)
+  .toISOString()
+  .slice(0, 10);
 
 const REF: MishnaRef = { mesechta: 'Berachos', perek: 1, mishna: 1 };
 
@@ -81,8 +89,9 @@ async function seedParticipant(opts: {
 /** Give the user lots covering the corpus head, so a week has mishnayot. */
 async function seedGroupFor(userId: string): Promise<void> {
   const group = new Group(structure, chalakim, idGen, { id: `g-${userId}` });
-  // `() => 0` takes the lowest-numbered lots first, i.e. the corpus head.
-  group.addUser(userId, 4, 1, [], () => 0);
+  // `() => 0` takes the lowest-numbered lots first, i.e. the corpus head; a
+  // generous budget yields several lots so the week has mishnayot.
+  group.addUser(userId, 1, CYCLE_START, 200, [], () => 0, true);
   const state = group.toState();
   await env.DB.prepare(
     'INSERT INTO groups (id, state, exhausted, capacity_left, updated_at) VALUES (?, ?, 0, 0, 0)',

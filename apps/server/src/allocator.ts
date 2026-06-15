@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Commitment, GroupManager } from '@mishna/domain';
 import { D1GroupRepository } from './repository';
-import { chalakim, idGen, random, structure } from './domain';
+import { calendar, chalakim, idGen, random, structure } from './domain';
 
 // ---------------------------------------------------------------------------
 // AllocatorDO
@@ -49,7 +49,7 @@ export class AllocatorDO extends DurableObject<Env> {
 
   private manager(): GroupManager {
     const repo = new D1GroupRepository(this.env.DB, structure, chalakim, idGen);
-    return new GroupManager(repo, random);
+    return new GroupManager(repo, random, calendar);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -81,12 +81,16 @@ export class AllocatorDO extends DurableObject<Env> {
       return Response.json({ error: 'already joined' }, { status: 409 });
     }
 
-    await this.manager().join(userId, commitment);
+    // One timestamp for both the participant row and the block's start date, so
+    // scheduling (which anchors on the block) matches the recorded join time.
+    const joinedAt = Date.now();
+    const startDate = new Date(joinedAt).toISOString().slice(0, 10);
+    await this.manager().join(userId, commitment, startDate);
 
     await this.env.DB.prepare(
       'INSERT INTO participants (user_id, commitment, joined_at) VALUES (?, ?, ?)',
     )
-      .bind(userId, commitment, Date.now())
+      .bind(userId, commitment, joinedAt)
       .run();
 
     return Response.json({ joined: true, commitment });

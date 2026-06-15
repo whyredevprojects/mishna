@@ -108,41 +108,66 @@ export function sequentialIdGen(prefix = 'id'): IdGenerator {
  */
 export const pickInOrder: RandomSource = () => 0;
 
+const DAY_MS = 86_400_000;
+
+/** A fixed default cycle start (UTC midnight) for date-based fixtures. */
+export const FAKE_CYCLE_START = new Date(Date.UTC(2026, 0, 1));
+
+/** A date `n` whole days after the fake cycle start (UTC midnight). */
+export function cycleDay(n: number): Date {
+  return new Date(FAKE_CYCLE_START.getTime() + n * DAY_MS);
+}
+
 /**
- * A CycleCalendar stub returning fixed day numbers, for deterministic tests.
- * The week methods are derived from the day inputs exactly as the real calendar
- * derives them, so tests keep expressing scenarios in days.
+ * A date-aware CycleCalendar stub, anchored at a cycle start with a fixed length.
+ * Every answer is derived from the real Date argument the same way the live
+ * calendar does, so tests express scenarios with `cycleDay(n)` dates (and block
+ * `startDate`s) rather than pre-baked day counts.
  */
-export function fakeCalendar(opts: {
-  daysSinceCycleStart?: number;
-  daysRemaining?: number;
+export function fakeCalendar(opts?: {
+  cycleStart?: Date;
+  cycleLengthDays?: number;
 }): CycleCalendar {
-  const dsc = opts.daysSinceCycleStart ?? 0;
-  const dr = opts.daysRemaining ?? 0;
+  const start = opts?.cycleStart ?? FAKE_CYCLE_START;
+  const end = new Date(start.getTime() + (opts?.cycleLengthDays ?? 364) * DAY_MS);
+  const daysSince = (d: Date) => Math.floor((d.getTime() - start.getTime()) / DAY_MS);
+  const daysLeft = (d: Date) => Math.floor((end.getTime() - d.getTime()) / DAY_MS);
   return {
-    daysSinceCycleStart: () => dsc,
-    daysRemaining: () => dr,
-    weeksSinceCycleStart: () => Math.floor(dsc / 7),
-    weeksRemaining: () => Math.ceil(dr / 7),
+    cycleStart: () => start,
+    cycleEnd: () => end,
+    daysSinceCycleStart: daysSince,
+    daysRemaining: daysLeft,
+    weeksSinceCycleStart: (d: Date) => Math.floor(daysSince(d) / 7),
+    weeksRemaining: (d: Date) => Math.ceil(daysLeft(d) / 7),
   } as unknown as CycleCalendar;
 }
 
 /**
  * Builds a Block from [startIndex, endIndex] global-index range pairs. `lots` is
  * left empty — the assignment-engine tests slice on `ranges` and ignore it.
+ * `startDate` is the ISO join date the engine schedules from.
  */
 export function makeBlock(
   structure: MishnaStructure,
   userId: string,
   pairs: [number, number][],
   commitment: Commitment,
+  startDate?: string,
 ): Block {
   const ranges = pairs.map(([a, b]) => ({
     start: structure.refAt(a),
     end: structure.refAt(b),
   }));
   const totalSize = pairs.reduce((sum, [a, b]) => sum + (b - a + 1), 0);
-  return { id: `block-${userId}`, userId, lots: [], ranges, totalSize, commitment };
+  return {
+    id: `block-${userId}`,
+    userId,
+    lots: [],
+    ranges,
+    totalSize,
+    commitment,
+    startDate,
+  };
 }
 
 /** Flattens a Block's ranges back into global indices, for tiling assertions. */

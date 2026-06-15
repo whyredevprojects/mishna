@@ -22,6 +22,7 @@ import { formatRef } from '../util/format';
 import { queryKeys } from '../queries/query-keys';
 import {
   cycleQueryOptions,
+  joinOptionsQueryOptions,
   meQueryOptions,
   todayAssignmentQueryOptions,
 } from '../queries/queries';
@@ -69,6 +70,7 @@ import {
         } @else {
           <app-join-form
             [loading]="joining()"
+            [options]="joinOptions()"
             (join)="onJoin($event)"
           ></app-join-form>
           @if (cycle(); as c) {
@@ -93,6 +95,11 @@ export class DashboardComponent {
   protected readonly joined = computed(
     () => this.meQuery.data()?.joined ?? false,
   );
+  // The signup options (lot estimates per pace); only needed before joining.
+  private readonly joinOptionsQuery = injectQuery(() => ({
+    ...joinOptionsQueryOptions(this.groups),
+    enabled: !this.joined(),
+  }));
   // Only fetched once the user is known to have joined.
   private readonly assignmentQuery = injectQuery(() => ({
     ...todayAssignmentQueryOptions(this.assignments),
@@ -132,6 +139,9 @@ export class DashboardComponent {
 
   protected readonly assignment = computed(() => this.assignmentQuery.data());
   protected readonly cycle = computed(() => this.cycleQuery.data());
+  protected readonly joinOptions = computed(
+    () => this.joinOptionsQuery.data()?.options,
+  );
   // The assignment carries its own completion state, so the checks render from the
   // same response (no separate, separately-failing fetch).
   protected readonly completed = computed(

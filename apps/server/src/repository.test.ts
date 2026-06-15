@@ -16,6 +16,7 @@ function makeIdGen(): IdGenerator {
 
 /** `() => 0` picks the lowest-numbered lots, so allocations are deterministic. */
 const pickInOrder = () => 0;
+const START = '2026-01-01';
 
 const structure = createMishnaStructure();
 const chalakim = createMishnaChalakim();
@@ -45,7 +46,7 @@ describe('D1GroupRepository', () => {
 
   it('save round-trips group state via toState/fromState', async () => {
     const group = await repo.createGroup();
-    group.addUser('alice', 2, 2, [], pickInOrder);
+    group.addUser('alice', 2, START, 50, [], pickInOrder, true);
     await repo.save(group);
 
     const reloaded = await repo.loadNonExhaustedGroup();
@@ -54,7 +55,7 @@ describe('D1GroupRepository', () => {
 
   it('loadById returns the group, or null for an unknown id', async () => {
     const created = await repo.createGroup();
-    created.addUser('alice', 2, 2, [], pickInOrder);
+    created.addUser('alice', 2, START, 50, [], pickInOrder, true);
     await repo.save(created);
 
     const loaded = await repo.loadById(created.id);
@@ -66,8 +67,8 @@ describe('D1GroupRepository', () => {
 
   it('loadGroupsForUser finds groups via denormalized membership', async () => {
     const group = await repo.createGroup();
-    group.addUser('alice', 3, 3, [], pickInOrder);
-    group.addUser('bob', 2, 2, [], pickInOrder);
+    group.addUser('alice', 3, START, 100, [], pickInOrder, true);
+    group.addUser('bob', 2, START, 50, [], pickInOrder, true);
     await repo.save(group);
 
     const forAlice = await repo.loadGroupsForUser('alice');
@@ -81,7 +82,7 @@ describe('D1GroupRepository', () => {
 
   it('save rebuilds membership when a user leaves', async () => {
     const group = await repo.createGroup();
-    group.addUser('alice', 3, 3, [], pickInOrder);
+    group.addUser('alice', 3, START, 100, [], pickInOrder, true);
     await repo.save(group);
     expect(await repo.loadGroupsForUser('alice')).toHaveLength(1);
 

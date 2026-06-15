@@ -15,6 +15,7 @@ import { AuthService } from '../services/auth.service';
 import { CycleService } from '../services/cycle.service';
 import { AssignmentService } from '../services/assignment.service';
 import { AdminService } from '../services/admin.service';
+import { GroupService } from '../services/group.service';
 import { PageParams } from '../models/api.types';
 
 const MINUTE = 60_000;
@@ -33,6 +34,15 @@ export function cycleQueryOptions(cycle: CycleService) {
   return queryOptions({
     queryKey: queryKeys.cycle,
     queryFn: () => firstValueFrom(cycle.getCycle()),
+    staleTime: 60 * MINUTE,
+  });
+}
+
+/** GET /api/join-options. Shifts slowly (lot estimates change by the day). */
+export function joinOptionsQueryOptions(groups: GroupService) {
+  return queryOptions({
+    queryKey: queryKeys.joinOptions,
+    queryFn: () => firstValueFrom(groups.joinOptions()),
     staleTime: 60 * MINUTE,
   });
 }
