@@ -1,0 +1,210 @@
+/* Chevras Mishnayos marketing site — warm, colorful brand styling.
+   Palette builds on the app's brand brown (#8a5a2b) with gold + teal accents. */
+
+:root {
+  --brown: #8a5a2b;
+  --brown-deep: #5e3c19;
+  --gold: #e0a838;
+  --gold-soft: #f6e6c4;
+  --teal: #1f7a6d;
+  --cream: #fdf8ef;
+  --ink: #2a2118;
+  --ink-soft: #6b6358;
+  --radius: 0.9rem;
+  --shadow: 0 14px 40px -18px rgba(94, 60, 25, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "Frank Ruhl Libre", Georgia, "Times New Roman", serif;
+  color: var(--ink);
+  background: var(--cream);
+  line-height: 1.6;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.6rem 1.25rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  white-space: nowrap;
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
+.btn-primary {
+  background: var(--brown);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px rgba(94, 60, 25, 0.8);
+}
+.btn-primary:hover {
+  background: var(--brown-deep);
+}
+.btn-ghost {
+  color: var(--brown-deep);
+  border: 1.5px solid rgba(138, 90, 43, 0.35);
+}
+.btn-ghost:hover {
+  background: rgba(138, 90, 43, 0.08);
+}
+.btn-cta {
+  font-size: 1.2rem;
+  padding: 0.95rem 2rem;
+  color: var(--brown-deep);
+  background: linear-gradient(135deg, var(--gold) 0%, #f2c45c 100%);
+  box-shadow: var(--shadow);
+}
+.btn-cta:hover {
+  box-shadow: 0 18px 44px -16px rgba(224, 168, 56, 0.75);
+}
+
+/* Header */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(253, 248, 239, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(138, 90, 43, 0.15);
+}
+.brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-decoration: none;
+  color: var(--brown-deep);
+}
+.brand-he {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+.brand-en {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.header-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+/* Hero */
+.hero {
+  position: relative;
+  padding: clamp(2.5rem, 6vw, 5.5rem) 1.5rem;
+  background:
+    radial-gradient(1200px 500px at 80% -10%, rgba(31, 122, 109, 0.14), transparent 60%),
+    radial-gradient(900px 500px at 0% 0%, rgba(224, 168, 56, 0.22), transparent 55%),
+    linear-gradient(180deg, var(--gold-soft) 0%, var(--cream) 65%);
+}
+.hero-inner {
+  max-width: 50rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.eyebrow {
+  display: inline-block;
+  margin: 0 0 1rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(31, 122, 109, 0.12);
+  color: var(--teal);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.about h2 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.15;
+  margin: 0.2rem 0 1rem;
+  color: var(--brown-deep);
+}
+.about p {
+  font-size: 1.2rem;
+  margin: 0 auto 1rem;
+  max-width: 42rem;
+  color: var(--ink);
+}
+.about a {
+  color: var(--teal);
+}
+.cta {
+  margin-top: 2rem;
+}
+.cta-note {
+  margin: 0.85rem 0 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+/* How it works */
+.how {
+  padding: clamp(2.5rem, 5vw, 4rem) 1.5rem;
+}
+.how-inner {
+  max-width: 60rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.step {
+  background: #fff;
+  border: 1px solid rgba(138, 90, 43, 0.12);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px -22px rgba(94, 60, 25, 0.55);
+}
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brown), var(--gold));
+}
+.step h3 {
+  margin: 0.8rem 0 0.4rem;
+  color: var(--brown-deep);
+}
+.step p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* Footer */
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--brown-deep);
+  color: var(--gold-soft);
+}
+.site-footer p {
+  margin: 0;
+  font-size: 0.95rem;
+}

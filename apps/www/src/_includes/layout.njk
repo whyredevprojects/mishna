@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ site.name }} — {{ site.tagline }}</title>
+    <meta name="description" content="{{ site.description }}" />
+    <meta property="og:title" content="{{ site.name }}" />
+    <meta property="og:description" content="{{ site.description }}" />
+    <meta name="theme-color" content="#8a5a2b" />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <span class="brand-he">חברת משניות</span>
+        <span class="brand-en">{{ site.name }}</span>
+      </a>
+      <nav class="header-actions">
+        <a class="btn btn-ghost" href="{{ site.appUrl }}/">Log in</a>
+        <a class="btn btn-primary" href="{{ site.appUrl }}/join">Become a Member</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-inner">
+          <p class="eyebrow">{{ site.tagline }}</p>
+          <div class="about">
+            {{ content | safe }}
+          </div>
+          <div class="cta">
+            <a class="btn btn-cta" href="{{ site.appUrl }}/join"
+              >Become a member →</a
+            >
+            <p class="cta-note">
+              Free to become a member · Your chelek is chosen by gorel
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="how">
+        <div class="how-inner">
+          <article class="step">
+            <span class="step-num">1</span>
+            <h3>Become a member</h3>
+            <p>It's free to become a member of the chevra — it takes just a moment.</p>
+          </article>
+          <article class="step">
+            <span class="step-num">2</span>
+            <h3>Get your chelek</h3>
+            <p>You're assigned ~4–5 perakim of Mishnayos by gorel for the cycle.</p>
+          </article>
+          <article class="step">
+            <span class="step-num">3</span>
+            <h3>Memorize 1–3 a week</h3>
+            <p>Commit to a weekly pace, memorize them, and say them wherever you go.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>{{ site.name }} · {{ site.tagline }}</p>
+      <a class="btn btn-primary" href="{{ site.appUrl }}/join">Become a Member</a>
+    </footer>
+  </body>
+</html>

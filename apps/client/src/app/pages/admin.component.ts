@@ -45,6 +45,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
         <a routerLink="/admin/users" routerLinkActive="active">Users</a>
         <a routerLink="/admin/groups" routerLinkActive="active">Groups</a>
         <a routerLink="/admin/assignments" routerLinkActive="active">Assignments</a>
+        <a routerLink="/admin/about" routerLinkActive="active">About page</a>
       </nav>
       <router-outlet />
     </div>

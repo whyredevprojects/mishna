@@ -1,0 +1,13 @@
+{
+  "name": "@mishna/www",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Public marketing site (11ty) for Chevras Mishnayos.",
+  "scripts": {
+    "serve": "nx serve www",
+    "build": "nx build www"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^3.0.0"
+  }
+}

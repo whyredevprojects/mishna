@@ -33,6 +33,8 @@ export const queryKeys = {
   adminUser: (id: string) => ['admin', 'user', id] as const,
   /** GET /api/admin/assignments (all weeks/pages) — for broad invalidation. */
   adminAssignments: ['admin', 'assignments'] as const,
+  /** GET /api/admin/about — the www site's editable about Markdown. */
+  adminAbout: ['admin', 'about'] as const,
   /** GET /api/admin/assignments — one week/page. */
   adminAssignmentsPage: (params: Record<string, unknown>) =>
     ['admin', 'assignments', params] as const,

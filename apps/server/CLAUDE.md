@@ -114,6 +114,15 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
 | `POST /api/admin/users/:id/send-verification` | Re-send the better-auth verification email for a *pending* user: looks up the address via the `get-user` admin proxy, then calls better-auth's public `send-verification-email` (forwarding the caller's Origin). `409` if already verified, `404` if no email, `502` on send failure (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
+| `GET /api/admin/about` | The `www` site's editable Markdown (`about.md`) read via the GitHub Contents API; `''` if not committed yet. `500` if the editor isn't configured, `502` on a GitHub failure (**admin**). |
+| `POST /api/admin/about` `{ markdown }` | Commit new `about.md` via the GitHub Contents API (gets the current `sha`, then PUTs; handles first-create). The commit to `main` triggers CI → the `www` rebuild. `400` if `markdown` isn't a string (**admin**). |
+| `POST /api/admin/about/image` (raw image body, `x-filename` header) | Upload an editor image to the `ABOUT_BUCKET` R2 bucket under `about/<uuid>-<name>`; returns `{ url }` built from `R2_PUBLIC_BASE_URL`. Images never enter the repo. `500` if the bucket/base URL aren't configured (**admin**). |
+
+The about-editor logic lives in `about.ts` (GitHub read/commit + base64 + filename
+sanitizer); repo coordinates come from `wrangler.toml` `[vars]` (`GITHUB_OWNER`/`REPO`/
+`BRANCH`, `ABOUT_MD_PATH`) and the `GITHUB_TOKEN` secret. The R2 bucket binding
+(`ABOUT_BUCKET`) and `R2_PUBLIC_BASE_URL` are provisioned later — until then the handlers
+fail loudly with a `500` (see the TODOs in `wrangler.toml`).
 
 `groupId` on assignments is resolved by `buildAssignment`: it finds the group whose block
 range contains the day's mishnayot. Completions reuse this id rather than re-deriving it

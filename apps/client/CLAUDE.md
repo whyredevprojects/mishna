@@ -87,7 +87,7 @@ The login worker's captcha plugin verifies it server-side (see `apps/login`).
 | Path | Role |
 |------|------|
 | `app.ts` | Root: a bare `<router-outlet>`. |
-| `app.routes.ts` | `/` = landing, `/join`, `/forgot-password`, `/reset-password` (all public). `/dashboard`, `/my-mishnayos`, `/review`, `/settings`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. `/my-mishnayos` is a shell (sub-nav + outlet) with children `''` (Assignments) and `stats`; old `/chaluka` redirects here. `/admin` is a shell (sub-nav + outlet) further gated by `adminGuard`, with children `''` (Overview), `users` + `users/:id`, `groups` + `groups/:id`, `assignments`. |
+| `app.routes.ts` | `/` = landing, `/join`, `/forgot-password`, `/reset-password` (all public). `/dashboard`, `/my-mishnayos`, `/review`, `/settings`, `/admin` are children of `AppShellComponent`, gated by `authGuard` and lazy-loaded. `/my-mishnayos` is a shell (sub-nav + outlet) with children `''` (Assignments) and `stats`; old `/chaluka` redirects here. `/admin` is a shell (sub-nav + outlet) further gated by `adminGuard`, with children `''` (Overview), `users` + `users/:id`, `groups` + `groups/:id`, `assignments`, `about`. |
 | `ui/` | In-app reusable presentational components: `app-data-table` (column defs + a projected `#cell` template; owns the table chrome, hover, horizontal scroll) and `app-paginator` (server-side pager, "X–Y of N" + prev/next). Deliberately thin — the seam to swap in a headless table (e.g. TanStack Table) later without touching pages. |
 | `guards/auth.guard.ts` | Confirms a session via `GET /api/me`; redirects to `/` otherwise. UX only — the server API is the real auth boundary. |
 | `guards/admin.guard.ts` | Loads `GET /api/me` and allows only when `isAdmin`, else redirects to `/dashboard`. UX only — the server's `requireAdmin` is the boundary. |
@@ -95,7 +95,7 @@ The login worker's captcha plugin verifies it server-side (see `apps/login`).
 | `services/` | One thin service per API area (see below) — they own the URLs only. |
 | `queries/` | TanStack Query layer: `query-keys.ts` (cache-key registry) + `queries.ts` (`queryOptions` factories that wrap the service observables). See **Data caching** below. |
 | `components/` | Reusable pieces: `app-shell` (top bar + nav drawer + leave dialog), `cycle-progress`, `mishna-card` (one mishna's text + English toggle + optional learn checkbox; an opt-in `collapsible` mode renders a compact disclosure row whose heading toggles the text and lazy-loads it on first expand, with the learn checkbox/status tag as a sibling of the heading so toggling it doesn't expand the row), `today-card`, `join-form` (commitment picker driven by `GET /api/join-options`: each weekly pace shows its approximate lot count, collapsing to a single "1 lot" option near the cycle end). |
-| `pages/` | Routed screens: `landing`, `join`, `forgot-password` + `reset-password` (public password-reset flow, backed by better-auth/Resend in `apps/login`), `dashboard`, `review`, `settings`, the "My Mishnayos" shell `my-mishnayos` + its `my-mishnayos-assignments` (whole-cycle portion as a per-mesechta list; each mishna is a collapsible `mishna-card` that expands its text inline on click and has a learn checkbox — optimistic toggle synced via `POST`/`DELETE /api/completions` with the per-ref `groupId` from `chaluka.groupIds`, reverting on failure like the Today view) and `my-mishnayos-stats` (overall progress + stats + per-mesechta breakdown) tabs, and the admin shell `admin` + `admin-overview`, `admin-users` (paginated/searchable), `admin-user-detail`, `admin-groups` + `admin-group-detail`, `admin-assignments`. Admin lists use `ui/` (`app-data-table` + `app-paginator`) with server-side paging (≤50/page). |
+| `pages/` | Routed screens: `landing`, `join`, `forgot-password` + `reset-password` (public password-reset flow, backed by better-auth/Resend in `apps/login`), `dashboard`, `review`, `settings`, the "My Mishnayos" shell `my-mishnayos` + its `my-mishnayos-assignments` (whole-cycle portion as a per-mesechta list; each mishna is a collapsible `mishna-card` that expands its text inline on click and has a learn checkbox — optimistic toggle synced via `POST`/`DELETE /api/completions` with the per-ref `groupId` from `chaluka.groupIds`, reverting on failure like the Today view) and `my-mishnayos-stats` (overall progress + stats + per-mesechta breakdown) tabs, and the admin shell `admin` + `admin-overview`, `admin-users` (paginated/searchable), `admin-user-detail`, `admin-groups` + `admin-group-detail`, `admin-assignments`, and `admin-about` (a Toast UI Markdown editor for the `apps/www` site's about copy — see below). Admin lists use `ui/` (`app-data-table` + `app-paginator`) with server-side paging (≤50/page). |
 | `util/format.ts` | `formatRef` ("Berachos 1:1"), `toIsoDate`, `formatLongDate` (UTC). |
 
 ## Services → API
@@ -107,7 +107,7 @@ The login worker's captcha plugin verifies it server-side (see `apps/login`).
 | `AssignmentService` | `GET /api/assignments/today`, `GET /api/assignments?date=`, `GET /api/me/chaluka` (whole-cycle portion + learned subset), `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `GET /api/join-options` (signup choices + lot estimates), `POST /api/join`, `POST /api/leave`. |
 | `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
-| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/lots` (static lot catalog for the group-detail editor), `POST /api/admin/groups/:groupId/members/:userId/lots` (set a member's lots), `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `POST /api/admin/users/:id/send-verification` (resend the verification email to a pending user), `DELETE /api/admin/users/:id`. |
+| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/lots` (static lot catalog for the group-detail editor), `POST /api/admin/groups/:groupId/members/:userId/lots` (set a member's lots), `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `POST /api/admin/users/:id/send-verification` (resend the verification email to a pending user), `DELETE /api/admin/users/:id`, `GET`/`POST /api/admin/about` (read/commit the `apps/www` site's about Markdown), `POST /api/admin/about/image` (upload an editor image to R2, returns its public URL). |
 
 ## Data caching (TanStack Query)
 
@@ -176,6 +176,20 @@ environments because the API is always same-origin:
   time; the catalog query is long-lived (`adminLotsQueryOptions`, static data).
 - **Weekly-goal (commitment) editing** is intentionally **not** offered yet: changing it
   mid-cycle would require re-allocation (a new block). Deferred until requested.
+- **About-page editor** (`admin-about.component.ts`): wraps the
+  [Toast UI](https://ui.toast.com/toast-ui-editor) Markdown editor (`@toast-ui/editor`, a
+  vanilla-JS lib) to edit the `apps/www` marketing site's intro copy. The editor is
+  created in `ngAfterViewInit` against a `viewChild` host and `destroy()`ed in
+  `ngOnDestroy`; the fetched Markdown is seeded once via an `effect` (whichever resolves
+  last — editor or query). Save reads `getMarkdown()` → `AdminService.saveAbout` (commits
+  via the server's GitHub Contents proxy). Pasted/dropped images go through
+  `addImageBlobHook` → client-side downscale (~1600px webp) → `AdminService.uploadAboutImage`
+  (raw body to the R2-backed Worker endpoint) → inserted as a plain `![](url)`. The
+  package's `exports` map omits a `types` condition, so a minimal ambient declaration
+  lives at `src/types/toast-ui-editor.d.ts`. The whole component (incl. the editor + its
+  CSS) is a lazy chunk, so it never touches the initial bundle. **Server-side TODOs**
+  (R2 bucket, `GITHUB_TOKEN`) are tracked in `apps/server`; until they're set the editor
+  surfaces a clear error on load/save rather than failing silently.
 
 ## Verify
 

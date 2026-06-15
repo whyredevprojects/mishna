@@ -119,6 +119,27 @@ export class AdminService {
     });
   }
 
+  /** The www site's editable about Markdown (empty string if not committed yet). */
+  getAbout(): Observable<{ markdown: string }> {
+    return this.http.get<{ markdown: string }>('/api/admin/about');
+  }
+
+  /** Commits new about Markdown (triggers the www rebuild on the server side). */
+  saveAbout(markdown: string): Observable<unknown> {
+    return this.http.post('/api/admin/about', { markdown });
+  }
+
+  /** Uploads an editor image to R2; returns its public URL. Sent as a raw body. */
+  uploadAboutImage(blob: Blob, filename: string): Observable<{ url: string }> {
+    return this.http.post<{ url: string }>('/api/admin/about/image', blob, {
+      headers: {
+        'content-type': blob.type || 'application/octet-stream',
+        // Header values must be ASCII; the server sanitizes again into the R2 key.
+        'x-filename': filename.replace(/[^\x20-\x7e]/g, '') || 'image',
+      },
+    });
+  }
+
   private pageParams(params: PageParams): HttpParams {
     let p = new HttpParams()
       .set('limit', String(params.limit))

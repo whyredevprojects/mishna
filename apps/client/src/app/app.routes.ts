@@ -116,6 +116,13 @@ export const appRoutes: Route[] = [
                 (m) => m.AdminAssignmentsComponent,
               ),
           },
+          {
+            path: 'about',
+            loadComponent: () =>
+              import('./pages/admin-about.component').then(
+                (m) => m.AdminAboutComponent,
+              ),
+          },
         ],
       },
     ],

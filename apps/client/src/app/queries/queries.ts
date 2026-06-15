@@ -129,6 +129,15 @@ export function adminUserQueryOptions(admin: AdminService, id: string) {
   });
 }
 
+/** GET /api/admin/about — the www site's editable Markdown. Always refetch (live edit). */
+export function adminAboutQueryOptions(admin: AdminService) {
+  return queryOptions({
+    queryKey: queryKeys.adminAbout,
+    queryFn: () => firstValueFrom(admin.getAbout()),
+    staleTime: 0,
+  });
+}
+
 /** GET /api/admin/assignments — one week/page. */
 export function adminAssignmentsQueryOptions(
   admin: AdminService,

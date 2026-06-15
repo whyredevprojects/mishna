@@ -22,6 +22,7 @@ import {
   structure,
 } from './domain';
 import { D1GroupRepository } from './repository';
+import { AboutConfigError, readAbout, safeFilename, writeAbout } from './about';
 import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
 import { prepareOne, processJobs } from './email/sender';
@@ -1072,6 +1073,88 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
     return c.json({ error: 'failed to delete account' }, 502);
   }
   return c.json({ deleted: true });
+});
+
+// -- admin: about page editor -----------------------------------------------
+// Back the Angular /admin/about editor. Read/commit the www site's about.md via the
+// GitHub Contents API (see about.ts), and upload editor images to R2. Repo coords
+// come from wrangler.toml [vars]; GITHUB_TOKEN + the ABOUT_BUCKET R2 binding are
+// provisioned separately. Missing config fails loudly (500) rather than silently.
+
+/** Maps an about.ts failure to a response: 500 for missing config, 502 for GitHub. */
+function aboutError(
+  c: Context<AppEnv>,
+  err: unknown,
+): Response {
+  if (err instanceof AboutConfigError) {
+    return c.json({ error: err.message }, 500);
+  }
+  console.error('about endpoint failed', err);
+  return c.json(
+    {
+      error: 'about request failed',
+      detail: err instanceof Error ? err.message : String(err),
+    },
+    502,
+  );
+}
+
+// Current Markdown of the about page (empty string if not committed yet).
+app.get('/api/admin/about', requireAdmin, async (c) => {
+  try {
+    const markdown = await readAbout(c.env);
+    return c.json({ markdown });
+  } catch (err) {
+    return aboutError(c, err);
+  }
+});
+
+// Commit new Markdown for the about page (triggers the www rebuild on push to main).
+app.post('/api/admin/about', requireAdmin, async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { markdown?: unknown };
+  if (typeof body.markdown !== 'string') {
+    return c.json({ error: 'markdown is required' }, 400);
+  }
+  try {
+    await writeAbout(c.env, body.markdown);
+    return c.json({ ok: true });
+  } catch (err) {
+    return aboutError(c, err);
+  }
+});
+
+// Upload an editor image to R2; returns its public URL. Images never enter the repo.
+app.post('/api/admin/about/image', requireAdmin, async (c) => {
+  if (!c.env.ABOUT_BUCKET) {
+    return c.json(
+      {
+        error:
+          'image upload is not configured: the ABOUT_BUCKET R2 binding is missing. ' +
+          'Provision the bucket and uncomment the [[r2_buckets]] block in apps/server/wrangler.toml.',
+      },
+      500,
+    );
+  }
+  const base = c.env.R2_PUBLIC_BASE_URL;
+  if (!base) {
+    return c.json(
+      {
+        error:
+          'image upload is not configured: R2_PUBLIC_BASE_URL is not set in apps/server/wrangler.toml [vars].',
+      },
+      500,
+    );
+  }
+  if (!c.req.raw.body) {
+    return c.json({ error: 'request body is empty' }, 400);
+  }
+
+  const contentType = c.req.header('content-type') ?? 'application/octet-stream';
+  const key = `about/${crypto.randomUUID()}-${safeFilename(c.req.header('x-filename'))}`;
+  await c.env.ABOUT_BUCKET.put(key, c.req.raw.body, {
+    httpMetadata: { contentType },
+  });
+  return c.json({ url: `${base.replace(/\/+$/, '')}/${key}` });
 });
 
 // The worker entry point. `fetch` serves the Hono API; `scheduled` fires on the cron
