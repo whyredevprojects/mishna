@@ -1,0 +1,10 @@
+{
+  "apex": "getchevrasmishnayos.com",
+  "appHost": "app.getchevrasmishnayos.com",
+  "imagesHost": "images.getchevrasmishnayos.com",
+  "turnstileSiteKey": "0x4AAAAAADhFwbhDJNP7CeZY",
+  "email": {
+    "auth": "Chevras Mishnayos <noreply@getchevrasmishnayos.com>",
+    "reminders": "Chevra Mishnayos <reminders@getchevrasmishnayos.com>"
+  }
+}

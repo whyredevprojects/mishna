@@ -12,6 +12,11 @@ Material 3, not a port of the web look-and-feel.
 
 ## Build-time config (`--dart-define`, see `lib/core/config.dart`)
 
+The `API_BASE_URL` and `TURNSTILE_SITE_KEY` **defaults** in `config.dart` are generated
+from the repo-wide `config/domains.json` (`npm run sync:domains`; see the root CLAUDE.md
+"Changing the domain") — don't hand-edit those default strings. The `--dart-define`
+overrides below are for pointing a dev build at a local server.
+
 | Define | Default | Notes |
 |---|---|---|
 | `API_BASE_URL` | `https://app.getchevrasmishnayos.com` | Use `http://10.0.2.2:8787` against `npm run dev` from the Android emulator. |

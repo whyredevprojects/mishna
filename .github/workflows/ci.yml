@@ -34,6 +34,10 @@ jobs:
       # (uses Nx Cloud's last successful main commit as the base).
       - uses: nrwl/nx-set-shas@v4
 
+      # Fail if the domain-bearing files have drifted from config/domains.json
+      # (the single source of truth). Run `npm run sync:domains` to fix.
+      - run: node tools/sync-domains.mjs --check
+
       - run: npx nx run-many -t lint test build
 
       # Apply D1 migrations before deploy so new code never runs against an

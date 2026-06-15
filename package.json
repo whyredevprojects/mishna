@@ -7,6 +7,7 @@
     ":test": "npx nx run-many -t lint test build",
     "dev": "npx nx serve client",
     "e2e": "npx nx e2e client-e2e",
+    "sync:domains": "node tools/sync-domains.mjs",
     "email:dev": "npx email dev --dir apps/server/src/email/templates/preview --port 3030",
     "db:migrate:local:app": "npx wrangler d1 migrations apply mishna-app --local --persist-to .wrangler/state --config apps/server/wrangler.toml",
     "db:migrate:local:auth": "npx wrangler d1 migrations apply mishna-auth --local --persist-to .wrangler/state --config apps/login/wrangler.toml",

@@ -120,7 +120,10 @@ state-changing admin POSTs that arrive without a trusted Origin).
 
 The about-editor logic lives in `about.ts` (GitHub read/commit + base64 + filename
 sanitizer); repo coordinates come from `wrangler.toml` `[vars]` (`GITHUB_OWNER`/`REPO`/
-`BRANCH`, `ABOUT_MD_PATH`) and the `GITHUB_TOKEN` secret. The R2 bucket binding
+`BRANCH`, `ABOUT_MD_PATH`) and the `GITHUB_TOKEN` secret. The **domain-bearing** vars
+here (`APP_ORIGIN`, `RESEND_FROM_EMAIL`, `R2_PUBLIC_BASE_URL`) and the worker `routes`
+are generated from the repo-wide `config/domains.json` (`npm run sync:domains`; see the
+root CLAUDE.md "Changing the domain") — don't hand-edit those values. The R2 bucket binding
 (`ABOUT_BUCKET`) and `R2_PUBLIC_BASE_URL` are provisioned later — until then the handlers
 fail loudly with a `500` (see the TODOs in `wrangler.toml`).
 

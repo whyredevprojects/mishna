@@ -46,6 +46,31 @@ Determinism: ids come from an injected `IdGenerator`, randomness (lot picks) fro
 - Each Cloudflare Worker app has its own `wrangler.toml`
 - When making significant changes to a sub-project, update or create that project's own `CLAUDE.md`
 
+## Changing the domain
+
+`config/domains.json` is the **single source of truth** for the app's domain. To
+repoint or rebrand, edit it and run `npm run sync:domains` — a small generator
+(`tools/sync-domains.mjs`) propagates the derived values into the files that can't
+read that JSON at build time (`apps/{login,server}/wrangler.toml` routes + vars,
+`apps/mobile/lib/core/config.dart`, `apps/www/src/_data/site.json`, and the Angular
+Turnstile key). The Angular client needs nothing (relative `/api/*` URLs), and
+`apps/login` derives its trusted origin from `BETTER_AUTH_URL` at runtime. CI runs
+`node tools/sync-domains.mjs --check`, which fails if anything has drifted from the
+config.
+
+A genuinely **new** domain also needs these one-time external steps (no repo file
+can automate them):
+
+- **Cloudflare**: add the new zone to the account; set `app.<newapex>` as a custom
+  domain on the client Pages project (worker `routes` only bind to zones on the
+  account); DNS for `app.` + `images.`.
+- **Resend**: verify the new sender domain (SPF/DKIM) for `<newapex>`.
+- **Google OAuth**: add the redirect URI
+  `https://app.<newapex>/api/auth/callback/google` in the Google Cloud console.
+- **Cloudflare Turnstile**: the site key is hostname-bound — create/extend the widget
+  for the new host and put its **site key** in `config/domains.json`
+  (`turnstileSiteKey`) so the sync propagates it to web + mobile.
+
 ## Admin Features
 
 Admin page (in `apps/client`) shows:

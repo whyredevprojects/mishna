@@ -33,7 +33,7 @@ no rebuild.
 | `src/content/about.md` | The admin-editable hero copy (pure Markdown). |
 | `src/content/content.11tydata.json` | Applies the layout + `/` permalink to `about.md`. |
 | `src/_includes/layout.njk` | Page shell: header, hero (renders `about.md`), CTA, how-it-works, footer. |
-| `src/_data/site.json` | Site name/tagline/description + `appUrl` (the app's host, used by all links). |
+| `src/_data/site.json` | Site name/tagline/description + `appUrl` (the app's host, used by all links). `appUrl` is generated from the repo-wide `config/domains.json` (`npm run sync:domains`; see root CLAUDE.md "Changing the domain") — don't hand-edit it. |
 | `src/css/styles.css` | Warm, colorful brand styling (brown + gold + teal). |
 
 ## Build / serve

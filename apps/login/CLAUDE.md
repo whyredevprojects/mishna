@@ -159,10 +159,13 @@ the server worker, which forwards `/api/auth/*` here via the `AUTH` service bind
 ## Before first deploy
 
 - `BETTER_AUTH_URL` in `wrangler.toml` is `https://app.getchevrasmishnayos.com` (the
-  public origin). `.dev.vars` overrides it to `http://localhost:8787` for dev.
-- `trustedOrigins` in `src/auth.ts` is `http://localhost:4200` +
-  `https://app.getchevrasmishnayos.com` (no trailing slash — matched against the Origin
-  header).
+  public origin). It comes from the repo-wide `config/domains.json` via
+  `npm run sync:domains` (see the root CLAUDE.md "Changing the domain") — don't hand-edit
+  it. `.dev.vars` overrides it to `http://localhost:8787` for dev.
+- `trustedOrigins` (no trailing slash — matched against the Origin header) is the dev
+  origin `http://localhost:4200` (static in `authOptions`) **plus** `BETTER_AUTH_URL`,
+  appended in `createAuth(env)` — the production app origin is derived from that one var
+  rather than duplicated, so it follows `config/domains.json` automatically.
 - `wrangler secret put BETTER_AUTH_SECRET`.
 - `wrangler secret put ADMIN_USER_IDS` (comma-separated user ids). For local dev,
   put it in `.dev.vars`. Must match `apps/server`'s `ADMIN_USER_IDS`.

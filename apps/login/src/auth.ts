@@ -16,12 +16,11 @@ export const authOptions = {
   emailAndPassword: { enabled: true, minPasswordLength: 4 },
   // Origins better-auth accepts state-changing requests from. No trailing slash —
   // these are compared against the request's Origin header, which never has one.
-  // In production the client and auth share one host (app.getchevrasmishnayos.com),
-  // so this is same-origin; localhost:4200 is the Angular dev server.
-  trustedOrigins: [
-    'http://localhost:4200',
-    'https://app.getchevrasmishnayos.com',
-  ],
+  // Only the dev origin is static; the production app origin is the same host as
+  // BETTER_AUTH_URL (the client and auth share one host), so createAuth derives it
+  // from env rather than duplicating it here — config/domains.json stays the single
+  // source. localhost:4200 is the Angular dev server.
+  trustedOrigins: ['http://localhost:4200'],
   plugins: [admin()],
 } satisfies Partial<BetterAuthOptions>;
 
@@ -40,6 +39,12 @@ export function createAuth(env: Env) {
     database: env.DB,
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
+    // The production app origin is the same host the cookies/callbacks are built
+    // against (BETTER_AUTH_URL), so derive it here instead of hardcoding it — that
+    // value is the single source (config/domains.json → wrangler.toml). In dev,
+    // .dev.vars points BETTER_AUTH_URL at localhost:8787; the Angular dev server
+    // (localhost:4200) is already covered by the static authOptions entry.
+    trustedOrigins: [...authOptions.trustedOrigins, env.BETTER_AUTH_URL],
     // Transactional auth email via Resend (apps/login/src/email.ts). These callbacks
     // need runtime secrets (RESEND_API_KEY), so they live here, not in the static
     // authOptions. Both reuse the existing `verification` table — no schema change.
