@@ -33,7 +33,7 @@ import { RouterLink } from '@angular/router';
   ],
   template: `
     <header class="topbar">
-      <a class="brand" routerLink="/">Chevras Mishnayos</a>
+      <a class="brand" routerLink="/">Chevras Mishnayos Baal Peh</a>
       <span class="spacer"></span>
       <wa-button appearance="plain" routerLink="/">Log in</wa-button>
       <wa-button variant="brand" routerLink="/join">Become a Member</wa-button>

@@ -1,4 +1,4 @@
-# Chevras Mishnayos — mobile app
+# Chevras Mishnayos Baal Peh — mobile app
 
 Flutter app (Android + iOS) for the Mishna memorization program: sign in, pick a
 weekly commitment, learn this week's mishnayos, track your whole-cycle portion,

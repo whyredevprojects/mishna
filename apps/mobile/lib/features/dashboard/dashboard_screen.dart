@@ -58,7 +58,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Chevras Mishnayos')),
+      appBar: AppBar(title: const Text('Chevras Mishnayos Baal Peh')),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(

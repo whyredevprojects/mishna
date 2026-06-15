@@ -19,7 +19,7 @@ class ChevrasMishnayosApp extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     if (auth.isLoading && !auth.hasValue) {
       return MaterialApp(
-        title: 'Chevras Mishnayos',
+        title: 'Chevras Mishnayos Baal Peh',
         debugShowCheckedModeBanner: false,
         theme: theme,
         home: const Scaffold(
@@ -29,7 +29,7 @@ class ChevrasMishnayosApp extends ConsumerWidget {
     }
 
     return MaterialApp.router(
-      title: 'Chevras Mishnayos',
+      title: 'Chevras Mishnayos Baal Peh',
       debugShowCheckedModeBanner: false,
       theme: theme,
       routerConfig: ref.watch(routerProvider),

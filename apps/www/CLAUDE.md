@@ -1,6 +1,6 @@
 # apps/www
 
-Public marketing site for Chevras Mishnayos — an [Eleventy (11ty)](https://www.11ty.dev)
+Public marketing site for Chevras Mishnayos Baal Peh — an [Eleventy (11ty)](https://www.11ty.dev)
 static site deployed to Cloudflare Pages. This is the **apex** front door
 (`getchevrasmishnayos.com`); the Angular app lives at `app.getchevrasmishnayos.com`,
 which this site links to for **Log in** / **Sign up**.

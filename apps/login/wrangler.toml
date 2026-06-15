@@ -32,5 +32,5 @@ BETTER_AUTH_URL = "https://app.getchevrasmishnayos.com"
 # Sender for transactional auth email (verification + password reset). Same verified
 # Resend domain as apps/server's reminder sender. The RESEND_API_KEY is a secret
 # (wrangler secret put RESEND_API_KEY; .dev.vars for local dev).
-RESEND_FROM_EMAIL = "Chevras Mishnayos <noreply@getchevrasmishnayos.com>"
+RESEND_FROM_EMAIL = "Chevras Mishnayos Baal Peh <noreply@getchevrasmishnayos.com>"
 ADMIN_USER_IDS= "M2JTnL3rYBQfvagtMqvi6wipwHhZlObE"

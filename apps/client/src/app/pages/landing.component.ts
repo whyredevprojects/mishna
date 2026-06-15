@@ -63,7 +63,7 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
     <div class="fill-center">
       <wa-card>
-        <h1 slot="header" class="center">Chevras Mishnayos</h1>
+        <h1 slot="header" class="center">Chevras Mishnayos Baal Peh</h1>
 
         <div class="stack">
           <p class="tagline center">

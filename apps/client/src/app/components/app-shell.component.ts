@@ -66,7 +66,7 @@ import { AuthService } from '../services/auth.service';
       <wa-button class="burger" appearance="plain" (click)="drawerOpen.set(true)">
         <wa-icon name="bars" label="Menu"></wa-icon>
       </wa-button>
-      <h1>Chevras Mishnayos</h1>
+      <h1>Chevras Mishnayos Baal Peh</h1>
       <span class="spacer"></span>
       <nav class="topbar-nav">
         <wa-button routerLink="/dashboard" appearance="plain"><wa-icon slot="start" name="calendar-day"></wa-icon> Today</wa-button>
@@ -88,7 +88,7 @@ import { AuthService } from '../services/auth.service';
     </main>
 
     <wa-drawer
-      label="Chevras Mishnayos"
+      label="Chevras Mishnayos Baal Peh"
       placement="start"
       [attr.open]="drawerOpen() ? '' : null"
       (wa-after-hide)="drawerOpen.set(false)"

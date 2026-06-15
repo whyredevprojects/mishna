@@ -80,7 +80,7 @@ crons = ["0 * * * *"]
 # locally via .dev.vars if needed.
 APP_ORIGIN = "https://app.getchevrasmishnayos.com"
 # Verified Resend sender. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
-RESEND_FROM_EMAIL = "Chevra Mishnayos <reminders@getchevrasmishnayos.com>"
+RESEND_FROM_EMAIL = "Chevras Mishnayos Baal Peh <reminders@getchevrasmishnayos.com>"
 # About-page editor: repo coordinates for committing the www site's about.md via the
 # GitHub Contents API. Frozen from this repo's `git remote origin` — a Worker can't
 # read git at runtime, and this is deliberately not a configurable separate repo.

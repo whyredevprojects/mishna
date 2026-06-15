@@ -1,6 +1,6 @@
 ## Memorize the whole Mishna — together
 
-**Chevras Mishnayos** is a great source of *bracha* and protection, and becoming a
+**Chevras Mishnayos Baal Peh** is a great source of *bracha* and protection, and becoming a
 member is **completely free**.
 
 When you become a member, you're assigned a *chelek* — about **4 or 5 perakim** of

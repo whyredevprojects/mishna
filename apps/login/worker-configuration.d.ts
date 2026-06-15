@@ -3,7 +3,7 @@
 // Runtime types generated with workerd@1.20260526.1 2024-01-01 nodejs_compat
 interface __BaseEnv_Env {
   DB: D1Database;
-  RESEND_FROM_EMAIL: 'Chevras Mishnayos <noreply@getchevrasmishnayos.com>';
+  RESEND_FROM_EMAIL: 'Chevras Mishnayos Baal Peh <noreply@getchevrasmishnayos.com>';
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   ADMIN_USER_IDS: string;

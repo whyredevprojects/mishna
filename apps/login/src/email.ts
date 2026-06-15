@@ -69,7 +69,7 @@ export function sendVerificationEmail(
     'Verify your email address',
     shell(
       'Verify your email',
-      'Welcome to Chevras Mishnayos! Confirm your email address to finish setting up your account.',
+      'Welcome to Chevras Mishnayos Baal Peh! Confirm your email address to finish setting up your account.',
       'Verify email',
       url,
     ),
@@ -87,7 +87,7 @@ export function sendResetPasswordEmail(
     'Reset your password',
     shell(
       'Reset your password',
-      'We received a request to reset your Chevras Mishnayos password. Click below to choose a new one. If you didn’t request this, you can safely ignore this email.',
+      'We received a request to reset your Chevras Mishnayos Baal Peh password. Click below to choose a new one. If you didn’t request this, you can safely ignore this email.',
       'Reset password',
       url,
     ),

@@ -87,7 +87,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Chevras Mishnayos',
+                    'Chevras Mishnayos Baal Peh',
                     style: theme.textTheme.headlineMedium,
                     textAlign: TextAlign.center,
                   ),
