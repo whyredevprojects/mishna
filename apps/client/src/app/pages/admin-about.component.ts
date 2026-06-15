@@ -16,7 +16,10 @@ import {
 } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 import Editor from '@toast-ui/editor';
-import '@toast-ui/editor/dist/toastui-editor.css';
+// The editor's stylesheet is loaded globally via the `styles` array in
+// project.json — NOT as a side-effect `import` here. A bare CSS import inside a
+// lazily-loaded standalone component is emitted by the esbuild builder but never
+// injected at runtime, so the editor would render completely unstyled in prod.
 import { AdminService } from '../services/admin.service';
 import { ToastService } from '../services/toast.service';
 import { queryKeys } from '../queries/query-keys';
