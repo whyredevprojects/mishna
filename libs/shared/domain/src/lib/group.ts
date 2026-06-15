@@ -11,9 +11,10 @@ import { Block, BlockRange, Commitment, IdGenerator, RandomSource } from './type
 // members' lots tile the whole corpus exactly once. A group is exhausted when all
 // of its lots are taken.
 //
-// Allocation is random: `addUser` picks free lots uniformly (via an injected
-// RandomSource). All corpus/lot lookups are delegated to the injected
-// MishnaStructure and MishnaChalakim.
+// Allocation gives the first lot at random (via an injected RandomSource) and then
+// prefers the consecutive next lots, so a user gets a continuous run of Mishna; see
+// `addUser`. All corpus/lot lookups are delegated to the injected MishnaStructure
+// and MishnaChalakim.
 // ---------------------------------------------------------------------------
 
 /** Serializable snapshot of a Group, for the persistence layer. */
@@ -53,17 +54,24 @@ export class Group {
   // -- public interface ------------------------------------------------------
 
   /**
-   * Hands the user random free lots up to a `budget` of mishnayot: keeps drawing
-   * random free lots and giving them out while the next one fits in the remaining
-   * budget, stopping at the first lot that would push them over. `exclude` is the
-   * lots the user already holds in other groups, so they never get the same lot
-   * (and the same mishnayot) twice. When `mustTakeAtLeastOne` is set the very
-   * first lot is taken even if it overflows the budget — the "never fewer than
-   * one lot" guarantee for the user's first group.
+   * Hands the user free lots up to a `budget` of mishnayot: keeps taking lots and
+   * giving them out while the next one fits in the remaining budget, stopping at
+   * the first that would push them over. `exclude` is the lots the user already
+   * holds in other groups, so they never get the same lot (and the same mishnayot)
+   * twice. When `mustTakeAtLeastOne` is set the very first lot is taken even if it
+   * overflows the budget — the "never fewer than one lot" guarantee for the user's
+   * first group.
    *
-   * `stopped` tells the caller why allocation ended: `'budget'` (the next lot
-   * would exceed the budget — stop entirely) or `'groupFull'` (the group ran out
-   * of free lots — the caller may spill into another group).
+   * The first lot is random; each subsequent lot is the one immediately after the
+   * previous pick (`prev + 1`) so the user learns a continuous run of Mishna, and
+   * only falls back to a random free lot when that next lot isn't available (taken,
+   * excluded, or off the end of the corpus). `after` seeds the chain so consecutive
+   * assignment can continue from a lot the user already holds (e.g. across a group
+   * spill); leave it undefined to make the first pick random.
+   *
+   * `stopped` tells the caller why allocation ended: `'budget'` (the next lot would
+   * exceed the budget — stop entirely) or `'groupFull'` (the group ran out of free
+   * lots — the caller may spill into another group).
    */
   addUser(
     userId: string,
@@ -73,26 +81,34 @@ export class Group {
     exclude: number[],
     random: RandomSource,
     mustTakeAtLeastOne: boolean,
+    after?: number,
   ): {
     allocated: number;
     lots: number[];
     mishnayot: number;
     stopped: 'budget' | 'groupFull';
   } {
-    const freeLots = this.freeLots(exclude);
-    const free = sampleWithoutReplacement(freeLots, freeLots.length, random);
+    const freeSet = new Set(this.freeLots(exclude)); // ascending corpus order
     const picked: number[] = [];
     let mishnayot = 0;
     let stopped: 'budget' | 'groupFull' = 'groupFull';
-    for (const lot of free) {
-      const size = this.lotSize(lot);
+    let prev = after;
+    while (freeSet.size > 0) {
+      // Consecutive run: the next lot if it's free, else a random free lot.
+      const choice =
+        prev !== undefined && freeSet.has(prev + 1)
+          ? prev + 1
+          : pickRandom([...freeSet], random);
+      const size = this.lotSize(choice);
       const forced = mustTakeAtLeastOne && picked.length === 0;
       if (!forced && mishnayot + size > budget) {
         stopped = 'budget';
         break;
       }
-      picked.push(lot);
+      picked.push(choice);
+      freeSet.delete(choice);
       mishnayot += size;
+      prev = choice;
     }
     if (picked.length === 0) {
       return { allocated: 0, lots: [], mishnayot: 0, stopped };
@@ -207,22 +223,11 @@ export class Group {
 }
 
 /**
- * Picks `k` distinct items uniformly at random from `pool` (a partial
- * Fisher-Yates shuffle), using the injected `random`. With a `random` that always
- * returns 0 it picks the first `k` items in order — handy for deterministic tests.
+ * Picks one item uniformly at random from `pool` using the injected `random`. With
+ * a `random` that always returns 0 it picks the first item — handy for
+ * deterministic tests (`pool` is in ascending corpus order, so that's the lowest
+ * free lot).
  */
-function sampleWithoutReplacement(
-  pool: number[],
-  k: number,
-  random: RandomSource,
-): number[] {
-  const arr = [...pool];
-  const out: number[] = [];
-  for (let i = 0; i < k; i++) {
-    const span = arr.length - i;
-    const j = i + Math.min(span - 1, Math.floor(random() * span));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    out.push(arr[i]);
-  }
-  return out;
+function pickRandom(pool: number[], random: RandomSource): number {
+  return pool[Math.floor(random() * pool.length)];
 }

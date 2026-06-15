@@ -45,6 +45,9 @@ export class GroupManager {
       const group =
         (await this.repo.loadNonExhaustedGroup()) ??
         (await this.repo.createGroup());
+      // Seed the consecutive run from the last lot already taken, so the chain
+      // continues even when a join spills into another group.
+      const after = taken.length ? taken[taken.length - 1] : undefined;
       const { allocated, lots, mishnayot, stopped } = group.addUser(
         userId,
         commitment,
@@ -53,6 +56,7 @@ export class GroupManager {
         taken,
         this.random,
         !tookAny,
+        after,
       );
       await this.repo.save(group);
       taken.push(...lots);
