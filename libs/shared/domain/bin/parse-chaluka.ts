@@ -8,7 +8,7 @@ import { BlockRange } from '../src/lib/types';
  * chaluka.csv has three integer columns: `maseches code, Perek, chelek number`.
  *   - maseches code  → 1-based index into the dataset's masechtot (1 = Berakhot).
  *   - Perek          → perek number within that mesechta.
- *   - chelek number  → the "lot" (1..118, sequential in corpus order) that perek
+ *   - chelek number  → the "lot" (1..120, sequential in corpus order) that perek
  *                      belongs to.
  *
  * Each chelek lives entirely within one mesechta and covers a contiguous run of

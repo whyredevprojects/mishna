@@ -7,7 +7,7 @@ import { Block, BlockRange, Commitment, IdGenerator, RandomSource } from './type
 //
 // One full covering of the corpus, handed out as pre-set lots (chalakim). The
 // group owns its members' blocks; each block is the set of lot numbers that user
-// holds here. Every lot (1..118) is owned by at most one user, so a group's
+// holds here. Every lot (1..120) is owned by at most one user, so a group's
 // members' lots tile the whole corpus exactly once. A group is exhausted when all
 // of its lots are taken.
 //

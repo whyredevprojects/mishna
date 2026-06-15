@@ -27,8 +27,8 @@ in memory, no cross-DB JOIN).
 
 - `groups(id, state, exhausted, capacity_left, updated_at)` — `state` is the JSON
   `GroupState` from `Group.toState()`; each block carries the user's **lot numbers**
-  (1..118) plus their derived ranges. A group is one full covering of the corpus, so
-  `exhausted` means all 118 lots are taken; `capacity_left` is the free lots' mishnayot.
+  (1..120) plus their derived ranges. A group is one full covering of the corpus, so
+  `exhausted` means all 120 lots are taken; `capacity_left` is the free lots' mishnayot.
   Both are denormalized from `state` on every save so queries don't parse JSON.
 - `group_members(group_id, user_id)` — denormalized membership (index on `user_id`),
   rebuilt from `state.blocks[].userId` on each `save` so `loadGroupsForUser` is an
@@ -98,8 +98,8 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `GET /api/admin/stats` | Dashboard counters: `{ activeUsers, verifiedUsers, totalGroups, totalCompletions, weekCompletions, weekStart }` — set-based aggregates, no per-user loop (**admin**). |
 | `GET /api/admin/groups` | Per group: `id`, `progress`, `members` (userIds) + `memberCount` (**admin**). |
 | `GET /api/admin/groups/:id` | One group: `progress`, `memberCount`, `members: [{ id, name, email, emailVerified, blockSize, lots }]` (identity from `AUTH_DB`; `lots` = the member's lot numbers in this group, ascending) (**admin**). |
-| `GET /api/admin/lots` | The static lot catalog: `[{ lot, mesechta, indexInMesechta, label, start, end, size }]` (118 entries; `label` is `mesechta:indexInMesechta`, e.g. `Peah:1`). Powers the group-detail edit UI (**admin**). |
-| `POST /api/admin/groups/:groupId/members/:userId/lots` `{ lots: number[] }` | Admin override: set the member's lots in that group. Validates each lot is a real lot number (1-118; empty clears their lots); routes through the `AllocatorDO` (serialized with join/leave). Double-assignment is allowed — a lot another member holds becomes shared. `400` on a bad lot, `404` if the group/member is unknown (**admin**). |
+| `GET /api/admin/lots` | The static lot catalog: `[{ lot, mesechta, indexInMesechta, label, start, end, size }]` (120 entries; `label` is `mesechta:indexInMesechta`, e.g. `Peah:1`). Powers the group-detail edit UI (**admin**). |
+| `POST /api/admin/groups/:groupId/members/:userId/lots` `{ lots: number[] }` | Admin override: set the member's lots in that group. Validates each lot is a real lot number (1-120; empty clears their lots); routes through the `AllocatorDO` (serialized with join/leave). Double-assignment is allowed — a lot another member holds becomes shared. `400` on a bad lot, `404` if the group/member is unknown (**admin**). |
 | `GET /api/admin/users?limit&offset&search&sort` | One page of users (`limit` 1-50, default 50). `search` matches email (or name when it has no `@`); `sort` is `field:asc\|desc`. Pagination/search/sort delegate to better-auth `list-users`; merged with `participants`. Rows carry `emailVerified` + `createdAt`. Returns `{ users, total, limit, offset }` (**admin**). |
 | `GET /api/admin/users/:id` | One user: identity (+ `emailVerified`, `createdAt`) + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
 | `GET /api/admin/assignments?week&limit&offset` | One page of participants with the chosen week's mishnayot, each `{ ref…, groupId, done }`, plus `emailSent` (weekly). `week` defaults to the current week. Resolves blocks/completions/identities for the page subset via the batched email-path readers (**admin**). |
