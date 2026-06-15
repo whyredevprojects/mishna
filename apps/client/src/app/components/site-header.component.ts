@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 
 /**
  * Public top bar for the unauthenticated pages (landing, join). Site name on the
- * left; a subtle "Log in" and an emphasized "Join the Program" on the right.
+ * left; a subtle "Log in" and an emphasized "Become a Member" on the right.
  */
 @Component({
   selector: 'app-site-header',
@@ -36,7 +36,7 @@ import { RouterLink } from '@angular/router';
       <a class="brand" routerLink="/">Chevras Mishnayos</a>
       <span class="spacer"></span>
       <wa-button appearance="plain" routerLink="/">Log in</wa-button>
-      <wa-button variant="brand" routerLink="/join">Join the Program</wa-button>
+      <wa-button variant="brand" routerLink="/join">Become a Member</wa-button>
     </header>
   `,
 })

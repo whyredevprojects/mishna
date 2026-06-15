@@ -12,7 +12,7 @@ import { SiteHeaderComponent } from '../components/site-header.component';
 import { TurnstileComponent } from '../components/turnstile.component';
 import { queryKeys } from '../queries/query-keys';
 
-/** Public signup page. Creates an account via email/password or Google, then
+/** Public membership page. Creates an account via email/password or Google, then
  * lands on the dashboard where the commitment picker (JoinFormComponent) runs. */
 @Component({
   selector: 'app-join',
@@ -44,7 +44,7 @@ import { queryKeys } from '../queries/query-keys';
 
     <div class="fill-center">
       <wa-card>
-        <h1 slot="header" class="center">Join the Program</h1>
+        <h1 slot="header" class="center">Become a Member</h1>
 
         <div class="stack">
           <wa-input
@@ -82,7 +82,7 @@ import { queryKeys } from '../queries/query-keys';
             [attr.disabled]="captchaToken() ? null : ''"
             (click)="createAccount()"
           >
-            Create account
+            Become a member
           </wa-button>
 
           <wa-divider></wa-divider>

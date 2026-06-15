@@ -19,7 +19,7 @@ import { queryKeys } from '../queries/query-keys';
 import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
 /** Public landing page: site header + sign-in. Redirects to the dashboard if a
- * session already exists. New users follow the "Join here" link to /join. */
+ * session already exists. New users follow the "Become a member" link to /join. */
 @Component({
   selector: 'app-landing',
   imports: [
@@ -120,7 +120,7 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
           <p class="join-link center">
             New to the program?
-            <a routerLink="/join">Join here</a>
+            <a routerLink="/join">Become a member</a>
           </p>
         </div>
       </wa-card>
