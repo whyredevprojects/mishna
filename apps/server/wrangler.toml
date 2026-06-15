@@ -57,9 +57,9 @@ database_id = "57b23b71-63b5-4b1a-b39c-ab0d6b0414f7"
 #   wrangler r2 bucket create mishna-about-images   # then enable public access
 # After provisioning, uncomment this block and run `wrangler types`.
 # TODO: provision the R2 bucket + public access, then set R2_PUBLIC_BASE_URL below.
-# [[r2_buckets]]
-# binding = "ABOUT_BUCKET"
-# bucket_name = "mishna-about-images"
+[[r2_buckets]]
+binding = "ABOUT_BUCKET"
+bucket_name = "mishna-about-images"
 
 # The bulk reminder/weekly send, as a durable Workflow run inside this worker. The
 # cron `scheduled` handler creates one instance per fire; it sends via Resend in batches.
@@ -94,7 +94,7 @@ ABOUT_MD_PATH = "apps/www/src/content/about.md"
 # Public base URL of the R2 bucket serving editor images (no trailing slash).
 # TODO: set after creating the R2 bucket + enabling public access (e.g.
 # https://images.getchevrasmishnayos.com).
-R2_PUBLIC_BASE_URL = ""
+R2_PUBLIC_BASE_URL = "https://images.getchevrasmishnayos.com"
 
 [[migrations]]
 tag = "v1"
