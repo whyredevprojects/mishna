@@ -13,6 +13,21 @@ interactive, authenticated app built on Web Awesome custom elements: no
 prerender-time API calls (no cookies/server at build) and no shadow-DOM hydration
 mismatches.
 
+**Root-absolute asset URLs (`deployUrl: "/"`)** — the production build config in
+`project.json` sets `deployUrl: "/"` so the eager `<script>` / `<link
+rel="modulepreload">` / stylesheet URLs in `index.html` are emitted root-absolute
+(`/main-*.js`, `/chunk-*.js`). **This is load-bearing, not cosmetic.** By default the
+builder emits these *document-relative* and leans on `<base href="/">`; on a 2+-segment
+deep route (`/admin/about`, `/admin/groups/:id`, `/my-mishnayos/stats`) a hard load whose
+`<base>` isn't honored (e.g. an edge/SW-cached shell) resolves `chunk.js` against the
+`/admin/` *directory* → `/admin/chunk-*.js`, which Cloudflare Pages answers with the SPA
+`index.html` as `text/html` (and a 4h `max-age`), so the browser rejects HTML-as-a-module
+and ngsw chokes. Leading-slash URLs resolve to the origin root from any path, sidestepping
+this entirely and aligning with the ngsw manifest keys. (Static assets like `favicon.ico`
+/ `manifest.webmanifest` stay relative — non-critical, still resolved via `<base href>`.)
+A residual hardening worth doing: make Pages return a real `404` for asset-looking misses
+instead of the SPA shell (see `TODO.md`).
+
 ## PWA / offline
 
 Installable PWA backed by the Angular service worker (NGSW). The goal is that a
