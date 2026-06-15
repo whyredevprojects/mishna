@@ -104,7 +104,7 @@ class _MyMishnayosScreenState extends ConsumerState<MyMishnayosScreen>
                 const SizedBox(height: 8),
                 LinearProgressIndicator(value: total > 0 ? learned / total : 0),
                 const SizedBox(height: 4),
-                Text('mishnayos learned', style: theme.textTheme.bodySmall),
+                Text('mishnayos memorized', style: theme.textTheme.bodySmall),
               ],
             ),
           ),

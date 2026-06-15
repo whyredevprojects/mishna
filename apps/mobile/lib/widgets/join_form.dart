@@ -59,7 +59,7 @@ class _JoinFormState extends State<JoinForm> {
           children: [
             Text('Join the current cycle', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
-            const Text('How many mishnayot will you learn each week?'),
+            const Text('How many mishnayot will you memorize each week?'),
             const SizedBox(height: 4),
             RadioGroup<int>(
               groupValue: _commitment,

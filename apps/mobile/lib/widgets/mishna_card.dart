@@ -228,7 +228,7 @@ class _MishnaDisclosureRowState extends State<MishnaDisclosureRow> {
             Checkbox(
               value: widget.done,
               onChanged: (_) => widget.onToggleLearned(),
-              semanticLabel: 'Mark ${formatRef(widget.mishnaRef)} learned',
+              semanticLabel: 'Mark ${formatRef(widget.mishnaRef)} memorized',
             ),
           ],
         ),

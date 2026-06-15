@@ -100,7 +100,7 @@ interface MesechtaProgress {
               <span class="pct">{{ pct() }}% complete</span>
             </div>
             <wa-progress-bar [value]="pct()"></wa-progress-bar>
-            <span class="muted">mishnayos learned</span>
+            <span class="muted">mishnayos memorized</span>
           </div>
         </wa-card>
 

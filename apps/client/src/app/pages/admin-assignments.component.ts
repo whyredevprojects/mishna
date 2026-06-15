@@ -122,7 +122,7 @@ function sundayOnOrBefore(d: Date): string {
                         appearance="outlined"
                         [attr.disabled]="isBusy(row) ? '' : null"
                         (click)="setLearned(row, false)"
-                        >Unlearn</wa-button
+                        >Unmark</wa-button
                       >
                     } @else {
                       <wa-button
@@ -131,7 +131,7 @@ function sundayOnOrBefore(d: Date): string {
                         appearance="outlined"
                         [attr.disabled]="isBusy(row) ? '' : null"
                         (click)="setLearned(row, true)"
-                        >Mark learned</wa-button
+                        >Mark memorized</wa-button
                       >
                     }
                   }

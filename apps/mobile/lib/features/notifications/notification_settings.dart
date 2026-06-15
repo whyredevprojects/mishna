@@ -20,7 +20,7 @@ class NotificationSettings {
     required this.reviewMinute,
   });
 
-  /// Daily reminder to learn/memorize today's mishnayos.
+  /// Daily reminder to memorize today's mishnayos.
   final bool memorizeEnabled;
   final int memorizeHour;
   final int memorizeMinute;

@@ -151,8 +151,8 @@ export class AdminOverviewComponent {
     { key: 'activeUsers', label: 'Active users' },
     { key: 'verifiedUsers', label: 'Verified' },
     { key: 'totalGroups', label: 'Groups' },
-    { key: 'totalCompletions', label: 'Total learned' },
-    { key: 'weekCompletions', label: 'Learned this week' },
+    { key: 'totalCompletions', label: 'Total memorized' },
+    { key: 'weekCompletions', label: 'Memorized this week' },
   ];
 
   protected statValue(key: keyof AdminStats): string {

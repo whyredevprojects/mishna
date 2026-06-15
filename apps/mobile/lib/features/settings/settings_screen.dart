@@ -454,7 +454,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: const Text('Leave the cycle?'),
         content: const Text(
           'Your lots are released back to your group so someone else can '
-          'pick them up. Your learned history is kept.',
+          'pick them up. Your memorization history is kept.',
         ),
         actions: [
           TextButton(

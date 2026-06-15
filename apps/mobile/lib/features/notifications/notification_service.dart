@@ -94,7 +94,7 @@ class NotificationService {
     if (settings.memorizeEnabled) {
       await _plugin.zonedSchedule(
         id: _memorizeId,
-        title: 'Time to learn your mishnayos',
+        title: 'Time to memorize your mishnayos',
         body: "A few minutes a day keeps this week's mishnayos baal peh.",
         scheduledDate:
             _nextInstance(settings.memorizeHour, settings.memorizeMinute),
@@ -109,7 +109,7 @@ class NotificationService {
       await _plugin.zonedSchedule(
         id: _reviewId,
         title: 'Review time',
-        body: 'Look back over the mishnayos you already know.',
+        body: "Look back over the mishnayos you've memorized.",
         scheduledDate: _nextWeeklyInstance(
           settings.reviewDow,
           settings.reviewHour,

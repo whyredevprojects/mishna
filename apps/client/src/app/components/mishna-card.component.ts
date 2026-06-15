@@ -129,11 +129,11 @@ import { formatRef, formatRefHe } from '../util/format';
             <wa-checkbox
               size="small"
               [attr.checked]="done() ? '' : null"
-              [attr.aria-label]="'Mark ' + format(ref()) + ' learned'"
+              [attr.aria-label]="'Mark ' + format(ref()) + ' memorized'"
               (change)="learned.emit()"
             ></wa-checkbox>
           } @else if (done()) {
-            <wa-tag size="small" variant="success">Learned</wa-tag>
+            <wa-tag size="small" variant="success">Memorized</wa-tag>
           } @else {
             <wa-tag size="small">Pending</wa-tag>
           }

@@ -40,7 +40,7 @@ import { Commitment, JoinOption } from '../models/api.types';
     <wa-card>
       <strong slot="header">Join the current cycle</strong>
 
-      <p>How many mishnayot will you learn each week?</p>
+      <p>How many mishnayot will you memorize each week?</p>
 
       @if (options(); as opts) {
         <wa-radio-group
