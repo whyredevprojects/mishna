@@ -44,8 +44,17 @@ reverts + danger toast), which is the intended behavior.
 - `public/_headers` sets `Cache-Control: no-cache` on `ngsw.json` /
   `ngsw-worker.js` / `manifest.webmanifest` so Cloudflare Pages rolls out deploys
   promptly (hashed bundles keep the default long cache).
-- `AppShellComponent` subscribes to `SwUpdate.versionUpdates` (`VERSION_READY`)
-  and shows a "new version available — Reload" toast via `ToastService.action(...)`.
+- `services/sw-recovery.service.ts` (`SwRecoveryService`) owns **all** SW lifecycle
+  handling, wired at the app root via `provideAppInitializer` in `app.config.ts` so it
+  runs always-on (independent of route/auth — not in a component). It: shows the "new
+  version available — Reload" toast on `VERSION_READY`; and **self-heals a stranded
+  client** — on `SwUpdate.unrecoverable`, or a failed lazy-chunk load (router
+  `withNavigationErrorHandler` + a global `error`/`unhandledrejection` listener,
+  matched by `isChunkLoadError`), it does a `sessionStorage`-guarded one-shot
+  `location.reload()` onto the fresh shell. Guard against loops: a single
+  `sw-recovery-reloaded` flag covers every forced-reload path. This fixes returning
+  users stuck on a stale shell whose dead `/admin/*` chunks come back as
+  `200 text/html` (Pages SPA fallback) and get blocked by `nosniff`.
 - **Testing**: NGSW does not run under `nx serve`. Build, then serve the
   `dist/apps/client/browser` output statically (e.g. `python3 -m http.server`)
   and open in an incognito window; toggle DevTools → Network → Offline to verify.
