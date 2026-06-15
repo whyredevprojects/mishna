@@ -1,1 +1,8 @@
+# Local-only secrets for `wrangler dev`. Copy to `.dev.vars` (gitignored) and fill in.
+# In production these are set with `wrangler secret put <NAME>` instead.
+
 RESEND_API_KEY=KEY
+
+# Fine-grained GitHub PAT with Contents: read & write on whyredevprojects/mishna.
+# Used by the admin about-page editor to commit apps/www/src/content/about.md.
+GITHUB_TOKEN=ghp_xxx
