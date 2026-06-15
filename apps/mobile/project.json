@@ -11,14 +11,14 @@
         "cwd": "apps/mobile"
       }
     },
-    "test": {
+    "test-flutter": {
       "executor": "nx:run-commands",
       "options": {
         "command": "flutter test",
         "cwd": "apps/mobile"
       }
     },
-    "build": {
+    "build-apk": {
       "executor": "nx:run-commands",
       "options": {
         "command": "flutter build apk --release",

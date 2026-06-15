@@ -88,7 +88,7 @@ resolve against its package root (files under `lib/` don't yield the clean
 ```sh
 cd apps/mobile
 flutter analyze        # or: nx analyze mobile
-flutter test           # or: nx test mobile  (18 tests, incl. asset lookups)
+flutter test           # or: nx test-flutter mobile  (18 tests, incl. asset lookups)
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8787 --dart-define=TURNSTILE_SITE_KEY=1x00000000000000000000AA
 ```
 
