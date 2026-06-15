@@ -58,15 +58,30 @@ describe('about-page editor endpoints', () => {
     expect(res.status).toBe(400);
   });
 
-  // The ABOUT_BUCKET R2 binding is commented out in wrangler.toml until the bucket is
-  // provisioned, so the image route is unconfigured in tests.
-  it('fails loudly (500) when the image bucket is not configured', async () => {
+  // The ABOUT_BUCKET R2 binding + R2_PUBLIC_BASE_URL are provisioned in wrangler.toml,
+  // so the image route stores the upload and returns its public URL (built from the
+  // base URL + the generated `about/<uuid>-<safe-name>` key).
+  it('stores an uploaded image and returns its public URL', async () => {
+    const res = await SELF.fetch('https://server/api/admin/about/image', {
+      method: 'POST',
+      headers: {
+        ...as('admin'),
+        'content-type': 'image/png',
+        'x-filename': 'logo.png',
+      },
+      body: 'x',
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json<{ url: string }>()).url).toMatch(
+      /^https:\/\/images\.getchevrasmishnayos\.com\/about\/[0-9a-f-]+-logo\.png$/,
+    );
+  });
+
+  it('rejects an empty image body as 400', async () => {
     const res = await SELF.fetch('https://server/api/admin/about/image', {
       method: 'POST',
       headers: { ...as('admin'), 'content-type': 'image/png' },
-      body: 'x',
     });
-    expect(res.status).toBe(500);
-    expect((await res.json<{ error: string }>()).error).toMatch(/ABOUT_BUCKET/);
+    expect(res.status).toBe(400);
   });
 });
