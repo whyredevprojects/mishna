@@ -4,7 +4,7 @@
 
 ### **Purify the Air with Torah.**
 
-### End the golus.
+### End the Golus.
 
 **Chevras Mishnayos Baal Peh** is a great source of *bracha* and protection, and becoming a
 member is **completely free**.
