@@ -1,4 +1,8 @@
-#### **Learn by Heart. Recite Everywhere. Purify the Air with Torah.**
+#### **Learn by Heart.**
+
+#### **Recite Everywhere.** 
+
+#### **Purify the Air with Torah.**
 
 **Chevras Mishnayos Baal Peh** is a great source of *bracha* and protection, and becoming a
 member is **completely free**.
