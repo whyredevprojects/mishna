@@ -16,3 +16,5 @@ RESEND_API_KEY=replace-me
 # dev (pair it with the test site key in apps/client/src/app/config/turnstile.ts).
 # For production set the real secret with: wrangler secret put TURNSTILE_SECRET_KEY
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+GOOGLE_CLIENT_ID=replace-me
+GOOGLE_CLIENT_SECRET=replace-me
