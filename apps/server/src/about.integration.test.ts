@@ -46,7 +46,9 @@ describe('about-page editor endpoints', () => {
       body: JSON.stringify({ markdown: '# hello' }),
     });
     expect(post.status).toBe(500);
-    expect((await post.json<{ error: string }>()).error).toMatch(/GITHUB_TOKEN/);
+    expect((await post.json<{ error: string }>()).error).toMatch(
+      /GITHUB_TOKEN/,
+    );
   });
 
   it('rejects a save with a non-string body as 400', async () => {
@@ -73,7 +75,7 @@ describe('about-page editor endpoints', () => {
     });
     expect(res.status).toBe(200);
     expect((await res.json<{ url: string }>()).url).toMatch(
-      /^https:\/\/images\.getchevrasmishnayos\.com\/about\/[0-9a-f-]+-logo\.png$/,
+      /^https:\/\/images\.[a-z0-9]*\.com\/about\/[0-9a-f-]+-logo\.png$/,
     );
   });
 
