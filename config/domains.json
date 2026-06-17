@@ -1,7 +1,7 @@
 {
-  "apex": "getchevrasmishnayos.com",
-  "appHost": "app.getchevrasmishnayos.com",
-  "imagesHost": "images.getchevrasmishnayos.com",
+  "apex": "mishna2go.com",
+  "appHost": "app.mishna2go.com",
+  "imagesHost": "images.mishna2go.com",
   "turnstileSiteKey": "0x4AAAAAADhFwbhDJNP7CeZY",
   "email": {
     "auth": "Chevras Mishnayos Baal Peh <noreply@getchevrasmishnayos.com>",

@@ -16,7 +16,7 @@ alias = { "react-dom/server.edge" = "react-dom/server.browser" }
 # more specific /api/auth/* route wins for auth paths; the rest land here. Anything
 # outside /api/* falls through to the Cloudflare Pages SPA.
 routes = [
-  { pattern = "app.getchevrasmishnayos.com/api/*", zone_name = "getchevrasmishnayos.com" }
+  { pattern = "app.mishna2go.com/api/*", zone_name = "mishna2go.com" }
 ]
 
 # Auth: the apps/login better-auth worker, reached via this service binding
@@ -78,7 +78,7 @@ crons = ["0 * * * *"]
 # The deployed client origin, which serves mishna-text's tractate JSON (its `data/` is
 # copied into the client's assets). The sender fetches Hebrew text from here. Override
 # locally via .dev.vars if needed.
-APP_ORIGIN = "https://app.getchevrasmishnayos.com"
+APP_ORIGIN = "https://app.mishna2go.com"
 # Verified Resend sender. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
 RESEND_FROM_EMAIL = "Chevras Mishnayos Baal Peh <reminders@getchevrasmishnayos.com>"
 # About-page editor: repo coordinates for committing the www site's about.md via the
@@ -94,7 +94,7 @@ ABOUT_MD_PATH = "apps/www/src/content/about.md"
 # Public base URL of the R2 bucket serving editor images (no trailing slash).
 # TODO: set after creating the R2 bucket + enabling public access (e.g.
 # https://images.getchevrasmishnayos.com).
-R2_PUBLIC_BASE_URL = "https://images.getchevrasmishnayos.com"
+R2_PUBLIC_BASE_URL = "https://images.mishna2go.com"
 
 [[migrations]]
 tag = "v1"

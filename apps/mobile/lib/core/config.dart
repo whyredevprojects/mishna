@@ -8,7 +8,7 @@ class AppConfig {
   /// `--dart-define=API_BASE_URL=http://10.0.2.2:8787` (Android emulator).
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://app.getchevrasmishnayos.com',
+    defaultValue: 'https://app.mishna2go.com',
   );
 
   /// Cloudflare Turnstile *public* site key. Defaults to the production widget
