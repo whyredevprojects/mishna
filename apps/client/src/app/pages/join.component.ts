@@ -87,10 +87,19 @@ import { queryKeys } from '../queries/query-keys';
 
           <wa-divider></wa-divider>
 
-          <wa-button (click)="joinWithGoogle()">
+          <wa-button
+            [attr.loading]="googleLoading() ? '' : null"
+            (click)="joinWithGoogle()"
+          >
             <wa-icon slot="start" name="google" family="brands"></wa-icon>
             Join with Google
           </wa-button>
+
+          @if (googleError()) {
+            <p class="error center">
+              Could not start Google sign-up. Please try again.
+            </p>
+          }
 
           <p class="login-link center">
             Already have an account?
@@ -113,6 +122,8 @@ export class JoinComponent {
   protected readonly captchaToken = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly loading = signal(false);
+  protected readonly googleLoading = this.auth.googleSignInLoading;
+  protected readonly googleError = this.auth.googleSignInError;
 
   protected createAccount(): void {
     const token = this.captchaToken();

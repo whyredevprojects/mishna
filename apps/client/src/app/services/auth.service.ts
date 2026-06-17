@@ -1,8 +1,11 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { QueryClient } from '@tanstack/angular-query-experimental';
 import { Me } from '../models/api.types';
+
+/** Progress of the Google OAuth sign-in: idle, redirecting, or failed to start. */
+export type GoogleSignInState = 'none' | 'loading' | 'error';
 
 /**
  * Session + membership state, backed by `GET /api/me`. The server validates the
@@ -16,6 +19,18 @@ export class AuthService {
 
   /** Latest /api/me result, or null while unknown/unauthenticated. */
   readonly me = signal<Me | null>(null);
+
+  /** Single source of truth for the Google OAuth flow; the booleans below derive from it. */
+  private readonly _googleSignInState = signal<GoogleSignInState>('none');
+  readonly googleSignInState = this._googleSignInState.asReadonly();
+  /** True while the OAuth round-trip is in flight (drives the button spinner). */
+  readonly googleSignInLoading = computed(
+    () => this._googleSignInState() === 'loading',
+  );
+  /** True when the OAuth attempt failed to start (drives an error message). */
+  readonly googleSignInError = computed(
+    () => this._googleSignInState() === 'error',
+  );
 
   /** Fetches /api/me. Emits the Me on success, or null on 401/any failure. */
   loadSession(): Observable<Me | null> {
@@ -79,9 +94,14 @@ export class AuthService {
   /**
    * Kicks off better-auth's Google OAuth flow via the login worker. Requires the
    * `google` social provider credentials to be configured in apps/login, after
-   * which this redirects to Google and back to `callbackURL`.
+   * which this redirects to Google and back to `callbackURL`. Drives
+   * `googleSignInState` so the sign-in/join pages can show a spinner and ignore
+   * repeat clicks while the round-trip is in flight; on success the full-page
+   * redirect tears down the app, so the state stays `'loading'` until navigation.
    */
   signInWithGoogle(callbackURL = '/dashboard'): void {
+    if (this._googleSignInState() === 'loading') return; // ignore double-clicks
+    this._googleSignInState.set('loading');
     this.http
       .post<{ url?: string; redirect?: boolean }>('/api/auth/sign-in/social', {
         provider: 'google',
@@ -90,12 +110,12 @@ export class AuthService {
       .subscribe({
         next: (res) => {
           if (res?.url) {
-            window.location.href = res.url;
+            window.location.href = res.url; // navigating away — keep 'loading'
+          } else {
+            this._googleSignInState.set('none'); // unexpected: no redirect URL
           }
         },
-        error: () => {
-          // Surfaced to the user by the landing page's error state.
-        },
+        error: () => this._googleSignInState.set('error'),
       });
   }
 

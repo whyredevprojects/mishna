@@ -113,10 +113,19 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
           <wa-divider></wa-divider>
 
-          <wa-button (click)="signInWithGoogle()">
+          <wa-button
+            [attr.loading]="googleLoading() ? '' : null"
+            (click)="signInWithGoogle()"
+          >
             <wa-icon slot="start" name="google" family="brands"></wa-icon>
             Sign in with Google
           </wa-button>
+
+          @if (googleError()) {
+            <p class="error center">
+              Could not start Google sign-in. Please try again.
+            </p>
+          }
 
           <p class="join-link center">
             New to the program?
@@ -142,6 +151,8 @@ export class LandingComponent {
   protected readonly captchaToken = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly loading = signal(false);
+  protected readonly googleLoading = this.auth.googleSignInLoading;
+  protected readonly googleError = this.auth.googleSignInError;
 
   constructor() {
     // If already signed in, skip the landing page. `fetchQuery` also warms the
