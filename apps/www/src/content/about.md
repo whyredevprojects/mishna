@@ -34,6 +34,9 @@ covered, so together we memorize **all of Shas Mishnayos by Rosh Chodesh Sivan**
 Commit to **memorize 1, 2, or 3 mishnayos each week** and say them wherever you go. A
 little each week from each member — and the entire Mishna is finished, as one chevra.
 Commit to memorize 1, 2, or 3 mishnayos each week and say them wherever you go. A little each week from each member — and the entire Mishnah is finished, as one chevra.
-![IMG_3587.jpeg](https://images.mishna2go.com/about/dc6f5840-a05f-461b-9d41-c4b849740930-IMG_3587.jpeg)
-The Historical Division of the Mishnayos into Chalokim for the Goirel
-![IMG_3588.jpeg](https://images.mishna2go.com/about/da6b5c55-e71d-4c33-9ce6-5520fb410677-IMG_3588.jpeg)
+The Frierdiker Rebbes membership request 
+![IMG_3598.jpeg](https://images.mishna2go.com/about/17fdcddd-7cfb-4fd3-b8de-19f8d05651de-IMG_3598.jpeg)
+The Rebbes membership request 
+![5cd61227-fb22-40a3-bd28-1b4b99000f97.jpeg](https://images.mishna2go.com/about/5f8c4732-bb25-4cb8-b035-575fa0212f3a-5cd61227-fb22-40a3-bd28-1b4b99000f97.jpeg)
+The Rebbes Historical Division of the Mishnayos into Chalokim for the Goirel
+![0086e7b4-4622-4096-852c-f7f072401057.jpeg](https://images.mishna2go.com/about/ed44f620-e93b-43b9-865e-24bba7db6431-0086e7b4-4622-4096-852c-f7f072401057.jpeg)
