@@ -33,17 +33,11 @@ covered, so together we memorize **all of Shas Mishnayos by Rosh Chodesh Sivan**
 
 Commit to **memorize 1, 2, or 3 mishnayos each week** and say them wherever you go. A
 little each week from each member — and the entire Mishna is finished, as one chevra.
-
-<img
-src="https://images.mishna2go.com/about/4d977134-8b7c-4557-b130-7bf298bdcfaf-IMG\_3587.jpeg"
-alt="Chevras Mishnayos"
-style="max-width:100%; height:auto; display:block; margin:auto;"
->
-The historical devision of the *Mishnayos* into *Chalokim*
-for the *Goirel*
-<img
-src="https://images.mishna2go.com/about/08e25c9c-7bc5-480e-86bc-2930054b83de-IMG\_3588.jpeg"
-alt="Chevras Mishnayos"
-style="max-width:100%; height:auto; display:block; margin:auto;"
->
-
+Commit to memorize 1, 2, or 3 mishnayos each week and say them wherever you go. A little each week from each member — and the entire Mishnah is finished, as one chevra.
+\<p align="center">
+ <img src="https://images.mishna2go.com/about/4d977134-8b7c-4557-b130-7bf298bdcfaf-IMG\_3587.jpeg" alt="Chevras Mishnayos" width="800">
+\</p>
+\#\# The Historical Division of the Mishnayos into Chalokim for the Goirel
+\<p align="center">
+ <img src="https://images.mishna2go.com/about/08e25c9c-7bc5-480e-86bc-2930054b83de-IMG\_3588.jpeg" alt="Historical Division of Mishnayos" width="800">
+\</p>
