@@ -1,10 +1,22 @@
-### **Learn by Heart.**
+### בעל פה • חזרה • טהרת האויר
 
-### **Recite Everywhere.**
+## Chevras Mishnayos Baal Peh 
 
-### **Purify the Air with Torah.**
+**Established by the Frierdiker Rebbe**
+*Membership is free*
+Become a member by choosing to learn 1, 2 or 3 Mishnas by heart each week. The entire Mishnayos is divided by Goirel. Members recite the Mishnayos when they walk in the street, on the bus, train, in the store or whenever the opportunity arises.
 
-### End the Golus.
+## How it works
+
+*Goral on **Chalokim** based on the **Rebbe’s division** of **ששה סדרי משנה** each Chelek is around 4 Prokim*
+
+* **Membership**: Register at [mishna2go.com](http://mishna2go.com/) 
+* **Quota**: Select 1, 2, or 3 Mishna/s per week.
+* **Delivery**: Weekly emails and reminders
+* **Learn**: Memorize the Mishnah/s for the week 
+* **Tachlis**: חזר when you walk in the street.
+
+## Overview
 
 **Chevras Mishnayos Baal Peh** is a great source of *bracha* and protection, and becoming a
 member is **completely free**.
