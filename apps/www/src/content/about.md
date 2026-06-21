@@ -41,4 +41,10 @@ little each week from each member — and the entire Mishna is finished, as one 
 `>`
 The historical devision of the *Mishnayos* into *Chalokim*
 for the *Goirel*
-![IMG_3588.jpeg](https://images.mishna2go.com/about/08e25c9c-7bc5-480e-86bc-2930054b83de-IMG_3588.jpeg)\`\`
+`<img`
+`src="https://images.mishna2go.com/about/08e25c9c-7bc5-480e-86bc-2930054b83de-IMG_3588.jpeg"`
+`alt="Chevras Mishnayos"`
+`style="max-width:100%; height:auto; display:block; margin:auto;"`
+`>`
+
+> 
