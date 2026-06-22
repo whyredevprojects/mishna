@@ -160,6 +160,10 @@ body {
 .about img {
   max-width: 100%;
 }
+.about a.pswp-item {
+  display: inline-block;
+  cursor: zoom-in;
+}
 .cta {
   margin-top: 2rem;
 }

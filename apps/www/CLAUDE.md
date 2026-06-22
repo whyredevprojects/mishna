@@ -24,6 +24,16 @@ Editor images are uploaded to **Cloudflare R2** (not committed here); `about.md`
 references them as absolute `![alt](https://.../about/...)` URLs, so image-only swaps need
 no rebuild.
 
+Content images are **click-to-zoom** via [PhotoSwipe](https://photoswipe.com). The author
+writes plain `![alt](url)` only — the `<a class="pswp-item">` wrapper is generated at build
+by an `amendLibrary('md', …)` image rule in `eleventy.config.js` (extends Eleventy's own
+markdown-it instance). PhotoSwipe is self-hosted: its `dist` is passthrough-copied to
+`/photoswipe/`, and `src/js/lightbox.js` (a native ESM module) inits it over `.about`.
+Dimensions are read at runtime from each image's `naturalWidth`/`naturalHeight` (no
+`data-pswp-width/height` in markup) — valid only because the inline `<img>` IS the
+full-res original; if inline images ever switch to a resized variant, dimensions must come
+from R2 metadata at build instead.
+
 ## Layout
 
 | Path | Role |
@@ -32,7 +42,8 @@ no rebuild.
 | `project.json` | Nx targets: `build` (cached, `outputs: _site`), `serve`, `deploy` (Pages). |
 | `src/content/about.md` | The admin-editable hero copy (pure Markdown). |
 | `src/content/content.11tydata.json` | Applies the layout + `/` permalink to `about.md`. |
-| `src/_includes/layout.njk` | Page shell: header, hero (renders `about.md`), CTA, how-it-works, footer. |
+| `src/_includes/layout.njk` | Page shell: header, hero (renders `about.md`), CTA, how-it-works, footer. Loads PhotoSwipe CSS + `src/js/lightbox.js`. |
+| `src/js/lightbox.js` | Initializes PhotoSwipe over the `.about` content images (click-to-zoom). |
 | `src/_data/site.json` | Site name/tagline/description + `appUrl` (the app's host, used by all links). `appUrl` is generated from the repo-wide `config/domains.json` (`npm run sync:domains`; see root CLAUDE.md "Changing the domain") — don't hand-edit it. |
 | `src/css/styles.css` | Warm, colorful brand styling (brown + gold + teal). |
 
