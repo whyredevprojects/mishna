@@ -102,9 +102,13 @@ class MishnaApiRepository {
     return options;
   }
 
-  Future<Assignment> todayAssignment() async {
-    final res =
-        await _dio.get<Map<String, dynamic>>('/api/assignments/today');
+  /// The caller's assignment for an explicit `YYYY-MM-DD` week-start (UTC); the
+  /// server derives the week containing that date.
+  Future<Assignment> assignmentForDate(String date) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/assignments',
+      queryParameters: {'date': date},
+    );
     return Assignment.fromJson(res.data!);
   }
 
@@ -156,8 +160,11 @@ final joinOptionsProvider = FutureProvider<List<JoinOption>>(
   (ref) => ref.watch(apiRepositoryProvider).joinOptions(),
 );
 
-final todayAssignmentProvider = FutureProvider<Assignment>(
-  (ref) => ref.watch(apiRepositoryProvider).todayAssignment(),
+/// One assignment per week-start date (`YYYY-MM-DD`, UTC) — each week caches
+/// separately, so the dashboard's week pager can step without refetching weeks
+/// it already loaded. Invalidate the whole family to refresh every cached week.
+final assignmentByDateProvider = FutureProvider.family<Assignment, String>(
+  (ref, date) => ref.watch(apiRepositoryProvider).assignmentForDate(date),
 );
 
 final chalukaProvider = FutureProvider<Chaluka>(

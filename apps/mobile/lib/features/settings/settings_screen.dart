@@ -472,7 +472,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _leaving = true);
     try {
       await ref.read(apiRepositoryProvider).leave();
-      ref.invalidate(todayAssignmentProvider);
+      ref.invalidate(assignmentByDateProvider);
       ref.invalidate(chalukaProvider);
       await ref.read(authControllerProvider.notifier).refresh();
       _toast('You have left the cycle.');

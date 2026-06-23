@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/formatting.dart';
 import '../../data/models.dart';
 import '../../data/repositories.dart';
 import '../../widgets/completion_sync.dart';
@@ -22,12 +23,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with CompletionSync {
   bool _joining = false;
 
+  /// The week-start (Sunday, UTC) the user is currently viewing, and today's —
+  /// the pager steps `_selectedWeek` while `_currentWeek` labels "This week".
+  final String _currentWeek = sundayOnOrBefore(DateTime.now());
+  late String _selectedWeek = _currentWeek;
+
+  /// Last assignment we had data for — kept on screen while stepping to a not-
+  /// yet-cached week, so navigation doesn't flash a spinner (the web client's
+  /// `keepPreviousData`).
+  Assignment? _shown;
+
   Future<void> _join(int commitment) async {
     setState(() => _joining = true);
     try {
       await ref.read(apiRepositoryProvider).join(commitment);
       // Membership changed → re-derive session + assignment from the server.
-      ref.invalidate(todayAssignmentProvider);
+      ref.invalidate(assignmentByDateProvider);
       ref.invalidate(chalukaProvider);
       await ref.read(authControllerProvider.notifier).refresh();
     } catch (_) {
@@ -46,9 +57,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Future<void> _refresh() async {
     ref.invalidate(cycleProvider);
     ref.invalidate(joinOptionsProvider);
-    ref.invalidate(todayAssignmentProvider);
+    ref.invalidate(assignmentByDateProvider);
     await ref.read(authControllerProvider.notifier).refresh();
   }
+
+  /// The cycle's first week (Sunday on/before its start), once the cycle loads.
+  String? _cycleStartWeek() {
+    final cycle = ref.read(cycleProvider).value;
+    return cycle == null
+        ? null
+        : sundayOnOrBefore(DateTime.parse(cycle.cycleStart));
+  }
+
+  /// Before the cycle's first week is off-limits.
+  bool get _canPrev {
+    final start = _cycleStartWeek();
+    return start == null || _selectedWeek.compareTo(start) > 0;
+  }
+
+  /// A user's portion empties contiguously once finished, so an empty displayed
+  /// week is the end of the road forward.
+  bool get _canNext => _shown?.mishnas.isNotEmpty ?? false;
+
+  void _prev() {
+    if (_canPrev) setState(() => _selectedWeek = addWeeks(_selectedWeek, -1));
+  }
+
+  void _next() {
+    if (_canNext) setState(() => _selectedWeek = addWeeks(_selectedWeek, 1));
+  }
+
+  void _onSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity < -200) {
+      _next(); // swipe left → forward a week
+    } else if (velocity > 200) {
+      _prev(); // swipe right → back a week
+    }
+  }
+
+  String get _weekLabel => _selectedWeek == _currentWeek
+      ? 'This week'
+      : 'Week of ${formatMonthDayYear(_selectedWeek)}';
 
   @override
   Widget build(BuildContext context) {
@@ -67,9 +117,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             if (!joined) ...[
               ..._joinSection(),
             ] else ...[
-              Text("This week's mishnayos", style: theme.textTheme.bodyMedium),
+              _weekNav(theme),
               const SizedBox(height: 8),
-              ..._assignmentSection(),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragEnd: _onSwipe,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: _assignmentSection(),
+                ),
+              ),
             ],
             if (cycle.value case final c?) ...[
               const Divider(height: 32),
@@ -106,13 +163,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
+  /// Prev/next week stepper with a centered "This week" / "Week of …" label.
+  Widget _weekNav(ThemeData theme) {
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          tooltip: 'Previous week',
+          onPressed: _canPrev ? _prev : null,
+        ),
+        Expanded(
+          child: Text(
+            _weekLabel,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleSmall,
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          tooltip: 'Next week',
+          onPressed: _canNext ? _next : null,
+        ),
+      ],
+    );
+  }
+
   List<Widget> _assignmentSection() {
     final theme = Theme.of(context);
-    final assignment = ref.watch(todayAssignmentProvider);
-    final Assignment? a = assignment.value;
-    if (a != null) {
-      seedCompletions(a, a.completed);
+    final assignment = ref.watch(assignmentByDateProvider(_selectedWeek));
+    final fresh = assignment.value;
+    if (fresh != null) {
+      _shown = fresh;
+      seedCompletions(fresh, fresh.completed);
     }
+    // While stepping to a not-yet-loaded week, keep the last week on screen.
+    final Assignment? a = _shown;
     if (a == null) {
       if (assignment.hasError) {
         return [

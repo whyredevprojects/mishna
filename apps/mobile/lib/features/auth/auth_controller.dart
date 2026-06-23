@@ -107,7 +107,7 @@ class AuthController extends AsyncNotifier<Me?> {
   }
 
   void _clearDataProviders() {
-    ref.invalidate(todayAssignmentProvider);
+    ref.invalidate(assignmentByDateProvider);
     ref.invalidate(chalukaProvider);
     ref.invalidate(preferencesProvider);
   }

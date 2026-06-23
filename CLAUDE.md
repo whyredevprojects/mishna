@@ -45,6 +45,14 @@ Determinism: ids come from an injected `IdGenerator`, randomness (lot picks) fro
 - Apps import shared domain via NX path aliases (see `tsconfig.base.json`)
 - Each Cloudflare Worker app has its own `wrangler.toml`
 - When making significant changes to a sub-project, update or create that project's own `CLAUDE.md`
+- **Keep the web (`apps/client`) and mobile (`apps/mobile`) user-facing experiences in
+  sync.** They are two front-ends over the same APIs and should offer the same
+  functionality and behavior (sign-in/up, join, the weekly assignment + week pager,
+  learned check-off, My Mishnayos, Review, settings). When you add or change a
+  user-facing feature in one, make the matching change in the other in the same effort
+  (Material 3 vs. Web Awesome means the *look* differs — the *behavior* shouldn't).
+  Admin is web-only and on-device reminders are mobile-only, by design — those are the
+  only intentional gaps.
 
 ## Changing the domain
 
