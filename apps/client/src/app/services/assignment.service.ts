@@ -8,7 +8,7 @@ import { Assignment, Chaluka, MishnaRef } from '../models/api.types';
 export class AssignmentService {
   private readonly http = inject(HttpClient);
 
-  /** This week's assignment for the caller. */
+  /** The caller's current mishnayos: their next still-unlearned bucket. */
   today(): Observable<Assignment> {
     return this.http.get<Assignment>('/api/assignments/today');
   }

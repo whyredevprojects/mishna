@@ -191,7 +191,8 @@ class JoinOption {
       );
 }
 
-/// GET /api/assignments/today — this week's mishnayot plus completion state.
+/// GET /api/assignments/today — the current (next-unlearned) bucket plus
+/// completion state, and `?bucket=N` for an explicit pager bucket.
 class Assignment {
   const Assignment({
     required this.userId,

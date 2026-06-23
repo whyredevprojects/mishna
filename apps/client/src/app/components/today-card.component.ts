@@ -68,7 +68,7 @@ const SYNC_ERROR =
       @if (allDone()) {
         <div class="done-banner">
           <wa-icon name="circle-check" variant="solid"></wa-icon>
-          Done for this week!
+          Learned these mishnayos!
         </div>
       }
     } @else {

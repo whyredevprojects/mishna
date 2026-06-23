@@ -246,7 +246,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               Icon(Icons.check_circle, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Text(
-                'Done for this week!',
+                'Learned these mishnayos!',
                 style: theme.textTheme.titleSmall!
                     .copyWith(color: theme.colorScheme.primary),
               ),
