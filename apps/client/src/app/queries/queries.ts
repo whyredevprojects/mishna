@@ -47,30 +47,11 @@ export function joinOptionsQueryOptions(groups: GroupService) {
   });
 }
 
-/** GET /api/assignments/today. */
-export function todayAssignmentQueryOptions(assignments: AssignmentService) {
-  return queryOptions({
-    queryKey: queryKeys.assignmentToday,
-    queryFn: () => firstValueFrom(assignments.today()),
-  });
-}
-
 /** GET /api/me/chaluka — the caller's whole-cycle portion + learned subset. */
 export function chalukaQueryOptions(assignments: AssignmentService) {
   return queryOptions({
     queryKey: queryKeys.chaluka,
     queryFn: () => firstValueFrom(assignments.chaluka()),
-  });
-}
-
-/** GET /api/assignments?date= — one cache entry per date. */
-export function assignmentByDateQueryOptions(
-  assignments: AssignmentService,
-  date: string,
-) {
-  return queryOptions({
-    queryKey: queryKeys.assignment(date),
-    queryFn: () => firstValueFrom(assignments.forDate(date)),
   });
 }
 

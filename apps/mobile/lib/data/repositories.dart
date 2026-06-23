@@ -102,12 +102,18 @@ class MishnaApiRepository {
     return options;
   }
 
-  /// The caller's assignment for an explicit `YYYY-MM-DD` week-start (UTC); the
-  /// server derives the week containing that date.
-  Future<Assignment> assignmentForDate(String date) async {
+  /// The caller's **current** mishnayot: their next still-unlearned bucket.
+  Future<Assignment> currentAssignment() async {
+    final res =
+        await _dio.get<Map<String, dynamic>>('/api/assignments/today');
+    return Assignment.fromJson(res.data!);
+  }
+
+  /// The caller's mishnayot for an explicit, positional bucket (the pager target).
+  Future<Assignment> assignmentAtBucket(int bucket) async {
     final res = await _dio.get<Map<String, dynamic>>(
       '/api/assignments',
-      queryParameters: {'date': date},
+      queryParameters: {'bucket': bucket},
     );
     return Assignment.fromJson(res.data!);
   }
@@ -160,11 +166,14 @@ final joinOptionsProvider = FutureProvider<List<JoinOption>>(
   (ref) => ref.watch(apiRepositoryProvider).joinOptions(),
 );
 
-/// One assignment per week-start date (`YYYY-MM-DD`, UTC) — each week caches
-/// separately, so the dashboard's week pager can step without refetching weeks
-/// it already loaded. Invalidate the whole family to refresh every cached week.
-final assignmentByDateProvider = FutureProvider.family<Assignment, String>(
-  (ref, date) => ref.watch(apiRepositoryProvider).assignmentForDate(date),
+/// One assignment per pager position: `null` is the current (next-unlearned)
+/// bucket, an `int` is that explicit bucket. Each caches separately so the
+/// prev/next pager can step without refetching buckets it already loaded.
+/// Invalidate the whole family to refresh every cached bucket (and the current).
+final assignmentProvider = FutureProvider.family<Assignment, int?>(
+  (ref, bucket) => bucket == null
+      ? ref.watch(apiRepositoryProvider).currentAssignment()
+      : ref.watch(apiRepositoryProvider).assignmentAtBucket(bucket),
 );
 
 final chalukaProvider = FutureProvider<Chaluka>(

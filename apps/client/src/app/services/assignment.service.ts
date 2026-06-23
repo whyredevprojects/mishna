@@ -13,10 +13,10 @@ export class AssignmentService {
     return this.http.get<Assignment>('/api/assignments/today');
   }
 
-  /** The caller's assignment for an explicit `YYYY-MM-DD` (interpreted UTC). */
-  forDate(date: string): Observable<Assignment> {
+  /** The caller's assignment for an explicit, positional bucket (the pager target). */
+  atBucket(bucket: number): Observable<Assignment> {
     return this.http.get<Assignment>('/api/assignments', {
-      params: new HttpParams().set('date', date),
+      params: new HttpParams().set('bucket', bucket),
     });
   }
 

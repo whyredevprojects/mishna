@@ -48,7 +48,7 @@ export interface Cycle {
   totalDays: number;
 }
 
-/** GET /api/assignments/today and /api/assignments?date= */
+/** GET /api/assignments/today and /api/assignments?bucket= */
 export interface Assignment {
   userId: string;
   date: string;
@@ -57,6 +57,12 @@ export interface Assignment {
   groupId: string | null;
   /** The subset of `mishnas` the caller has already marked learned. */
   completed: MishnaRef[];
+  /** The bucket index this response represents (the pager's position). */
+  bucket: number;
+  /** Total number of pace-sized buckets in the caller's whole portion. */
+  bucketCount: number;
+  /** The current (next-unlearned) bucket index; equals `bucketCount` once finished. */
+  currentBucket: number;
 }
 
 /** GET /api/completions — every mishna the caller has marked learned. */

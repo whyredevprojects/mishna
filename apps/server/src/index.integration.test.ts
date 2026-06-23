@@ -71,9 +71,8 @@ describe('server API integration', () => {
     // The joiner's first week is their join date (scheduling is anchored there),
     // so they get the start of their lots — a non-empty slice, not a mid-cycle
     // catch-up.
-    const dateStr = new Date().toISOString().slice(0, 10);
     const assign = await SELF.fetch(
-      `https://server/api/assignments?date=${dateStr}`,
+      'https://server/api/assignments?bucket=0',
       { headers: as('alice') },
     );
     const assignment = (await assign.json()) as {
@@ -131,10 +130,9 @@ describe('server API integration', () => {
       expect(join.status).toBe(200);
     }
 
-    const dateStr = new Date().toISOString().slice(0, 10);
     async function assignmentFor(id: string) {
       const res = await SELF.fetch(
-        `https://server/api/assignments?date=${dateStr}`,
+        'https://server/api/assignments?bucket=0',
         { headers: as(id) },
       );
       return (await res.json()) as { userId: string; mishnas: MishnaRef[] };
@@ -348,11 +346,10 @@ describe('server API integration', () => {
       });
     }
 
-    /** alice's day-0 assignment: the corpus head plus her resolved group. */
+    /** alice's first-bucket assignment: the corpus head plus her resolved group. */
     async function aliceDayZero(): Promise<{ ref: MishnaRef; groupId: string }> {
-      const dateStr = new Date().toISOString().slice(0, 10);
       const res = await SELF.fetch(
-        `https://server/api/assignments?date=${dateStr}`,
+        'https://server/api/assignments?bucket=0',
         { headers: as('alice') },
       );
       const body = (await res.json()) as {
@@ -422,6 +419,58 @@ describe('server API integration', () => {
       expect(next.completed).toEqual([]);
     });
 
+    it('pages buckets with ?bucket and reports navigation metadata', async () => {
+      await joinAlice();
+      const key = (m: MishnaRef) => `${m.mesechta}|${m.perek}|${m.mishna}`;
+      type Nav = {
+        mishnas: MishnaRef[];
+        bucket: number;
+        bucketCount: number;
+        currentBucket: number;
+      };
+
+      // The current view (next-unlearned) opens on bucket 0 with nav metadata.
+      const current = (await (
+        await SELF.fetch('https://server/api/assignments/today', {
+          headers: as('alice'),
+        })
+      ).json()) as Nav;
+      expect(current.bucket).toBe(0);
+      expect(current.currentBucket).toBe(0);
+      expect(current.bucketCount).toBeGreaterThan(1);
+
+      // ?bucket=1 is a different, later slice.
+      const second = (await (
+        await SELF.fetch('https://server/api/assignments?bucket=1', {
+          headers: as('alice'),
+        })
+      ).json()) as Nav;
+      expect(second.bucket).toBe(1);
+      const firstKeys = new Set(current.mishnas.map(key));
+      expect(second.mishnas.some((m) => firstKeys.has(key(m)))).toBe(false);
+
+      // An over-step clamps to the last real bucket.
+      const far = (await (
+        await SELF.fetch('https://server/api/assignments?bucket=9999', {
+          headers: as('alice'),
+        })
+      ).json()) as Nav;
+      expect(far.bucket).toBe(far.bucketCount - 1);
+
+      // A missing or negative bucket is a 400.
+      expect(
+        (await SELF.fetch('https://server/api/assignments', { headers: as('alice') }))
+          .status,
+      ).toBe(400);
+      expect(
+        (
+          await SELF.fetch('https://server/api/assignments?bucket=-1', {
+            headers: as('alice'),
+          })
+        ).status,
+      ).toBe(400);
+    });
+
     it('round-trips a completion and is idempotent', async () => {
       await joinAlice();
       const { ref, groupId } = await aliceDayZero();
@@ -447,9 +496,8 @@ describe('server API integration', () => {
       expect(row?.group_id).toBe(groupId);
 
       // The assignment now carries its own completion state for its mishnas.
-      const dateStr = new Date().toISOString().slice(0, 10);
       const dayZero = await SELF.fetch(
-        `https://server/api/assignments?date=${dateStr}`,
+        'https://server/api/assignments?bucket=0',
         { headers: as('alice') },
       );
       const dayZeroBody = (await dayZero.json()) as { completed: MishnaRef[] };
@@ -562,10 +610,9 @@ describe('server API integration', () => {
       // group is the one carrying the joiner's first-week assignment (the
       // portion's start).
       const head = body.assigned[0];
-      const todayStr = new Date().toISOString().slice(0, 10);
       const groupId = (
         (await (
-          await SELF.fetch(`https://server/api/assignments?date=${todayStr}`, {
+          await SELF.fetch('https://server/api/assignments?bucket=0', {
             headers: as('alice'),
           })
         ).json()) as { groupId: string }

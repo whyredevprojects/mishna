@@ -63,9 +63,9 @@ mixin CompletionSync<T extends ConsumerStatefulWidget> on ConsumerState<T> {
       return;
     }
     // Keep the server-derived caches authoritative; their refetch re-seeds the
-    // screens (and already reflects this toggle). Invalidate every cached week,
-    // since the toggle may belong to any week the pager has visited.
-    this.ref.invalidate(assignmentByDateProvider);
+    // screens (and already reflects this toggle). Invalidate every cached bucket
+    // (and the current view), since the toggle may move the next-unlearned bucket.
+    this.ref.invalidate(assignmentProvider);
     this.ref.invalidate(chalukaProvider);
   }
 }

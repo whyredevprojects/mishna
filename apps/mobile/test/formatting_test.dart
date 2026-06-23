@@ -22,22 +22,4 @@ void main() {
     expect(formatLongDate('2026-06-02'), contains('June 2, 2026'));
     expect(formatLongDate('2026-06-02T00:00:00.000Z'), contains('June 2'));
   });
-
-  test('formatMonthDayYear renders a compact UTC label', () {
-    expect(formatMonthDayYear('2026-06-21'), 'June 21, 2026');
-  });
-
-  test('sundayOnOrBefore returns the week-start Sunday', () {
-    // 2026-06-21 is a Sunday; 22nd–27th fall in the same week.
-    expect(sundayOnOrBefore(DateTime.utc(2026, 6, 21)), '2026-06-21');
-    expect(sundayOnOrBefore(DateTime.utc(2026, 6, 23)), '2026-06-21');
-    expect(sundayOnOrBefore(DateTime.utc(2026, 6, 27)), '2026-06-21');
-    expect(sundayOnOrBefore(DateTime.utc(2026, 6, 28)), '2026-06-28');
-  });
-
-  test('addWeeks steps a YYYY-MM-DD by whole weeks', () {
-    expect(addWeeks('2026-06-21', 1), '2026-06-28');
-    expect(addWeeks('2026-06-21', -1), '2026-06-14');
-    expect(addWeeks('2026-06-21', 0), '2026-06-21');
-  });
 }

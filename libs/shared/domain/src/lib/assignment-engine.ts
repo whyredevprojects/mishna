@@ -21,6 +21,13 @@ export class AssignmentEngine {
     private readonly calendar: CycleCalendar,
   ) {}
 
+  /** The user's start anchor: their join date, or the cycle start as a fallback. */
+  private startOf(blocks: Block[], date: Date): Date {
+    return blocks[0].startDate
+      ? new Date(blocks[0].startDate)
+      : this.calendar.cycleStart(date);
+  }
+
   /** The mishnayot the user must learn in the week containing `date`. */
   getAssignment(blocks: Block[], date: Date): Assignment {
     if (blocks.length === 0) {
@@ -28,9 +35,7 @@ export class AssignmentEngine {
     }
 
     const userId = blocks[0].userId;
-    const start = blocks[0].startDate
-      ? new Date(blocks[0].startDate)
-      : this.calendar.cycleStart(date);
+    const start = this.startOf(blocks, date);
 
     // Weeks elapsed since the user joined (0 on their join week). Both day counts
     // are measured from the same cycle start, so the difference is start-relative.
@@ -65,26 +70,72 @@ export class AssignmentEngine {
     completed: MishnaRef[],
     date: Date,
   ): Assignment {
+    const index = this.nextUnlearnedBucket(blocks, completed, date);
+    return this.getBucketAssignment(blocks, index, date);
+  }
+
+  /**
+   * Index of the first `pace`-sized bucket still holding an unlearned mishna —
+   * the "current" bucket the dashboard opens on. Equals {@link bucketCount} once
+   * the whole portion is learned (one past the last bucket: the finished state).
+   */
+  nextUnlearnedBucket(
+    blocks: Block[],
+    completed: MishnaRef[],
+    date: Date,
+  ): number {
+    if (blocks.length === 0) {
+      return 0;
+    }
+    const start = this.startOf(blocks, date);
+    const pace = this.pace(blocks, start);
+    const ordered = this.orderBlocks(blocks);
+    const done = new Set(completed.map((ref) => this.structure.indexOf(ref)));
+    let index = 0;
+    for (let offset = 0; ; offset += pace, index++) {
+      const slice = this.take(ordered, offset, pace);
+      // No mishnayot left to take -> the whole portion is learned.
+      if (slice.length === 0) {
+        return index;
+      }
+      if (slice.some((ref) => !done.has(this.structure.indexOf(ref)))) {
+        return index;
+      }
+    }
+  }
+
+  /**
+   * The mishnayot in an explicit, positional `pace`-sized bucket (index 0 is the
+   * start of the user's portion). Empty for a negative index or one at/past the
+   * last bucket. Calendar-independent: the dashboard's prev/next pager walks
+   * these buckets relative to {@link nextUnlearnedBucket}.
+   */
+  getBucketAssignment(
+    blocks: Block[],
+    bucketIndex: number,
+    date: Date,
+  ): Assignment {
     if (blocks.length === 0) {
       return { userId: '', date, mishnas: [] };
     }
     const userId = blocks[0].userId;
-    const start = blocks[0].startDate
-      ? new Date(blocks[0].startDate)
-      : this.calendar.cycleStart(date);
+    if (bucketIndex < 0) {
+      return { userId, date, mishnas: [] };
+    }
+    const start = this.startOf(blocks, date);
     const pace = this.pace(blocks, start);
     const ordered = this.orderBlocks(blocks);
-    const done = new Set(completed.map((ref) => this.structure.indexOf(ref)));
-    for (let offset = 0; ; offset += pace) {
-      const slice = this.take(ordered, offset, pace);
-      // No mishnayot left to take -> the whole portion is learned.
-      if (slice.length === 0) {
-        return { userId, date, mishnas: [] };
-      }
-      if (slice.some((ref) => !done.has(this.structure.indexOf(ref)))) {
-        return { userId, date, mishnas: slice };
-      }
+    return { userId, date, mishnas: this.take(ordered, bucketIndex * pace, pace) };
+  }
+
+  /** How many `pace`-sized buckets the user's whole portion divides into. */
+  bucketCount(blocks: Block[], date: Date): number {
+    if (blocks.length === 0) {
+      return 0;
     }
+    const start = this.startOf(blocks, date);
+    const totalSize = blocks.reduce((sum, b) => sum + b.totalSize, 0);
+    return Math.ceil(totalSize / this.pace(blocks, start));
   }
 
   /**

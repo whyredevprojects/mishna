@@ -20,10 +20,9 @@ import { Commitment } from '../models/api.types';
 import { TodayCardComponent } from '../components/today-card.component';
 import { JoinFormComponent } from '../components/join-form.component';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
-import { addWeeks, formatRef, sundayOnOrBefore } from '../util/format';
+import { formatRef } from '../util/format';
 import { queryKeys } from '../queries/query-keys';
 import {
-  assignmentByDateQueryOptions,
   cycleQueryOptions,
   joinOptionsQueryOptions,
   meQueryOptions,
@@ -36,20 +35,19 @@ import {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
-      .week-nav {
+      .pager-nav {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--wa-space-s, 0.5rem);
       }
-      .week-label {
+      .pager-label {
         flex: 1;
         text-align: center;
         font-size: var(--wa-font-size-m, 1rem);
         font-weight: var(--wa-font-weight-semibold, 600);
-        font-variant-numeric: tabular-nums;
       }
-      .week-body {
+      .pager-body {
         touch-action: pan-y;
       }
       .spinner-wrap {
@@ -69,19 +67,19 @@ import {
         }
 
         @if (joined()) {
-          <div class="week-nav">
+          <div class="pager-nav">
             <wa-button
               appearance="plain"
-              aria-label="Previous week"
+              aria-label="Previous mishnayos"
               [attr.disabled]="canPrev() ? null : ''"
               (click)="prev()"
             >
               <wa-icon name="chevron-left"></wa-icon>
             </wa-button>
-            <span class="week-label muted">{{ weekLabel() }}</span>
+            <span class="pager-label muted">{{ pagerLabel() }}</span>
             <wa-button
               appearance="plain"
-              aria-label="Next week"
+              aria-label="Next mishnayos"
               [attr.disabled]="canNext() ? null : ''"
               (click)="next()"
             >
@@ -89,7 +87,7 @@ import {
             </wa-button>
           </div>
           <div
-            class="week-body"
+            class="pager-body"
             (touchstart)="onTouchStart($event)"
             (touchend)="onTouchEnd($event)"
           >
@@ -139,18 +137,30 @@ export class DashboardComponent {
     ...joinOptionsQueryOptions(this.groups),
     enabled: !this.joined(),
   }));
-  /** The week-start (Sunday, UTC) the user is currently looking at; defaults to today's. */
-  protected readonly selectedWeek = signal(sundayOnOrBefore(new Date()));
-  private readonly currentWeek = sundayOnOrBefore(new Date());
+  // The bucket the pager is showing; `null` means "the current (next-unlearned)
+  // bucket", which the server resolves and reports back as `bucket`. prev/next set
+  // an explicit index relative to whatever the response says it served.
+  protected readonly bucket = signal<number | null>(null);
 
-  // Only fetched once the user is known to have joined. Keyed per week, so each visited
-  // week caches separately; `keepPreviousData` keeps the prior week on screen (no spinner
-  // flash) while the next one loads.
-  private readonly assignmentQuery = injectQuery(() => ({
-    ...assignmentByDateQueryOptions(this.assignments, this.selectedWeek()),
-    enabled: this.joined(),
-    placeholderData: keepPreviousData,
-  }));
+  // Only fetched once the user is known to have joined. `null` → the current
+  // bucket (`/today`); a number → that explicit bucket. Keyed per bucket so each
+  // caches separately; `keepPreviousData` keeps the prior one on screen (no
+  // spinner flash) while the next loads.
+  private readonly assignmentQuery = injectQuery(() => {
+    const b = this.bucket();
+    return {
+      queryKey:
+        b === null
+          ? queryKeys.assignmentToday
+          : queryKeys.assignmentBucket(b),
+      queryFn: () =>
+        firstValueFrom(
+          b === null ? this.assignments.today() : this.assignments.atBucket(b),
+        ),
+      enabled: this.joined(),
+      placeholderData: keepPreviousData,
+    };
+  });
 
   protected readonly joinMutation = injectMutation(() => ({
     mutationFn: (commitment: Commitment) =>
@@ -194,36 +204,35 @@ export class DashboardComponent {
     () => new Set((this.assignment()?.completed ?? []).map((r) => formatRef(r))),
   );
 
-  /** "This week" for the current week, otherwise "Week of June 22, 2026". */
-  protected readonly weekLabel = computed(() => {
-    const week = this.selectedWeek();
-    if (week === this.currentWeek) return 'This week';
-    const label = new Date(`${week}T00:00:00.000Z`).toLocaleDateString(
-      undefined,
-      { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' },
-    );
-    return `Week of ${label}`;
+  // The bucket index the server actually served (after clamping), and the bounds
+  // derived from the response — so prev/next always step from the real position.
+  private readonly served = computed(() => this.assignment()?.bucket ?? 0);
+  private readonly bucketCount = computed(
+    () => this.assignment()?.bucketCount ?? 0,
+  );
+  private readonly currentBucket = computed(
+    () => this.assignment()?.currentBucket ?? 0,
+  );
+
+  /** A label for where the shown bucket sits relative to the current one. */
+  protected readonly pagerLabel = computed(() => {
+    const at = this.served();
+    const current = this.currentBucket();
+    if (at < current) return 'Already learned';
+    if (at > current) return 'Coming up';
+    return 'Current mishnayos';
   });
-  // The cycle's first week — the earliest week worth showing.
-  private readonly cycleStartWeek = computed(() => {
-    const start = this.cycle()?.cycleStart;
-    return start ? sundayOnOrBefore(new Date(start)) : null;
-  });
-  protected readonly canPrev = computed(() => {
-    const start = this.cycleStartWeek();
-    return !start || this.selectedWeek() > start;
-  });
-  // A user's portion is finite and empties contiguously once finished, so an empty
-  // displayed week is the end of the road forward.
+  protected readonly canPrev = computed(() => this.served() > 0);
+  // A user's portion is finite; the last bucket is the end of the road forward.
   protected readonly canNext = computed(
-    () => (this.assignment()?.mishnas.length ?? 0) > 0,
+    () => this.served() < this.bucketCount() - 1,
   );
 
   protected prev(): void {
-    if (this.canPrev()) this.selectedWeek.set(addWeeks(this.selectedWeek(), -1));
+    if (this.canPrev()) this.bucket.set(this.served() - 1);
   }
   protected next(): void {
-    if (this.canNext()) this.selectedWeek.set(addWeeks(this.selectedWeek(), 1));
+    if (this.canNext()) this.bucket.set(this.served() + 1);
   }
 
   private touchStartX: number | null = null;
@@ -235,7 +244,7 @@ export class DashboardComponent {
     const delta = (e.changedTouches[0]?.clientX ?? this.touchStartX) - this.touchStartX;
     this.touchStartX = null;
     if (Math.abs(delta) < 50) return;
-    // Swipe left → forward a week, swipe right → back a week.
+    // Swipe left → forward a bucket, swipe right → back a bucket.
     if (delta < 0) this.next();
     else this.prev();
   }

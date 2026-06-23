@@ -199,17 +199,29 @@ class Assignment {
     required this.mishnas,
     required this.groupId,
     required this.completed,
+    required this.bucket,
+    required this.bucketCount,
+    required this.currentBucket,
   });
 
   final String userId;
   final String date;
   final List<MishnaRef> mishnas;
 
-  /// The group completions are recorded under; null when the week is empty.
+  /// The group completions are recorded under; null when the bucket is empty.
   final String? groupId;
 
   /// The subset of [mishnas] already marked learned.
   final List<MishnaRef> completed;
+
+  /// The bucket index this response represents (the pager's position).
+  final int bucket;
+
+  /// Total number of pace-sized buckets in the caller's whole portion.
+  final int bucketCount;
+
+  /// The current (next-unlearned) bucket index; equals [bucketCount] once finished.
+  final int currentBucket;
 
   factory Assignment.fromJson(Map<String, dynamic> json) => Assignment(
         userId: json['userId'] as String,
@@ -217,6 +229,9 @@ class Assignment {
         mishnas: _refList(json['mishnas']),
         groupId: json['groupId'] as String?,
         completed: _refList(json['completed']),
+        bucket: json['bucket'] as int? ?? 0,
+        bucketCount: json['bucketCount'] as int? ?? 0,
+        currentBucket: json['currentBucket'] as int? ?? 0,
       );
 }
 

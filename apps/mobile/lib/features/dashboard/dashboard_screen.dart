@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/formatting.dart';
 import '../../data/models.dart';
 import '../../data/repositories.dart';
 import '../../widgets/completion_sync.dart';
@@ -10,8 +9,8 @@ import '../../widgets/join_form.dart';
 import '../../widgets/mishna_card.dart';
 import '../auth/auth_controller.dart';
 
-/// Logged-in home: this week's mishnayot when joined, otherwise the join card;
-/// cycle progress underneath either way.
+/// Logged-in home: the user's current mishnayot (a prev/next bucket pager) when
+/// joined, otherwise the join card; cycle progress underneath either way.
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -23,13 +22,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with CompletionSync {
   bool _joining = false;
 
-  /// The week-start (Sunday, UTC) the user is currently viewing, and today's —
-  /// the pager steps `_selectedWeek` while `_currentWeek` labels "This week".
-  final String _currentWeek = sundayOnOrBefore(DateTime.now());
-  late String _selectedWeek = _currentWeek;
+  /// The pager position: `null` is the current (next-unlearned) bucket, an `int`
+  /// is an explicit bucket. prev/next set an index relative to whatever the
+  /// server reports it served.
+  int? _bucket;
 
   /// Last assignment we had data for — kept on screen while stepping to a not-
-  /// yet-cached week, so navigation doesn't flash a spinner (the web client's
+  /// yet-cached bucket, so navigation doesn't flash a spinner (the web client's
   /// `keepPreviousData`).
   Assignment? _shown;
 
@@ -38,7 +37,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     try {
       await ref.read(apiRepositoryProvider).join(commitment);
       // Membership changed → re-derive session + assignment from the server.
-      ref.invalidate(assignmentByDateProvider);
+      ref.invalidate(assignmentProvider);
       ref.invalidate(chalukaProvider);
       await ref.read(authControllerProvider.notifier).refresh();
     } catch (_) {
@@ -57,48 +56,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Future<void> _refresh() async {
     ref.invalidate(cycleProvider);
     ref.invalidate(joinOptionsProvider);
-    ref.invalidate(assignmentByDateProvider);
+    ref.invalidate(assignmentProvider);
     await ref.read(authControllerProvider.notifier).refresh();
   }
 
-  /// The cycle's first week (Sunday on/before its start), once the cycle loads.
-  String? _cycleStartWeek() {
-    final cycle = ref.read(cycleProvider).value;
-    return cycle == null
-        ? null
-        : sundayOnOrBefore(DateTime.parse(cycle.cycleStart));
-  }
+  /// The bucket the server actually served (after clamping), and the bounds it
+  /// reports — so prev/next always step from the real position.
+  int get _served => _shown?.bucket ?? 0;
+  int get _bucketCount => _shown?.bucketCount ?? 0;
+  int get _currentBucket => _shown?.currentBucket ?? 0;
 
-  /// Before the cycle's first week is off-limits.
-  bool get _canPrev {
-    final start = _cycleStartWeek();
-    return start == null || _selectedWeek.compareTo(start) > 0;
-  }
+  bool get _canPrev => _served > 0;
 
-  /// A user's portion empties contiguously once finished, so an empty displayed
-  /// week is the end of the road forward.
-  bool get _canNext => _shown?.mishnas.isNotEmpty ?? false;
+  /// The last bucket is the end of the road forward.
+  bool get _canNext => _served < _bucketCount - 1;
 
   void _prev() {
-    if (_canPrev) setState(() => _selectedWeek = addWeeks(_selectedWeek, -1));
+    if (_canPrev) setState(() => _bucket = _served - 1);
   }
 
   void _next() {
-    if (_canNext) setState(() => _selectedWeek = addWeeks(_selectedWeek, 1));
+    if (_canNext) setState(() => _bucket = _served + 1);
   }
 
   void _onSwipe(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
     if (velocity < -200) {
-      _next(); // swipe left → forward a week
+      _next(); // swipe left → forward a bucket
     } else if (velocity > 200) {
-      _prev(); // swipe right → back a week
+      _prev(); // swipe right → back a bucket
     }
   }
 
-  String get _weekLabel => _selectedWeek == _currentWeek
-      ? 'This week'
-      : 'Week of ${formatMonthDayYear(_selectedWeek)}';
+  /// Where the shown bucket sits relative to the current (next-unlearned) one.
+  String get _pagerLabel {
+    if (_served < _currentBucket) return 'Already learned';
+    if (_served > _currentBucket) return 'Coming up';
+    return 'Current mishnayos';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +112,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             if (!joined) ...[
               ..._joinSection(),
             ] else ...[
-              _weekNav(theme),
+              _pagerNav(theme),
               const SizedBox(height: 8),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -163,25 +158,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  /// Prev/next week stepper with a centered "This week" / "Week of …" label.
-  Widget _weekNav(ThemeData theme) {
+  /// Prev/next bucket stepper, label showing where the shown bucket sits
+  /// relative to the current (next-unlearned) one.
+  Widget _pagerNav(ThemeData theme) {
     return Row(
       children: [
         IconButton(
           icon: const Icon(Icons.chevron_left),
-          tooltip: 'Previous week',
+          tooltip: 'Previous mishnayos',
           onPressed: _canPrev ? _prev : null,
         ),
         Expanded(
           child: Text(
-            _weekLabel,
+            _pagerLabel,
             textAlign: TextAlign.center,
             style: theme.textTheme.titleSmall,
           ),
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right),
-          tooltip: 'Next week',
+          tooltip: 'Next mishnayos',
           onPressed: _canNext ? _next : null,
         ),
       ],
@@ -190,13 +186,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   List<Widget> _assignmentSection() {
     final theme = Theme.of(context);
-    final assignment = ref.watch(assignmentByDateProvider(_selectedWeek));
+    final assignment = ref.watch(assignmentProvider(_bucket));
     final fresh = assignment.value;
     if (fresh != null) {
       _shown = fresh;
       seedCompletions(fresh, fresh.completed);
     }
-    // While stepping to a not-yet-loaded week, keep the last week on screen.
+    // While stepping to a not-yet-loaded bucket, keep the last one on screen.
     final Assignment? a = _shown;
     if (a == null) {
       if (assignment.hasError) {
@@ -205,7 +201,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             color: theme.colorScheme.errorContainer,
             child: const Padding(
               padding: EdgeInsets.all(16),
-              child: Text("Could not load this week's assignment."),
+              child: Text('Could not load your mishnayos.'),
             ),
           ),
         ];
@@ -218,11 +214,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       ];
     }
     if (a.mishnas.isEmpty) {
+      // An empty bucket means the whole portion is learned (the finished state).
       return [
-        Text(
-          'No mishnayot assigned this week.',
-          style: theme.textTheme.bodyMedium!
-              .copyWith(color: theme.colorScheme.outline),
+        Row(
+          children: [
+            Icon(Icons.check_circle, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "You've finished all your mishnayos!",
+                style: theme.textTheme.titleSmall!
+                    .copyWith(color: theme.colorScheme.primary),
+              ),
+            ),
+          ],
         ),
       ];
     }

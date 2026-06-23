@@ -16,8 +16,8 @@ export const queryKeys = {
   assignmentRoot: ['assignment'] as const,
   /** GET /api/me/chaluka — the caller's whole-cycle portion + learned subset. */
   chaluka: ['chaluka'] as const,
-  /** GET /api/assignments?date= — a specific day (keyed per date so each is cached). */
-  assignment: (date: string) => ['assignment', date] as const,
+  /** GET /api/assignments?bucket= — a specific bucket (keyed per index so each caches). */
+  assignmentBucket: (bucket: number) => ['assignment', 'bucket', bucket] as const,
   /** GET /api/admin/stats — Overview dashboard counters. */
   adminStats: ['admin', 'stats'] as const,
   /** GET /api/admin/groups. */

@@ -181,4 +181,44 @@ describe('AssignmentEngine', () => {
       expect(engine.getNextAssignment([], [], cycleDay(0)).mishnas).toEqual([]);
     });
   });
+
+  describe('bucket navigation (prev/next pager)', () => {
+    // 10 mishnayot, pace 2 -> 5 buckets: [0,1] [2,3] [4,5] [6,7] [8,9].
+    const engine = new AssignmentEngine(
+      structure,
+      fakeCalendar({ cycleLengthDays: 35 }),
+    );
+    const block = makeBlock(structure, 'u1', [[0, 9]], 3, iso(0));
+    const learned = (...indices: number[]) => indices.map((i) => structure.refAt(i));
+
+    it('counts the portion in pace-sized buckets', () => {
+      expect(engine.bucketCount([block], cycleDay(0))).toBe(5);
+      expect(engine.bucketCount([], cycleDay(0))).toBe(0);
+    });
+
+    it('reads an explicit, positional bucket regardless of the calendar', () => {
+      expect(indicesOf(engine.getBucketAssignment([block], 0, cycleDay(0)).mishnas)).toEqual([0, 1]);
+      expect(indicesOf(engine.getBucketAssignment([block], 2, cycleDay(0)).mishnas)).toEqual([4, 5]);
+      // Much later date, same positional bucket.
+      expect(indicesOf(engine.getBucketAssignment([block], 4, cycleDay(200)).mishnas)).toEqual([8, 9]);
+    });
+
+    it('returns an empty slice past the last bucket or for a negative index', () => {
+      expect(engine.getBucketAssignment([block], 5, cycleDay(0)).mishnas).toEqual([]);
+      expect(engine.getBucketAssignment([block], -1, cycleDay(0)).mishnas).toEqual([]);
+    });
+
+    it('points the current bucket at the first unlearned slice', () => {
+      expect(engine.nextUnlearnedBucket([block], [], cycleDay(0))).toBe(0);
+      expect(engine.nextUnlearnedBucket([block], learned(0, 1), cycleDay(0))).toBe(1);
+      // bucket 1 learned but bucket 0 not -> still 0.
+      expect(engine.nextUnlearnedBucket([block], learned(2, 3), cycleDay(0))).toBe(0);
+    });
+
+    it('reports the current bucket as one-past-the-last once finished', () => {
+      const all = learned(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+      expect(engine.nextUnlearnedBucket([block], all, cycleDay(0))).toBe(5);
+      expect(engine.bucketCount([block], cycleDay(0))).toBe(5);
+    });
+  });
 });

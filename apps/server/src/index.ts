@@ -96,44 +96,66 @@ function groupIdForRef(
 }
 
 /**
- * The week's assignment plus the group it belongs to. `groupId` is resolved from
- * the first mishna's block (null when the assignment is empty); the client echoes
- * it back when recording completions. At the single overflow boundary a user's
- * mishnayot can span two groups — they're all attributed to the first's group.
+ * The "current mishnayos" the dashboard opens on: the user's *next still-unlearned*
+ * bucket (progress-based, not the calendar week). `groupId` is resolved from the
+ * first mishna's block (null when empty); the client echoes it back when recording
+ * completions. The slice advances as the user checks it off and empties once the
+ * whole portion is learned. Carries the navigation metadata the prev/next pager
+ * needs: `bucket` (the index shown), `bucketCount` (total), and `currentBucket`
+ * (the next-unlearned index — equal to `bucket` here). At the single overflow
+ * boundary a user's mishnayot can span two groups — all attributed to the first's.
  */
-async function buildAssignment(env: Env, userId: string, date: Date) {
-  const groups = await userGroups(env, userId);
-  const assignment = assignmentEngine.getAssignment(
-    userBlocks(groups, userId),
-    date,
-  );
-  const groupId = assignment.mishnas.length
-    ? groupIdForRef(groups, userId, assignment.mishnas[0])
-    : null;
-  const completed = await completedAmong(env, userId, assignment.mishnas);
-  return { ...assignment, groupId, completed };
+async function buildNextAssignment(env: Env, userId: string, date: Date) {
+  return buildBucketResponse(env, userId, date, null);
 }
 
 /**
- * Like {@link buildAssignment} but progress-based: the user's *next still-unlearned*
- * bucket (the front page's "current mishnayos"), not the calendar week's slice. The
- * slice advances when the user checks it all off, and empties out once their whole
- * portion is learned. Same response shape, so clients are unchanged.
+ * Like {@link buildNextAssignment} but for an explicit, positional bucket index —
+ * the target of the dashboard's prev/next pager. Out-of-range indices clamp to the
+ * nearest real bucket, and the served index comes back as `bucket` so the client
+ * can resync. `null` selects the next-unlearned bucket (the "current" view).
  */
-async function buildNextAssignment(env: Env, userId: string, date: Date) {
+async function buildBucketAssignment(
+  env: Env,
+  userId: string,
+  bucketIndex: number,
+) {
+  return buildBucketResponse(env, userId, new Date(), bucketIndex);
+}
+
+/** Shared core: resolve a bucket (current when `requested` is null) + nav metadata. */
+async function buildBucketResponse(
+  env: Env,
+  userId: string,
+  date: Date,
+  requested: number | null,
+) {
   const groups = await userGroups(env, userId);
+  const blocks = userBlocks(groups, userId);
   const allCompleted = await allCompletions(env, userId);
-  const assignment = assignmentEngine.getNextAssignment(
-    userBlocks(groups, userId),
+
+  const bucketCount = assignmentEngine.bucketCount(blocks, date);
+  const currentBucket = assignmentEngine.nextUnlearnedBucket(
+    blocks,
     allCompleted,
     date,
   );
+  // The current view shows the next-unlearned bucket (which may be the finished
+  // state, one past the last). An explicit index clamps to the real buckets.
+  const bucket =
+    requested === null
+      ? currentBucket
+      : bucketCount === 0
+        ? 0
+        : Math.min(Math.max(0, requested), bucketCount - 1);
+
+  const assignment = assignmentEngine.getBucketAssignment(blocks, bucket, date);
   const groupId = assignment.mishnas.length
     ? groupIdForRef(groups, userId, assignment.mishnas[0])
     : null;
   const done = new Set(allCompleted.map(refKey));
   const completed = assignment.mishnas.filter((ref) => done.has(refKey(ref)));
-  return { ...assignment, groupId, completed };
+  return { ...assignment, groupId, completed, bucket, bucketCount, currentBucket };
 }
 
 /** `refKey`-style identity for a mishna ("Berachos|1|1"); cross-cycle, group-agnostic. */
@@ -560,13 +582,16 @@ app.get('/api/assignments/today', requireAuth, async (c) => {
   return c.json(await buildNextAssignment(c.env, c.get('userId'), new Date()));
 });
 
-// The caller's mishnayot for an explicit `?date=YYYY-MM-DD` (interpreted UTC).
+// The caller's mishnayot for an explicit, positional bucket (`?bucket=N`) — the
+// target of the dashboard's prev/next pager (next/prev relative to the current,
+// next-unlearned bucket). Out-of-range indices clamp to the nearest real bucket.
 app.get('/api/assignments', requireAuth, async (c) => {
-  const date = parseUtcDate(c.req.query('date'));
-  if (date === null) {
-    return c.json({ error: 'date must be YYYY-MM-DD' }, 400);
+  const raw = c.req.query('bucket');
+  const bucket = Number(raw);
+  if (raw === undefined || !Number.isInteger(bucket) || bucket < 0) {
+    return c.json({ error: 'bucket must be a non-negative integer' }, 400);
   }
-  return c.json(await buildAssignment(c.env, c.get('userId'), date));
+  return c.json(await buildBucketAssignment(c.env, c.get('userId'), bucket));
 });
 
 // Every mishna the caller has marked learned (across groups, all cycles). The

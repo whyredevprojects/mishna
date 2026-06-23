@@ -94,8 +94,8 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `PUT /api/me/preferences` `{ timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled }` | Validate (IANA tz via `Intl`, dow 0-6) + upsert (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |
-| `GET /api/assignments/today` | The caller's **current** mishnayot — their *next still-unlearned* bucket — plus the `groupId` they belong to (auth). Progress-based, not calendar-based: the slice advances as the user checks it off and empties once their whole portion is learned (`buildNextAssignment` → `AssignmentEngine.getNextAssignment`). The `/today` route name is kept. |
-| `GET /api/assignments?date=YYYY-MM-DD` | Same for the week containing an explicit UTC date (auth). |
+| `GET /api/assignments/today` | The caller's **current** mishnayot — their *next still-unlearned* bucket — plus the `groupId` they belong to and the pager's navigation metadata `{ bucket, bucketCount, currentBucket }` (auth). Progress-based, not calendar-based: the slice advances as the user checks it off and empties once their whole portion is learned (`buildNextAssignment` → `AssignmentEngine.nextUnlearnedBucket` + `getBucketAssignment`). The `/today` route name is kept. |
+| `GET /api/assignments?bucket=N` | The caller's mishnayot for an explicit, **positional** bucket index — the target of the dashboard's prev/next pager (next/prev relative to the current, next-unlearned bucket). Out-of-range indices clamp to the nearest real bucket (the served index comes back as `bucket`); a missing or negative `bucket` is a `400`. Same response shape + nav metadata as `/today` (auth). |
 | `GET /api/completions` | `{ completed: MishnaRef[] }` — every mishna the caller has marked learned (auth). |
 | `POST /api/completions` `{ ref, groupId }` | Mark a mishna learned; validates the ref + the caller's membership of `groupId`, then upserts (auth). |
 | `DELETE /api/completions` `{ ref, groupId }` | Unmark a mishna; idempotent, scoped to the caller's rows (auth). |
@@ -127,8 +127,9 @@ root CLAUDE.md "Changing the domain") — don't hand-edit those values. The R2 b
 (`ABOUT_BUCKET`) and `R2_PUBLIC_BASE_URL` are provisioned later — until then the handlers
 fail loudly with a `500` (see the TODOs in `wrangler.toml`).
 
-`groupId` on assignments is resolved by `buildAssignment`: it finds the group whose block
-range contains the day's mishnayot. Completions reuse this id rather than re-deriving it
+`groupId` on assignments is resolved by `buildBucketResponse` (the shared core behind
+`buildNextAssignment`/`buildBucketAssignment`): it finds the group whose block
+range contains the bucket's mishnayot. Completions reuse this id rather than re-deriving it
 on every write. (On the single overflow-boundary day a user's mishnayot can span two
 groups; they're all attributed to the first's group — accepted noise for a progress
 rollup.)
