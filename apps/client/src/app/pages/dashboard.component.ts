@@ -27,7 +27,7 @@ import {
   todayAssignmentQueryOptions,
 } from '../queries/queries';
 
-/** Logged-in home: this week's mishnayot when joined, otherwise the join card. */
+/** Logged-in home: the user's current mishnayot when joined, otherwise the join card. */
 @Component({
   selector: 'app-dashboard',
   imports: [TodayCardComponent, JoinFormComponent, CycleProgressComponent],
@@ -54,8 +54,10 @@ import {
         }
 
         @if (joined()) {
-          <p class="today-date muted">This week’s mishnayos</p>
           @if (assignment(); as a) {
+            @if (a.mishnas.length) {
+              <p class="today-date muted">Your next mishnayos</p>
+            }
             <app-today-card
               [mishnas]="a.mishnas"
               [date]="a.date"
