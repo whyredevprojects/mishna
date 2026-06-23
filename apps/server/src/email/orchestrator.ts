@@ -3,12 +3,12 @@ import {
   alreadySentSet,
   loadBlocksFor,
   loadCandidates,
-  loadCompletedFor,
+  loadCompletedRefsFor,
   loadEmailsFor,
   refKey,
 } from './data';
 import { PreparedEmail } from './sender';
-import { weekRefs } from './quota';
+import { nextRefs } from './quota';
 
 // Emails go out at 08:00 in the recipient's own timezone. The cron fires hourly,
 // so this matches each zone exactly once per local day.
@@ -62,40 +62,39 @@ export async function planSends(env: Env, now: Date): Promise<PreparedEmail[]> {
   if (live.length === 0) return [];
 
   // 3. Resolve blocks + completions + addresses for the survivors (batched).
+  //    Completions are needed for every live user now (weekly *and* reminder), since
+  //    the content is the next still-unlearned bucket, not a fixed calendar slice.
   const liveUserIds = [...new Set(live.map((d) => d.userId))];
-  const reminderUserIds = [
-    ...new Set(live.filter((d) => d.kind === 'reminder').map((d) => d.userId)),
-  ];
   const [blocksByUser, completedByUser, emailByUser] = await Promise.all([
     loadBlocksFor(env, liveUserIds),
-    reminderUserIds.length
-      ? loadCompletedFor(env, reminderUserIds)
-      : Promise.resolve(new Map<string, Set<string>>()),
+    loadCompletedRefsFor(env, liveUserIds),
     loadEmailsFor(env, liveUserIds),
   ]);
 
-  // 4. Build the prepared sends. Skip users with no address, and reminders with
-  //    nothing still unlearned for the week.
+  // 4. Build the prepared sends. The content is the user's next still-unlearned
+  //    bucket (same as the dashboard): weekly shows the whole bucket, reminder only
+  //    its still-pending mishnayot. Skip users with no address, and anyone who has
+  //    learned their whole portion (an empty bucket — nothing left to send).
   const prepared: PreparedEmail[] = [];
   for (const d of live) {
     const to = emailByUser.get(d.userId);
     if (!to) continue;
-    const refs = weekRefs(blocksByUser.get(d.userId) ?? [], d.weekStart);
+    const completed = completedByUser.get(d.userId) ?? [];
+    const next = nextRefs(blocksByUser.get(d.userId) ?? [], completed, now);
+    if (next.length === 0) continue;
     if (d.kind === 'weekly') {
-      prepared.push({ userId: d.userId, kind: 'weekly', weekStart: d.weekStart, to, refs });
+      prepared.push({ userId: d.userId, kind: 'weekly', weekStart: d.weekStart, to, refs: next });
       continue;
     }
-    const done = completedByUser.get(d.userId) ?? new Set<string>();
-    const pending = refs.filter((r) => !done.has(refKey(r)));
-    if (pending.length > 0) {
-      prepared.push({
-        userId: d.userId,
-        kind: 'reminder',
-        weekStart: d.weekStart,
-        to,
-        refs: pending,
-      });
-    }
+    // The bucket was chosen for having an unlearned mishna, so this is non-empty.
+    const done = new Set(completed.map(refKey));
+    prepared.push({
+      userId: d.userId,
+      kind: 'reminder',
+      weekStart: d.weekStart,
+      to,
+      refs: next.filter((r) => !done.has(refKey(r))),
+    });
   }
   return prepared;
 }

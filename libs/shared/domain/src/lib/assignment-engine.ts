@@ -53,6 +53,41 @@ export class AssignmentEngine {
   }
 
   /**
+   * The user's *next* still-unlearned portion: the first week-bucket (same fixed
+   * `pace`-sized slices as {@link getAssignment}) that still contains a mishna the
+   * user hasn't marked learned. Unlike `getAssignment` this advances by progress,
+   * not the calendar — check a bucket off and the next one surfaces. Returns an
+   * empty slice once the whole portion is learned. `date` only stamps the result
+   * and seeds the no-`startDate` fallback; it never selects the bucket.
+   */
+  getNextAssignment(
+    blocks: Block[],
+    completed: MishnaRef[],
+    date: Date,
+  ): Assignment {
+    if (blocks.length === 0) {
+      return { userId: '', date, mishnas: [] };
+    }
+    const userId = blocks[0].userId;
+    const start = blocks[0].startDate
+      ? new Date(blocks[0].startDate)
+      : this.calendar.cycleStart(date);
+    const pace = this.pace(blocks, start);
+    const ordered = this.orderBlocks(blocks);
+    const done = new Set(completed.map((ref) => this.structure.indexOf(ref)));
+    for (let offset = 0; ; offset += pace) {
+      const slice = this.take(ordered, offset, pace);
+      // No mishnayot left to take -> the whole portion is learned.
+      if (slice.length === 0) {
+        return { userId, date, mishnas: [] };
+      }
+      if (slice.some((ref) => !done.has(this.structure.indexOf(ref)))) {
+        return { userId, date, mishnas: slice };
+      }
+    }
+  }
+
+  /**
    * Weekly pace: the user's whole portion spread evenly over the weeks left in
    * the cycle from their start, so they finish right around the cycle end. For a
    * normal signup this is at most their chosen commitment (the allocation budget

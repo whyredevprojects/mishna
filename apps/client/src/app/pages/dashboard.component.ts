@@ -29,7 +29,7 @@ import {
   meQueryOptions,
 } from '../queries/queries';
 
-/** Logged-in home: this week's mishnayot when joined, otherwise the join card. */
+/** Logged-in home: the user's current mishnayot when joined, otherwise the join card. */
 @Component({
   selector: 'app-dashboard',
   imports: [TodayCardComponent, JoinFormComponent, CycleProgressComponent],

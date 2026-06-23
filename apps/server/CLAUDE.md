@@ -15,7 +15,7 @@ allocation writes so concurrent joins can't corrupt a group.
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics), `orchestrator.ts` (`planSends` — who is due at 08:00 local, fully resolved via batched reads → `PreparedEmail[]`), `sender.ts` (`PreparedEmail`, `processJobs` — render → Resend batch w/ idempotency key → log, plus `prepareOne` for admin), `data.ts` (`loadCandidates` + batched `loadEmailsFor`/`alreadySentSet`/`loadBlocksFor`/`loadCompletedFor` over `DB` + `AUTH_DB`; single-user `loadRecipient`/`loadBlocks`/`pendingRefs` for the admin path), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
+| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics), `orchestrator.ts` (`planSends` — who is due at 08:00 local, fully resolved via batched reads → `PreparedEmail[]`), `sender.ts` (`PreparedEmail`, `processJobs` — render → Resend batch w/ idempotency key → log, plus `prepareOne` for admin), `data.ts` (`loadCandidates` + batched `loadEmailsFor`/`alreadySentSet`/`loadBlocksFor`/`loadCompletedRefsFor` over `DB` + `AUTH_DB`; single-user `loadRecipient`/`loadBlocks`/`loadCompleted` for the admin path), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
@@ -94,7 +94,7 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `PUT /api/me/preferences` `{ timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled }` | Validate (IANA tz via `Intl`, dow 0-6) + upsert (auth). |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |
-| `GET /api/assignments/today` | This week's mishnayot for the caller, plus the `groupId` they belong to (auth). The route keeps its `/today` name; it returns the current week's bucket (commitment is per-week). |
+| `GET /api/assignments/today` | The caller's **current** mishnayot — their *next still-unlearned* bucket — plus the `groupId` they belong to (auth). Progress-based, not calendar-based: the slice advances as the user checks it off and empties once their whole portion is learned (`buildNextAssignment` → `AssignmentEngine.getNextAssignment`). The `/today` route name is kept. |
 | `GET /api/assignments?date=YYYY-MM-DD` | Same for the week containing an explicit UTC date (auth). |
 | `GET /api/completions` | `{ completed: MishnaRef[] }` — every mishna the caller has marked learned (auth). |
 | `POST /api/completions` `{ ref, groupId }` | Mark a mishna learned; validates the ref + the caller's membership of `groupId`, then upserts (auth). |
@@ -146,19 +146,22 @@ with a free `step.sleep` between to stay under Resend's rate limit. It closes wi
 `run-metrics` step logging one `{ evt: 'reminder_run', durationMs, planned, sent, batches }`
 line — the early-warning for the per-invocation ceiling.
 
-**Week quota.** Commitment is per **week**, so a weekly email's quota is `commitment`
-mishnayot (1/2/3), not a 7-day concatenation. `weekRefs` (`email/quota.ts`) returns the
-domain's week-bucket slice for the cycle-week containing the user's `weekStart`. Note the
-week bucket is counted from the cycle start (1 Sivan) while `weekStart` is anchored to the
-user's chosen weekly-email weekday, so the dashboard's "this week" and the email's week can
-differ by a few days at bucket boundaries; the next email re-syncs. This anchor choice is an
-open question recorded in the root `TODO.md`.
+**Email content — the next unlearned bucket.** Emails keep their calendar *schedule*
+and per-week dedup (timing anchored to the user's weekly-email weekday; `email_log`
+deduped on `(user, kind, weekStart)`), but their *content* is the user's **next
+still-unlearned bucket** — the same `pace`-sized slice the dashboard shows, via `nextRefs`
+(`email/quota.ts`) → `AssignmentEngine.getNextAssignment`. The weekly email shows the whole
+bucket; the reminder shows only its still-pending mishnayot. Both are **skipped once the
+user has learned their whole portion** (an empty next bucket), so a finished user gets no
+further mail. Because the content is progress-based, `planSends` loads completions for
+**every** due user (not just reminders).
 
 **Scalability — batched reads.** `planSends` does **not** do a per-user query loop. It
 loads all participants+prefs once (`loadCandidates`, addresses excluded), filters to those
 at 08:00 local, then resolves the survivors with a handful of set-based `IN (...)` reads
 (chunked under D1's 100-param ceiling): `alreadySentSet` (dedup), `loadBlocksFor`,
-`loadCompletedFor` (reminders only), and `loadEmailsFor` (addresses for the due subset
+`loadCompletedRefsFor` (all due users — the next-bucket content needs them), and
+`loadEmailsFor` (addresses for the due subset
 only — not the whole `user` table every hour). So a run is O(due/100) subrequests, not
 O(due); the ceiling is users-due-in-one-hour, kept well inside budget. `planSends` returns
 `PreparedEmail`s (address + the exact mishnayot to render), so `processJobs` does no

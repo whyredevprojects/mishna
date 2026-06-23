@@ -23,8 +23,9 @@ const SYNC_ERROR =
   "We weren't able to update your progress. Please try again later.";
 
 /**
- * This week's mishnayot — one {@link MishnaCardComponent} per mishna, with a
- * completion banner when all are learned.
+ * The user's current mishnayot — one {@link MishnaCardComponent} per mishna, with a
+ * completion banner when all are learned, or a "finished" banner once their whole
+ * portion is done (an empty assignment).
  *
  * This component owns the week's completion state so the cards share one source of
  * truth. The initial state comes from the parent (server-loaded), and each toggle
@@ -71,7 +72,10 @@ const SYNC_ERROR =
         </div>
       }
     } @else {
-      <p class="muted">No mishnayot assigned this week.</p>
+      <div class="done-banner">
+        <wa-icon name="circle-check" variant="solid"></wa-icon>
+        You’ve finished all your mishnayos!
+      </div>
     }
   `,
 })

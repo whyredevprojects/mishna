@@ -387,6 +387,41 @@ describe('server API integration', () => {
       expect(body.groupId).toBeTruthy();
     });
 
+    it('advances /today to the next bucket once the current one is learned', async () => {
+      await joinAlice();
+      const key = (m: MishnaRef) => `${m.mesechta}|${m.perek}|${m.mishna}`;
+      const fetchToday = async () =>
+        (await (
+          await SELF.fetch('https://server/api/assignments/today', {
+            headers: as('alice'),
+          })
+        ).json()) as {
+          mishnas: MishnaRef[];
+          groupId: string | null;
+          completed: MishnaRef[];
+        };
+
+      const first = await fetchToday();
+      expect(first.mishnas.length).toBeGreaterThan(0);
+      expect(first.completed).toEqual([]);
+
+      // Mark the whole current bucket learned.
+      for (const ref of first.mishnas) {
+        const res = await SELF.fetch(
+          'https://server/api/completions',
+          completionBody(ref, first.groupId as string),
+        );
+        expect(res.status).toBe(200);
+      }
+
+      // /today now shows the next bucket — different mishnayot, freshly unlearned.
+      const next = await fetchToday();
+      const firstKeys = new Set(first.mishnas.map(key));
+      expect(next.mishnas.length).toBeGreaterThan(0);
+      expect(next.mishnas.some((m) => firstKeys.has(key(m)))).toBe(false);
+      expect(next.completed).toEqual([]);
+    });
+
     it('round-trips a completion and is idempotent', async () => {
       await joinAlice();
       const { ref, groupId } = await aliceDayZero();
