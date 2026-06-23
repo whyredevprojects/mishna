@@ -14,18 +14,9 @@ import { adminAssignmentsQueryOptions } from '../queries/queries';
 import { queryKeys } from '../queries/query-keys';
 import { DataTableComponent, TableColumn } from '../ui/data-table.component';
 import { PaginatorComponent } from '../ui/paginator.component';
-import { formatRef } from '../util/format';
+import { formatRef, sundayOnOrBefore } from '../util/format';
 
 const PAGE_SIZE = 50;
-
-/** Sunday (UTC) on or before `d`, as a YYYY-MM-DD week-start. */
-function sundayOnOrBefore(d: Date): string {
-  const x = new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
-  );
-  x.setUTCDate(x.getUTCDate() - x.getUTCDay());
-  return x.toISOString().slice(0, 10);
-}
 
 /**
  * Per-user view of a chosen week's mishnayot, with email + completion status and

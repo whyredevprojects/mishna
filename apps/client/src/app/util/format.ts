@@ -19,6 +19,22 @@ export function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** The Sunday (UTC) on or before `d`, as a `YYYY-MM-DD` week-start key. */
+export function sundayOnOrBefore(d: Date): string {
+  const x = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  );
+  x.setUTCDate(x.getUTCDate() - x.getUTCDay());
+  return x.toISOString().slice(0, 10);
+}
+
+/** Step a `YYYY-MM-DD` (UTC) date by `weeks` (may be negative). */
+export function addWeeks(iso: string, weeks: number): string {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + weeks * 7);
+  return d.toISOString().slice(0, 10);
+}
+
 /** A friendly "Tuesday, June 2, 2026" for display, read in UTC. */
 export function formatLongDate(iso: string): string {
   const date = new Date(iso.length === 10 ? `${iso}T00:00:00.000Z` : iso);

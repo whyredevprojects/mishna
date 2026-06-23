@@ -3,10 +3,12 @@ import {
   Component,
   computed,
   inject,
+  signal,
 } from '@angular/core';
 import {
   injectMutation,
   injectQuery,
+  keepPreviousData,
   QueryClient,
 } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
@@ -18,13 +20,13 @@ import { Commitment } from '../models/api.types';
 import { TodayCardComponent } from '../components/today-card.component';
 import { JoinFormComponent } from '../components/join-form.component';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
-import { formatRef } from '../util/format';
+import { addWeeks, formatRef, sundayOnOrBefore } from '../util/format';
 import { queryKeys } from '../queries/query-keys';
 import {
+  assignmentByDateQueryOptions,
   cycleQueryOptions,
   joinOptionsQueryOptions,
   meQueryOptions,
-  todayAssignmentQueryOptions,
 } from '../queries/queries';
 
 /** Logged-in home: this week's mishnayot when joined, otherwise the join card. */
@@ -34,8 +36,21 @@ import {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [
     `
-      .today-date {
+      .week-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--wa-space-s, 0.5rem);
+      }
+      .week-label {
+        flex: 1;
+        text-align: center;
         font-size: var(--wa-font-size-m, 1rem);
+        font-weight: var(--wa-font-weight-semibold, 600);
+        font-variant-numeric: tabular-nums;
+      }
+      .week-body {
+        touch-action: pan-y;
       }
       .spinner-wrap {
         display: flex;
@@ -54,15 +69,39 @@ import {
         }
 
         @if (joined()) {
-          <p class="today-date muted">This week’s mishnayos</p>
-          @if (assignment(); as a) {
-            <app-today-card
-              [mishnas]="a.mishnas"
-              [date]="a.date"
-              [groupId]="a.groupId"
-              [completed]="completed()"
-            ></app-today-card>
-          }
+          <div class="week-nav">
+            <wa-button
+              appearance="plain"
+              aria-label="Previous week"
+              [attr.disabled]="canPrev() ? null : ''"
+              (click)="prev()"
+            >
+              <wa-icon name="chevron-left"></wa-icon>
+            </wa-button>
+            <span class="week-label muted">{{ weekLabel() }}</span>
+            <wa-button
+              appearance="plain"
+              aria-label="Next week"
+              [attr.disabled]="canNext() ? null : ''"
+              (click)="next()"
+            >
+              <wa-icon name="chevron-right"></wa-icon>
+            </wa-button>
+          </div>
+          <div
+            class="week-body"
+            (touchstart)="onTouchStart($event)"
+            (touchend)="onTouchEnd($event)"
+          >
+            @if (assignment(); as a) {
+              <app-today-card
+                [mishnas]="a.mishnas"
+                [date]="a.date"
+                [groupId]="a.groupId"
+                [completed]="completed()"
+              ></app-today-card>
+            }
+          </div>
           @if (cycle(); as c) {
             <wa-divider></wa-divider>
             <app-cycle-progress [cycle]="c"></app-cycle-progress>
@@ -100,10 +139,17 @@ export class DashboardComponent {
     ...joinOptionsQueryOptions(this.groups),
     enabled: !this.joined(),
   }));
-  // Only fetched once the user is known to have joined.
+  /** The week-start (Sunday, UTC) the user is currently looking at; defaults to today's. */
+  protected readonly selectedWeek = signal(sundayOnOrBefore(new Date()));
+  private readonly currentWeek = sundayOnOrBefore(new Date());
+
+  // Only fetched once the user is known to have joined. Keyed per week, so each visited
+  // week caches separately; `keepPreviousData` keeps the prior week on screen (no spinner
+  // flash) while the next one loads.
   private readonly assignmentQuery = injectQuery(() => ({
-    ...todayAssignmentQueryOptions(this.assignments),
+    ...assignmentByDateQueryOptions(this.assignments, this.selectedWeek()),
     enabled: this.joined(),
+    placeholderData: keepPreviousData,
   }));
 
   protected readonly joinMutation = injectMutation(() => ({
@@ -113,7 +159,7 @@ export class DashboardComponent {
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: queryKeys.me });
       this.queryClient.invalidateQueries({
-        queryKey: queryKeys.assignmentToday,
+        queryKey: queryKeys.assignmentRoot,
       });
       this.queryClient.invalidateQueries({ queryKey: queryKeys.chaluka });
     },
@@ -147,6 +193,52 @@ export class DashboardComponent {
   protected readonly completed = computed(
     () => new Set((this.assignment()?.completed ?? []).map((r) => formatRef(r))),
   );
+
+  /** "This week" for the current week, otherwise "Week of June 22, 2026". */
+  protected readonly weekLabel = computed(() => {
+    const week = this.selectedWeek();
+    if (week === this.currentWeek) return 'This week';
+    const label = new Date(`${week}T00:00:00.000Z`).toLocaleDateString(
+      undefined,
+      { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' },
+    );
+    return `Week of ${label}`;
+  });
+  // The cycle's first week — the earliest week worth showing.
+  private readonly cycleStartWeek = computed(() => {
+    const start = this.cycle()?.cycleStart;
+    return start ? sundayOnOrBefore(new Date(start)) : null;
+  });
+  protected readonly canPrev = computed(() => {
+    const start = this.cycleStartWeek();
+    return !start || this.selectedWeek() > start;
+  });
+  // A user's portion is finite and empties contiguously once finished, so an empty
+  // displayed week is the end of the road forward.
+  protected readonly canNext = computed(
+    () => (this.assignment()?.mishnas.length ?? 0) > 0,
+  );
+
+  protected prev(): void {
+    if (this.canPrev()) this.selectedWeek.set(addWeeks(this.selectedWeek(), -1));
+  }
+  protected next(): void {
+    if (this.canNext()) this.selectedWeek.set(addWeeks(this.selectedWeek(), 1));
+  }
+
+  private touchStartX: number | null = null;
+  protected onTouchStart(e: TouchEvent): void {
+    this.touchStartX = e.changedTouches[0]?.clientX ?? null;
+  }
+  protected onTouchEnd(e: TouchEvent): void {
+    if (this.touchStartX === null) return;
+    const delta = (e.changedTouches[0]?.clientX ?? this.touchStartX) - this.touchStartX;
+    this.touchStartX = null;
+    if (Math.abs(delta) < 50) return;
+    // Swipe left → forward a week, swipe right → back a week.
+    if (delta < 0) this.next();
+    else this.prev();
+  }
 
   protected onJoin(commitment: Commitment): void {
     this.joinMutation.mutate(commitment);

@@ -126,8 +126,9 @@ export class TodayCardComponent {
       this.toast.error(SYNC_ERROR);
     },
     onSettled: () => {
+      // Prefix-match so whichever week is on screen (today or a per-date page) refreshes.
       this.queryClient.invalidateQueries({
-        queryKey: queryKeys.assignmentToday,
+        queryKey: queryKeys.assignmentRoot,
       });
       // The overall portion progress derives from completions too.
       this.queryClient.invalidateQueries({ queryKey: queryKeys.chaluka });

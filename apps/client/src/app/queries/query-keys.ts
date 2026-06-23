@@ -12,6 +12,8 @@ export const queryKeys = {
   joinOptions: ['join-options'] as const,
   /** GET /api/assignments/today — the server's notion of "today". */
   assignmentToday: ['assignment', 'today'] as const,
+  /** Prefix over every assignment query (today + each per-date) — for broad invalidation. */
+  assignmentRoot: ['assignment'] as const,
   /** GET /api/me/chaluka — the caller's whole-cycle portion + learned subset. */
   chaluka: ['chaluka'] as const,
   /** GET /api/assignments?date= — a specific day (keyed per date so each is cached). */
