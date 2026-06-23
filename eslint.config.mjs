@@ -45,4 +45,13 @@ export default [
     // Override or add rules here
     rules: {},
   },
+  {
+    // apps/www browser scripts are plain ESM served as static assets (passthrough-copied,
+    // never bundled or part of the Nx/Node module graph). Their imports are runtime URLs
+    // (e.g. '/photoswipe/...'), which @nx/enforce-module-boundaries can't reason about.
+    files: ['apps/www/src/js/**/*.js'],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
 ];
