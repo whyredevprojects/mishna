@@ -1,6 +1,6 @@
-import { EmailKind, MishnaRef } from '@mishna/domain';
-import { loadBlocks, loadRecipient, pendingRefs, recordSent } from './data';
-import { TextResolver, weekRefs } from './quota';
+import { EmailKind, MishnaRef, weekStartToDate } from '@mishna/domain';
+import { loadBlocks, loadCompleted, loadRecipient, recordSent, refKey } from './data';
+import { TextResolver, nextRefs } from './quota';
 import { reminderEmail, weeklyEmail } from './templates';
 
 /** One outgoing email, in Resend's batch shape. */
@@ -15,8 +15,8 @@ export interface OutgoingEmail {
  * A fully-resolved send: the recipient address and the exact mishnayot to render
  * are already in hand, so the sender does no further DB reads. `planSends` produces
  * these for the bulk path (with batched reads); `prepareOne` produces one for admin
- * "send now". `refs` is the week's quota (weekly) or the still-pending subset
- * (reminder) — whichever the email should show.
+ * "send now". `refs` is the user's next still-unlearned bucket (weekly) or just its
+ * still-pending mishnayot (reminder) — whichever the email should show.
  */
 export interface PreparedEmail {
   userId: string;
@@ -52,8 +52,15 @@ export async function prepareOne(
 ): Promise<PreparedEmail | null> {
   const recipient = await loadRecipient(env, userId);
   if (!recipient) return null;
-  const refs = weekRefs(await loadBlocks(env, userId), weekStart);
-  const finalRefs = kind === 'weekly' ? refs : await pendingRefs(env, userId, refs);
+  const completed = await loadCompleted(env, userId);
+  const next = nextRefs(
+    await loadBlocks(env, userId),
+    completed,
+    weekStartToDate(weekStart),
+  );
+  const done = new Set(completed.map(refKey));
+  const finalRefs =
+    kind === 'weekly' ? next : next.filter((r) => !done.has(refKey(r)));
   return { userId, kind, weekStart, to: recipient.email, refs: finalRefs };
 }
 

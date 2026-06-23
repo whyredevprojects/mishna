@@ -257,27 +257,40 @@ export async function loadBlocksFor(
   return byUser;
 }
 
-/** Completed `refKey`s per user, as `userId → Set<refKey>`. Chunked. The batched
- *  mirror of the completions read in `pendingRefs`. */
-export async function loadCompletedFor(
+/** Completed refs per user, as `userId → MishnaRef[]`. Chunked. The primitive the
+ *  email path feeds to `getNextAssignment` (next still-unlearned bucket). */
+export async function loadCompletedRefsFor(
   env: Env,
   userIds: string[],
-): Promise<Map<string, Set<string>>> {
-  const byUser = new Map<string, Set<string>>();
+): Promise<Map<string, MishnaRef[]>> {
+  const byUser = new Map<string, MishnaRef[]>();
   for (const chunk of chunked(userIds)) {
     const { results } = await env.DB.prepare(
-      `SELECT user_id, mesechta, perek, mishna FROM completions
+      `SELECT DISTINCT user_id, mesechta, perek, mishna FROM completions
         WHERE user_id IN (${placeholders(chunk.length)})`,
     )
       .bind(...chunk)
       .all<{ user_id: string } & MishnaRef>();
     for (const r of results) {
-      let done = byUser.get(r.user_id);
-      if (!done) byUser.set(r.user_id, (done = new Set()));
-      done.add(refKey(r));
+      const ref = { mesechta: r.mesechta, perek: r.perek, mishna: r.mishna };
+      const list = byUser.get(r.user_id);
+      if (list) list.push(ref);
+      else byUser.set(r.user_id, [ref]);
     }
   }
   return byUser;
+}
+
+/** Completed `refKey`s per user, as `userId → Set<refKey>`. Derived from
+ *  `loadCompletedRefsFor`; the admin assignments view's per-mishna done flags. */
+export async function loadCompletedFor(
+  env: Env,
+  userIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const byUser = await loadCompletedRefsFor(env, userIds);
+  return new Map(
+    [...byUser].map(([uid, refs]) => [uid, new Set(refs.map(refKey))]),
+  );
 }
 
 /** One recipient by id (for admin "send now" jobs), or null if unsendable. */
@@ -357,20 +370,18 @@ export function refKey(ref: MishnaRef): string {
   return `${ref.mesechta}|${ref.perek}|${ref.mishna}`;
 }
 
-/** The subset of `refs` the user has NOT yet marked learned (any group/cycle). */
-export async function pendingRefs(
+/** Every mishna the user has marked learned (distinct, any group/cycle). The
+ *  single-user mirror of `loadCompletedRefsFor`, for the admin "send now" path. */
+export async function loadCompleted(
   env: Env,
   userId: string,
-  refs: MishnaRef[],
 ): Promise<MishnaRef[]> {
-  if (refs.length === 0) return [];
   const { results } = await env.DB.prepare(
     'SELECT DISTINCT mesechta, perek, mishna FROM completions WHERE user_id = ?',
   )
     .bind(userId)
     .all<MishnaRef>();
-  const done = new Set(results.map(refKey));
-  return refs.filter((ref) => !done.has(refKey(ref)));
+  return results;
 }
 
 /** Record a successful send (idempotent upsert on the (user, kind, week) key). */

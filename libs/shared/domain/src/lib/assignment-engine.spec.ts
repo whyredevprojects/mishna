@@ -129,4 +129,56 @@ describe('AssignmentEngine', () => {
       expect(engine.getWeekAssignment([block], cycleDay(35))).toEqual([]);
     });
   });
+
+  describe('getNextAssignment', () => {
+    // 10 mishnayot over a 5-week-remaining cycle -> pace ceil(10/5) = 2.
+    const engine = new AssignmentEngine(
+      structure,
+      fakeCalendar({ cycleLengthDays: 35 }),
+    );
+    const block = makeBlock(structure, 'u1', [[0, 9]], 3, iso(0));
+    // Completed refs for a set of corpus indices.
+    const learned = (...indices: number[]) => indices.map((i) => structure.refAt(i));
+
+    it('returns the first bucket when nothing is learned', () => {
+      const a = engine.getNextAssignment([block], [], cycleDay(0));
+      expect(a.userId).toBe('u1');
+      expect(indicesOf(a.mishnas)).toEqual([0, 1]);
+    });
+
+    it('advances to the next bucket once the current one is fully learned', () => {
+      expect(
+        indicesOf(engine.getNextAssignment([block], learned(0, 1), cycleDay(0)).mishnas),
+      ).toEqual([2, 3]);
+    });
+
+    it('stays on a partially-learned bucket until it is finished', () => {
+      expect(
+        indicesOf(engine.getNextAssignment([block], learned(0), cycleDay(0)).mishnas),
+      ).toEqual([0, 1]);
+    });
+
+    it('returns the earliest unlearned bucket even if a later one is done', () => {
+      // bucket 1 ([2,3]) learned but bucket 0 ([0,1]) not -> still bucket 0.
+      expect(
+        indicesOf(engine.getNextAssignment([block], learned(2, 3), cycleDay(0)).mishnas),
+      ).toEqual([0, 1]);
+    });
+
+    it('is independent of the calendar date', () => {
+      // Same progress, much later date -> same next bucket (progress, not calendar).
+      expect(
+        indicesOf(engine.getNextAssignment([block], learned(0, 1), cycleDay(100)).mishnas),
+      ).toEqual([2, 3]);
+    });
+
+    it('returns an empty slice once the whole portion is learned', () => {
+      const all = learned(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+      expect(engine.getNextAssignment([block], all, cycleDay(0)).mishnas).toEqual([]);
+    });
+
+    it('handles a user with no blocks', () => {
+      expect(engine.getNextAssignment([], [], cycleDay(0)).mishnas).toEqual([]);
+    });
+  });
 });

@@ -10,7 +10,6 @@ import {
 import { applyMigrations } from '../apply-migrations';
 import { loadBlocks } from './data';
 import { planSends } from './orchestrator';
-import { weekRefs } from './quota';
 import { OutgoingEmail, PreparedEmail, processJobs } from './sender';
 
 const structure = createMishnaStructure();
@@ -132,10 +131,12 @@ describe('email path', () => {
   describe('planSends (orchestrator)', () => {
     it('queues a weekly email when it is 08:00 on the weekly weekday', async () => {
       await seedParticipant({ userId: 'alice', weeklyDow: 3, reminderDow: 5 });
+      await seedGroupFor('alice');
       const jobs = await planSends(env, NOW_NY_WED_8AM);
       expect(jobs).toMatchObject([
         { userId: 'alice', kind: 'weekly', weekStart: '2026-06-03', to: 'alice@example.com' },
       ]);
+      expect(jobs[0].refs.length).toBeGreaterThan(0);
     });
 
     it('does nothing outside the 08:00 local hour', async () => {
@@ -162,6 +163,7 @@ describe('email path', () => {
 
     it('skips a weekly email already logged for the week', async () => {
       await seedParticipant({ userId: 'alice', weeklyDow: 3 });
+      await seedGroupFor('alice');
       await env.DB.prepare(
         'INSERT INTO email_log (user_id, kind, week_start, sent_at) VALUES (?, ?, ?, 0)',
       )
@@ -181,14 +183,16 @@ describe('email path', () => {
       expect(jobs[0].refs.length).toBeGreaterThan(0);
     });
 
-    it('skips the reminder when nothing is pending', async () => {
+    it('skips the reminder once the whole portion is learned', async () => {
       await seedParticipant({ userId: 'bob', weeklyDow: 0, reminderDow: 3 });
       await seedGroupFor('bob');
-      // Mark every mishna of the week learned.
-      const refs = await loadBlocks(env, 'bob');
-      expect(refs.length).toBeGreaterThan(0);
-      const weekRefsList = weekRefs(refs, '2026-05-31');
-      for (const r of weekRefsList) {
+      // Mark the user's entire portion learned, so there is no next unlearned bucket.
+      const blocks = await loadBlocks(env, 'bob');
+      const allRefs = blocks.flatMap((b) =>
+        b.ranges.flatMap((r) => [...structure.iterateRange(r)]),
+      );
+      expect(allRefs.length).toBeGreaterThan(0);
+      for (const r of allRefs) {
         await env.DB.prepare(
           'INSERT INTO completions (user_id, group_id, mesechta, perek, mishna, completed_at) VALUES (?, ?, ?, ?, ?, 0)',
         )
@@ -203,6 +207,7 @@ describe('email path', () => {
       // set-based reads (one IN query each) rather than per-user lookups.
       for (const id of ['u1', 'u2', 'u3']) {
         await seedParticipant({ userId: id, weeklyDow: 3 });
+        await seedGroupFor(id);
       }
       const jobs = await planSends(env, NOW_NY_WED_8AM);
       expect(jobs.map((j) => j.userId).sort()).toEqual(['u1', 'u2', 'u3']);

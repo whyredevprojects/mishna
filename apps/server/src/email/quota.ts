@@ -1,4 +1,4 @@
-import { Block, MishnaRef, weekStartToDate } from '@mishna/domain';
+import { Block, MishnaRef } from '@mishna/domain';
 import { getTractate } from 'mishna-text/tractate-index';
 import { assignmentEngine } from '../domain';
 
@@ -8,9 +8,17 @@ export interface ResolvedMishna {
   hebrew: string;
 }
 
-/** The mishnayot for the cycle-week containing `weekStart` (the user's weekly quota). */
-export function weekRefs(blocks: Block[], weekStart: string): MishnaRef[] {
-  return assignmentEngine.getWeekAssignment(blocks, weekStartToDate(weekStart));
+/**
+ * The user's next still-unlearned bucket — the same "current mishnayos" the
+ * dashboard shows (progress-based, not the calendar week). `date` only stamps the
+ * result; it never selects the bucket, so the email's send date is fine to pass.
+ */
+export function nextRefs(
+  blocks: Block[],
+  completed: MishnaRef[],
+  date: Date,
+): MishnaRef[] {
+  return assignmentEngine.getNextAssignment(blocks, completed, date).mishnas;
 }
 
 /** A function that yields the Hebrew text for a set of refs. Injectable so the

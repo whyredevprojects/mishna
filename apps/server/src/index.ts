@@ -114,9 +114,41 @@ async function buildAssignment(env: Env, userId: string, date: Date) {
   return { ...assignment, groupId, completed };
 }
 
+/**
+ * Like {@link buildAssignment} but progress-based: the user's *next still-unlearned*
+ * bucket (the front page's "current mishnayos"), not the calendar week's slice. The
+ * slice advances when the user checks it all off, and empties out once their whole
+ * portion is learned. Same response shape, so clients are unchanged.
+ */
+async function buildNextAssignment(env: Env, userId: string, date: Date) {
+  const groups = await userGroups(env, userId);
+  const allCompleted = await allCompletions(env, userId);
+  const assignment = assignmentEngine.getNextAssignment(
+    userBlocks(groups, userId),
+    allCompleted,
+    date,
+  );
+  const groupId = assignment.mishnas.length
+    ? groupIdForRef(groups, userId, assignment.mishnas[0])
+    : null;
+  const done = new Set(allCompleted.map(refKey));
+  const completed = assignment.mishnas.filter((ref) => done.has(refKey(ref)));
+  return { ...assignment, groupId, completed };
+}
+
 /** `refKey`-style identity for a mishna ("Berachos|1|1"); cross-cycle, group-agnostic. */
 function refKey(ref: MishnaRef): string {
   return `${ref.mesechta}|${ref.perek}|${ref.mishna}`;
+}
+
+/** Every mishna the user has marked learned (distinct, across groups/cycles). */
+async function allCompletions(env: Env, userId: string): Promise<MishnaRef[]> {
+  const { results } = await env.DB.prepare(
+    'SELECT DISTINCT mesechta, perek, mishna FROM completions WHERE user_id = ?',
+  )
+    .bind(userId)
+    .all<MishnaRef>();
+  return results;
 }
 
 /** The subset of `refs` the user has already marked learned (any group). */
@@ -128,12 +160,7 @@ async function completedAmong(
   if (refs.length === 0) {
     return [];
   }
-  const { results } = await env.DB.prepare(
-    'SELECT DISTINCT mesechta, perek, mishna FROM completions WHERE user_id = ?',
-  )
-    .bind(userId)
-    .all<MishnaRef>();
-  const done = new Set(results.map(refKey));
+  const done = new Set((await allCompletions(env, userId)).map(refKey));
   return refs.filter((ref) => done.has(refKey(ref)));
 }
 
@@ -527,9 +554,10 @@ app.post('/api/leave', requireAuth, async (c) => {
   return new Response(res.body, res);
 });
 
-// This week's mishnayot for the caller, plus the group they belong to.
+// The caller's current mishnayot: their next still-unlearned bucket (advances as
+// they check it off), plus the group those mishnayot belong to.
 app.get('/api/assignments/today', requireAuth, async (c) => {
-  return c.json(await buildAssignment(c.env, c.get('userId'), new Date()));
+  return c.json(await buildNextAssignment(c.env, c.get('userId'), new Date()));
 });
 
 // The caller's mishnayot for an explicit `?date=YYYY-MM-DD` (interpreted UTC).
