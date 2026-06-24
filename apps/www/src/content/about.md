@@ -30,6 +30,7 @@ When you become a member you commit to **memorize 1, 2, or 3 mishnayos each week
 [A detailed explanation of the importance of studying Mishnayos by heart](https://www.chabad.org/therebbe/letters/default_cdo/aid/5920908/jewish/A-detailed-explanation-of-the-importance-of-studying-Mishnayos-by-heart.htm)
 
 <br>
+
 **The Frierdiker Rebbes membership request**
 ![IMG_3598.jpeg](https://images.mishna2go.com/about/17fdcddd-7cfb-4fd3-b8de-19f8d05651de-IMG_3598.jpeg)
 
