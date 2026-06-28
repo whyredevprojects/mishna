@@ -14,8 +14,10 @@ Depends only on `@mishna/domain`. Fully unit-tested.
 | `dropAlreadySent(due, sentSet)` | Drops candidacies whose `${userId}\|${kind}\|${weekStart}` is already in the dedup set. |
 | `buildPreparedEmails(live, data, engine, now)` | Resolves live candidacies to fully-rendered `PreparedEmail[]` — content is the user's next still-unlearned bucket via the injected `AssignmentSource` (weekly = whole bucket, reminder = still-pending only). Skips no-address and finished (empty-bucket) users. |
 | `planSends(repo, engine, now)` | Orchestrates the three steps over an `EmailRepository`, batching the blocks/completions/emails reads. The bulk path's entry point. |
+| `refsForKind(kind, next, completed)` | The single source of the content rule: weekly = the whole next-unlearned bucket; reminder = only its still-pending mishnayot. Used by `buildPreparedEmails` (bulk) and `prepareOne` (admin send-now). |
 | `SEND_HOUR`, `refKey`, `sentKey` | The 08:00 constant and the `mesechta\|perek\|mishna` / `userId\|kind\|weekStart` key helpers. |
-| Types | `EmailKind` (re-exported from `@mishna/domain`), `Candidate`, `Candidacy`, `PreparedEmail`, `ResolvedData`, `AssignmentSource`. |
+| `DEFAULT_EMAIL_PREFS` | The prefs a participant with no `user_email_prefs` row gets (NY time, weekly=Sun/0, reminder=Thu/4, both on) — shared by `@mishna/email-data`, the admin readers, and `GET /api/me/preferences`. |
+| Types | `EmailKind` (re-exported from `@mishna/domain`), `EmailPrefs`, `Candidate` (`EmailPrefs & { userId }`), `Candidacy`, `PreparedEmail`, `ResolvedData`, `AssignmentSource`. |
 
 ## Key conventions
 

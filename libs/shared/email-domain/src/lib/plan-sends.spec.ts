@@ -13,6 +13,7 @@ import {
   dropAlreadySent,
   planSends,
   refKey,
+  refsForKind,
   selectDue,
   sentKey,
 } from './plan-sends';
@@ -134,6 +135,24 @@ describe('dropAlreadySent', () => {
     );
     const sent = new Set([sentKey('done', 'weekly', '2026-01-04')]);
     expect(dropAlreadySent(due, sent).map((d) => d.userId)).toEqual(['fresh']);
+  });
+});
+
+describe('refsForKind', () => {
+  const next = [ref(0), ref(1), ref(2)];
+
+  it('weekly returns the whole bucket unfiltered', () => {
+    expect(refsForKind('weekly', next, [ref(0)])).toEqual(next);
+  });
+
+  it('reminder drops the already-completed mishnayot', () => {
+    expect(refsForKind('reminder', next, [ref(1)]).map(refKey)).toEqual(
+      [ref(0), ref(2)].map(refKey),
+    );
+  });
+
+  it('reminder with nothing completed keeps the whole bucket', () => {
+    expect(refsForKind('reminder', next, [])).toEqual(next);
   });
 });
 

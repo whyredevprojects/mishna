@@ -1,5 +1,5 @@
 import { EmailKind, weekStartToDate } from '@mishna/domain';
-import { PreparedEmail, refKey } from '@mishna/email-domain';
+import { PreparedEmail, refsForKind } from '@mishna/email-domain';
 import { loadBlocks, loadCompleted, loadRecipient } from './data';
 import { TextResolver, nextRefs } from './quota';
 import { reminderEmail, weeklyEmail } from './templates';
@@ -52,10 +52,8 @@ export async function prepareOne(
     completed,
     weekStartToDate(weekStart),
   );
-  const done = new Set(completed.map(refKey));
-  const finalRefs =
-    kind === 'weekly' ? next : next.filter((r) => !done.has(refKey(r)));
-  return { userId, kind, weekStart, to: recipient.email, refs: finalRefs };
+  const refs = refsForKind(kind, next, completed);
+  return { userId, kind, weekStart, to: recipient.email, refs };
 }
 
 /**

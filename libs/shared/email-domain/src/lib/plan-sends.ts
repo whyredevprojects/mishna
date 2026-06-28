@@ -34,6 +34,22 @@ export function refKey(ref: MishnaRef): string {
   return `${ref.mesechta}|${ref.perek}|${ref.mishna}`;
 }
 
+/**
+ * The mishnayot a given email kind should show from the user's next unlearned
+ * bucket: weekly shows the whole bucket; reminder shows only its still-pending
+ * mishnayot. The single source of this rule — used by the bulk path
+ * (`buildPreparedEmails`) and admin "send now" (`prepareOne`).
+ */
+export function refsForKind(
+  kind: EmailKind,
+  next: MishnaRef[],
+  completed: MishnaRef[],
+): MishnaRef[] {
+  if (kind === 'weekly') return next;
+  const done = new Set(completed.map(refKey));
+  return next.filter((r) => !done.has(refKey(r)));
+}
+
 /** The `${userId}|${kind}|${weekStart}` dedup key for one (user, kind, week). */
 export function sentKey(
   userId: string,
@@ -103,24 +119,14 @@ export function buildPreparedEmails(
       now,
     ).mishnas;
     if (next.length === 0) continue;
-    if (d.kind === 'weekly') {
-      prepared.push({
-        userId: d.userId,
-        kind: 'weekly',
-        weekStart: d.weekStart,
-        to,
-        refs: next,
-      });
-      continue;
-    }
-    // The bucket was chosen for having an unlearned mishna, so this is non-empty.
-    const done = new Set(completed.map(refKey));
+    // weekly = the whole bucket; reminder = its still-pending mishnayot (non-empty,
+    // since the bucket was chosen for holding an unlearned mishna).
     prepared.push({
       userId: d.userId,
-      kind: 'reminder',
+      kind: d.kind,
       weekStart: d.weekStart,
       to,
-      refs: next.filter((r) => !done.has(refKey(r))),
+      refs: refsForKind(d.kind, next, completed),
     });
   }
   return prepared;

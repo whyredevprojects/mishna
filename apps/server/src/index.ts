@@ -14,6 +14,7 @@ import {
   weekStartOnOrBefore,
   weekStartToDate,
 } from '@mishna/domain';
+import { DEFAULT_EMAIL_PREFS, EmailPrefs } from '@mishna/email-domain';
 import { AllocatorDO } from './allocator';
 import {
   assignmentEngine,
@@ -443,17 +444,8 @@ app.get('/api/me/chaluka', requireAuth, async (c) => {
 
 // -- email preferences ------------------------------------------------------
 // Per-user email settings (timezone + which weekday each email lands on). Stored
-// in user_email_prefs; users without a row get DEFAULT_PREFS. The email worker
-// reads the same table.
-
-const DEFAULT_PREFS = {
-  timezone: 'America/New_York',
-  weeklyEmailDow: 0,
-  reminderEmailDow: 4,
-  weeklyEnabled: true,
-  reminderEnabled: true,
-};
-type EmailPrefs = typeof DEFAULT_PREFS;
+// in user_email_prefs; users without a row get DEFAULT_EMAIL_PREFS (the shared
+// default, from @mishna/email-domain — the email path reads the same table).
 
 interface PrefsRow {
   timezone: string;
@@ -464,7 +456,7 @@ interface PrefsRow {
 }
 
 function rowToPrefs(row: PrefsRow | null): EmailPrefs {
-  if (!row) return { ...DEFAULT_PREFS };
+  if (!row) return { ...DEFAULT_EMAIL_PREFS };
   return {
     timezone: row.timezone,
     weeklyEmailDow: row.weekly_email_dow,
@@ -861,8 +853,8 @@ app.post(
  *  The admin dashboard/assignments use one shared week, independent of any user. */
 function currentWeekStart(now: Date): string {
   return weekStartOnOrBefore(
-    localParts(now, DEFAULT_PREFS.timezone),
-    DEFAULT_PREFS.weeklyEmailDow,
+    localParts(now, DEFAULT_EMAIL_PREFS.timezone),
+    DEFAULT_EMAIL_PREFS.weeklyEmailDow,
   );
 }
 

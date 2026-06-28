@@ -1,5 +1,6 @@
 import { Block, GroupState, MishnaRef, blocksForUser } from '@mishna/domain';
-import { refKey } from '@mishna/email-domain';
+import { DEFAULT_EMAIL_PREFS, refKey } from '@mishna/email-domain';
+import { chunked, placeholders } from '@mishna/email-data';
 
 // ---------------------------------------------------------------------------
 // Data access for the admin views and the admin "send now" path. Reads from two
@@ -24,30 +25,6 @@ export interface Recipient {
   weeklyEnabled: boolean;
   reminderEnabled: boolean;
 }
-
-/**
- * Split `items` into runs of at most `size`, so `IN (?, ?, …)` lookups stay under
- * D1's 100-bind-parameter ceiling. `size` defaults to 100; callers that bind extra
- * params alongside the chunk pass a smaller size.
- */
-export function chunked<T>(items: T[], size = 100): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size)
-    out.push(items.slice(i, i + size));
-  return out;
-}
-
-function placeholders(n: number): string {
-  return new Array(n).fill('?').join(',');
-}
-
-const DEFAULTS = {
-  timezone: 'America/New_York',
-  weeklyEmailDow: 0,
-  reminderEmailDow: 4,
-  weeklyEnabled: true,
-  reminderEnabled: true,
-};
 
 interface PrefsRow {
   user_id: string;
@@ -230,13 +207,16 @@ function buildRecipient(
     userId,
     email: user.email,
     name: user.name,
-    timezone: prefs?.timezone ?? DEFAULTS.timezone,
-    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULTS.weeklyEmailDow,
-    reminderEmailDow: prefs?.reminder_email_dow ?? DEFAULTS.reminderEmailDow,
-    weeklyEnabled: prefs ? prefs.weekly_enabled === 1 : DEFAULTS.weeklyEnabled,
+    timezone: prefs?.timezone ?? DEFAULT_EMAIL_PREFS.timezone,
+    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULT_EMAIL_PREFS.weeklyEmailDow,
+    reminderEmailDow:
+      prefs?.reminder_email_dow ?? DEFAULT_EMAIL_PREFS.reminderEmailDow,
+    weeklyEnabled: prefs
+      ? prefs.weekly_enabled === 1
+      : DEFAULT_EMAIL_PREFS.weeklyEnabled,
     reminderEnabled: prefs
       ? prefs.reminder_enabled === 1
-      : DEFAULTS.reminderEnabled,
+      : DEFAULT_EMAIL_PREFS.reminderEnabled,
   };
 }
 

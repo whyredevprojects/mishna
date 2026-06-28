@@ -7,12 +7,14 @@
 
 export type {
   EmailKind,
+  EmailPrefs,
   Candidate,
   Candidacy,
   PreparedEmail,
   ResolvedData,
   AssignmentSource,
 } from './lib/types';
+export { DEFAULT_EMAIL_PREFS } from './lib/types';
 export type {
   EmailRepository,
   InMemoryEmailData,
@@ -21,6 +23,7 @@ export { InMemoryEmailRepository } from './lib/email-repository';
 export {
   SEND_HOUR,
   refKey,
+  refsForKind,
   sentKey,
   selectDue,
   dropAlreadySent,

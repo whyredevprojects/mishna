@@ -11,19 +11,35 @@ import { Block, EmailKind, MishnaRef } from '@mishna/domain';
 
 export type { EmailKind } from '@mishna/domain';
 
-/**
- * A participant + their email preferences, *without* the email address. The bulk
- * path resolves who is due from these (the timezone math needs every prefs row),
- * then fetches addresses only for the due subset.
- */
-export interface Candidate {
-  userId: string;
+/** A user's email preferences (no address, no identity). */
+export interface EmailPrefs {
   timezone: string;
   weeklyEmailDow: number;
   reminderEmailDow: number;
   weeklyEnabled: boolean;
   reminderEnabled: boolean;
 }
+
+/**
+ * The prefs a participant with no `user_email_prefs` row gets — the single source
+ * of truth shared by the bulk path (`@mishna/email-data`), the admin readers, and
+ * `GET /api/me/preferences` (all in `apps/server`). Weekly on Sunday (0), reminder
+ * on Thursday (4), both enabled, New York time.
+ */
+export const DEFAULT_EMAIL_PREFS: EmailPrefs = {
+  timezone: 'America/New_York',
+  weeklyEmailDow: 0,
+  reminderEmailDow: 4,
+  weeklyEnabled: true,
+  reminderEnabled: true,
+};
+
+/**
+ * A participant + their email preferences, *without* the email address. The bulk
+ * path resolves who is due from these (the timezone math needs every prefs row),
+ * then fetches addresses only for the due subset.
+ */
+export type Candidate = EmailPrefs & { userId: string };
 
 /** A (user, kind, week) tuple due at the send hour, before dedup/resolution. */
 export interface Candidacy {

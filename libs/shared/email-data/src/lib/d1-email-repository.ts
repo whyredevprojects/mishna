@@ -14,7 +14,12 @@
 // ---------------------------------------------------------------------------
 
 import { Block, GroupState, MishnaRef, blocksForUser } from '@mishna/domain';
-import { Candidate, EmailKind, EmailRepository } from '@mishna/email-domain';
+import {
+  Candidate,
+  DEFAULT_EMAIL_PREFS,
+  EmailKind,
+  EmailRepository,
+} from '@mishna/email-domain';
 
 /** The collaborators a {@link D1EmailRepository} needs, injected explicitly. */
 export interface D1EmailRepositoryDeps {
@@ -23,14 +28,6 @@ export interface D1EmailRepositoryDeps {
   /** mishna-auth: the better-auth user table (read-only). */
   authDb: D1Database;
 }
-
-const DEFAULTS = {
-  timezone: 'America/New_York',
-  weeklyEmailDow: 0,
-  reminderEmailDow: 4,
-  weeklyEnabled: true,
-  reminderEnabled: true,
-};
 
 interface ParticipantRow {
   user_id: string;
@@ -55,20 +52,23 @@ export function chunked<T>(items: T[], size = 100): T[][] {
   return out;
 }
 
-function placeholders(n: number): string {
+export function placeholders(n: number): string {
   return new Array(n).fill('?').join(',');
 }
 
 function buildCandidate(userId: string, prefs: PrefsRow | undefined): Candidate {
   return {
     userId,
-    timezone: prefs?.timezone ?? DEFAULTS.timezone,
-    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULTS.weeklyEmailDow,
-    reminderEmailDow: prefs?.reminder_email_dow ?? DEFAULTS.reminderEmailDow,
-    weeklyEnabled: prefs ? prefs.weekly_enabled === 1 : DEFAULTS.weeklyEnabled,
+    timezone: prefs?.timezone ?? DEFAULT_EMAIL_PREFS.timezone,
+    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULT_EMAIL_PREFS.weeklyEmailDow,
+    reminderEmailDow:
+      prefs?.reminder_email_dow ?? DEFAULT_EMAIL_PREFS.reminderEmailDow,
+    weeklyEnabled: prefs
+      ? prefs.weekly_enabled === 1
+      : DEFAULT_EMAIL_PREFS.weeklyEnabled,
     reminderEnabled: prefs
       ? prefs.reminder_enabled === 1
-      : DEFAULTS.reminderEnabled,
+      : DEFAULT_EMAIL_PREFS.reminderEnabled,
   };
 }
 
