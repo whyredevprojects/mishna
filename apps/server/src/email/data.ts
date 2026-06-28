@@ -243,15 +243,14 @@ export async function loadBlocksFor(
       .bind(...chunk)
       .all<{ user_id: string; state: string }>();
     for (const r of results) {
-      const blocks = Group.fromState(
-        structure,
-        chalakim,
-        idGen,
-        JSON.parse(r.state),
-      ).toState().blocks;
+      // A group's state carries *every* member's blocks; keep only this user's
+      // (same filter as the dashboard's `userBlocks` and `loadGroupBlocksFor`).
+      const mine = Group.fromState(structure, chalakim, idGen, JSON.parse(r.state))
+        .toState()
+        .blocks.filter((b) => b.userId === r.user_id);
       const existing = byUser.get(r.user_id);
-      if (existing) existing.push(...blocks);
-      else byUser.set(r.user_id, [...blocks]);
+      if (existing) existing.push(...mine);
+      else byUser.set(r.user_id, mine);
     }
   }
   return byUser;
@@ -358,10 +357,11 @@ export async function loadBlocks(env: Env, userId: string): Promise<Block[]> {
   )
     .bind(userId)
     .all<{ state: string }>();
-  return results.flatMap(
-    (r) =>
-      Group.fromState(structure, chalakim, idGen, JSON.parse(r.state)).toState()
-        .blocks,
+  return results.flatMap((r) =>
+    // The group state holds every member's blocks; keep only this user's.
+    Group.fromState(structure, chalakim, idGen, JSON.parse(r.state))
+      .toState()
+      .blocks.filter((b) => b.userId === userId),
   );
 }
 

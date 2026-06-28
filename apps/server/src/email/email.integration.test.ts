@@ -8,7 +8,7 @@ import {
   createMishnaStructure,
 } from '@mishna/domain';
 import { applyMigrations } from '../apply-migrations';
-import { loadBlocks } from './data';
+import { loadBlocks, loadBlocksFor, refKey } from './data';
 import { planSends } from './orchestrator';
 import { OutgoingEmail, PreparedEmail, processJobs } from './sender';
 
@@ -102,6 +102,36 @@ async function seedGroupFor(userId: string): Promise<void> {
   )
     .bind(group.id, userId)
     .run();
+}
+
+/**
+ * Seed one group shared by several users (each gets a distinct run of lots from the
+ * corpus head outward), and a `group_members` row per user. Models a production
+ * multi-member group — the case that exposes per-user block filtering. Returns the
+ * `Group` so a test can derive each user's *own* portion.
+ */
+async function seedSharedGroup(userIds: string[]): Promise<Group> {
+  const group = new Group(structure, chalakim, idGen, { id: 'g-shared' });
+  const taken: number[] = [];
+  for (const userId of userIds) {
+    const after = taken.length ? taken[taken.length - 1] : undefined;
+    // `() => 0` takes the lowest free lot; `taken`/`after` give each user a distinct run.
+    const { lots } = group.addUser(userId, 1, CYCLE_START, 50, taken, () => 0, true, after);
+    taken.push(...lots);
+  }
+  await env.DB.prepare(
+    'INSERT INTO groups (id, state, exhausted, capacity_left, updated_at) VALUES (?, ?, 0, 0, 0)',
+  )
+    .bind(group.id, JSON.stringify(group.toState()))
+    .run();
+  for (const userId of userIds) {
+    await env.DB.prepare(
+      'INSERT INTO group_members (group_id, user_id) VALUES (?, ?)',
+    )
+      .bind(group.id, userId)
+      .run();
+  }
+  return group;
 }
 
 /** A `SenderDeps` whose `send` records the emails + idempotency key it was given. */
@@ -212,6 +242,53 @@ describe('email path', () => {
       const jobs = await planSends(env, NOW_NY_WED_8AM);
       expect(jobs.map((j) => j.userId).sort()).toEqual(['u1', 'u2', 'u3']);
       expect(jobs.every((j) => j.kind === 'weekly')).toBe(true);
+    });
+  });
+
+  describe('per-user block filtering (multi-member group)', () => {
+    // A group's state carries every member's blocks; the loaders must return only
+    // the target user's. (With single-member groups this is invisible — that's why
+    // the bug slipped through: the email path was assigning each user the *whole
+    // group's* portion, so the weekly email showed ~40 mishnayos, some not theirs.)
+    it('loadBlocksFor returns only each user\'s own blocks', async () => {
+      await seedSharedGroup(['alice', 'bob']);
+      const byUser = await loadBlocksFor(env, ['alice', 'bob']);
+      for (const userId of ['alice', 'bob']) {
+        const blocks = byUser.get(userId) ?? [];
+        expect(blocks.length).toBeGreaterThan(0);
+        expect(blocks.every((b) => b.userId === userId)).toBe(true);
+      }
+    });
+
+    it('loadBlocks returns only the given user\'s blocks', async () => {
+      await seedSharedGroup(['alice', 'bob']);
+      const blocks = await loadBlocks(env, 'bob');
+      expect(blocks.length).toBeGreaterThan(0);
+      expect(blocks.every((b) => b.userId === 'bob')).toBe(true);
+    });
+
+    it('emails each user only their own mishnayos, not the whole group', async () => {
+      await seedParticipant({ userId: 'alice', weeklyDow: 3 });
+      await seedParticipant({ userId: 'bob', weeklyDow: 3 });
+      const group = await seedSharedGroup(['alice', 'bob']);
+      const ownRefs = (userId: string) =>
+        new Set(
+          group
+            .toState()
+            .blocks.filter((b) => b.userId === userId)
+            .flatMap((b) => b.ranges.flatMap((r) => [...structure.iterateRange(r)]))
+            .map(refKey),
+        );
+
+      const jobs = await planSends(env, NOW_NY_WED_8AM);
+      for (const userId of ['alice', 'bob']) {
+        const job = jobs.find((j) => j.userId === userId);
+        expect(job, `expected a weekly job for ${userId}`).toBeDefined();
+        const mine = ownRefs(userId);
+        expect(job!.refs.length).toBeGreaterThan(0);
+        // Every emailed ref is within this user's own portion (not a co-member's).
+        expect(job!.refs.every((r) => mine.has(refKey(r)))).toBe(true);
+      }
     });
   });
 
