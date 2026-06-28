@@ -7,9 +7,10 @@
 //   authDb  — mishna-auth: the better-auth `user` table (email only here).
 // They're separate databases, so user identity is merged in memory.
 //
-// Decoupled from the worker `Env`: the constructor takes the two D1 handles and
-// the domain singletons explicitly, so the lib carries no Cloudflare binding and
-// is unit-testable with any D1 (the app wires `env.DB`/`env.AUTH_DB`).
+// Decoupled from the worker `Env`: the constructor takes just the two D1 handles,
+// so the lib carries no Cloudflare binding and is unit-testable with any D1 (the app
+// wires `env.DB`/`env.AUTH_DB`). No domain singletons — `loadBlocks` only `JSON.parse`s
+// the raw group state and hands it to `@mishna/domain`'s `blocksForUser`.
 // ---------------------------------------------------------------------------
 
 import { Block, GroupState, MishnaRef, blocksForUser } from '@mishna/domain';

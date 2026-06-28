@@ -47,7 +47,8 @@ in memory, no cross-DB JOIN).
 - `user_email_prefs(user_id, timezone, weekly_email_dow, reminder_email_dow,
   weekly_enabled, reminder_enabled, updated_at)` — per-user email settings (`0003`). A
   missing row means defaults (`America/New_York`, weekly=Sun, reminder=Thu, both on);
-  `GET /api/me/preferences` synthesizes them and the email path (`email/orchestrator.ts`)
+  `GET /api/me/preferences` synthesizes them and the email path
+  (`@mishna/email-data`'s `loadCandidates`, fed to `@mishna/email-domain`'s `selectDue`)
   treats a missing row the same way.
 - `email_log(user_id, kind, week_start, sent_at)` — one row per email actually sent
   (`0004`), so each (user, kind, week) goes out at most once even though the cron fires
@@ -161,9 +162,9 @@ further mail. Because the content is progress-based, `planSends` loads completio
 **Scalability — batched reads.** `planSends` does **not** do a per-user query loop. It
 loads all participants+prefs once (`loadCandidates`, addresses excluded), filters to those
 at 08:00 local, then resolves the survivors with a handful of set-based `IN (...)` reads
-(chunked under D1's 100-param ceiling): `alreadySentSet` (dedup), `loadBlocksFor`,
-`loadCompletedRefsFor` (all due users — the next-bucket content needs them), and
-`loadEmailsFor` (addresses for the due subset
+(chunked under D1's 100-param ceiling): `alreadySent` (dedup), `loadBlocks`,
+`loadCompleted` (all due users — the next-bucket content needs them), and
+`loadEmails` (addresses for the due subset
 only — not the whole `user` table every hour). So a run is O(due/100) subrequests, not
 O(due); the ceiling is users-due-in-one-hour, kept well inside budget. `planSends` returns
 `PreparedEmail`s (address + the exact mishnayot to render), so `processJobs` does no
@@ -185,7 +186,7 @@ fine at volume 1) and send it **inline and synchronously** via the same `process
 (bypassing the dedup), so the admin gets the real result — a `502` on a Resend failure.
 The week is anchored from the user's prefs (`localParts` + `weekStartOnOrBefore`).
 
-**Verified-only.** The email path never mails an unverified address. `loadEmailsFor`
+**Verified-only.** The email path never mails an unverified address. `loadEmails`
 (bulk) filters `WHERE "emailVerified" = 1`, and `loadRecipient` (admin send-now) returns
 `null` unless the address is present and verified — so an unverified user is silently
 skipped by the cron and yields no `PreparedEmail` for send-now. Google sign-ins are
