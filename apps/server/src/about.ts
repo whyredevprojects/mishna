@@ -118,6 +118,41 @@ export async function readAbout(env: Env): Promise<string> {
 }
 
 /**
+ * Surrounds any standalone HTML-tag line (e.g. `<br>`) with blank lines.
+ *
+ * The `www` site renders `about.md` with markdown-it under `html: true`, where
+ * CommonMark treats a bare HTML tag alone on a line as the start of an *HTML block*
+ * that swallows every following line until the next blank line — so Markdown written
+ * right after a `<br>` (a heading, bold, an image) comes out as raw text. The Toast UI
+ * editor emits such `<br>` spacers without a trailing blank line, so normalize here, at
+ * the single save chokepoint, before committing. Idempotent, and leaves the contents of
+ * fenced code blocks alone.
+ */
+export function isolateHtmlBlocks(markdown: string): string {
+  const lines = markdown.split('\n');
+  const out: string[] = [];
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    const isLoneTag = !inFence && /^<[^>]+>$/.test(trimmed);
+    if (isLoneTag && out.length > 0 && out[out.length - 1].trim() !== '') {
+      out.push('');
+    }
+    out.push(line);
+    if (isLoneTag && i + 1 < lines.length && lines[i + 1].trim() !== '') {
+      out.push('');
+    }
+  }
+  return out.join('\n');
+}
+
+/**
  * Commits new Markdown to the about file. Looks up the current SHA first (required
  * to update an existing file; omitted to create one), so the first save also works.
  * The commit to `main` triggers CI, which rebuilds and deploys the `www` site.
@@ -130,7 +165,7 @@ export async function writeAbout(env: Env, markdown: string): Promise<void> {
     headers: { ...ghHeaders(cfg.token), 'content-type': 'application/json' },
     body: JSON.stringify({
       message: 'chore(about): update via admin',
-      content: toBase64(markdown),
+      content: toBase64(isolateHtmlBlocks(markdown)),
       branch: cfg.branch,
       ...(sha ? { sha } : {}),
     }),
