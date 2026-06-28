@@ -72,7 +72,7 @@ export class ReminderWorkflow extends WorkflowEntrypoint<Env, Params> {
       const chunk = jobs.slice(i, i + BATCH);
       const n = i / BATCH;
       await step.do(`send-batch-${n}`, () =>
-        processJobs(this.env, chunk, senderDeps(this.env)),
+        processJobs(chunk, senderDeps(this.env)),
       );
       sent += chunk.length;
       if (i + BATCH < jobs.length) {

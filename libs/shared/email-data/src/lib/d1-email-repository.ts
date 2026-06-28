@@ -145,12 +145,15 @@ export class D1EmailRepository implements EmailRepository {
         .bind(...chunk)
         .all<{ user_id: string; state: string }>();
       for (const r of results) {
+        // The group state holds every member's blocks; keep only this user's.
         const blocks = Group.fromState(
           structure,
           chalakim,
           idGen,
           JSON.parse(r.state),
-        ).toState().blocks;
+        )
+          .toState()
+          .blocks.filter((b) => b.userId === r.user_id);
         const existing = byUser.get(r.user_id);
         if (existing) existing.push(...blocks);
         else byUser.set(r.user_id, [...blocks]);

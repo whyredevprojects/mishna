@@ -33,7 +33,8 @@ export interface Recipient {
  */
 export function chunked<T>(items: T[], size = 100): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    out.push(items.slice(i, i + size));
   return out;
 }
 
@@ -255,10 +256,11 @@ export async function loadBlocks(env: Env, userId: string): Promise<Block[]> {
   )
     .bind(userId)
     .all<{ state: string }>();
-  return results.flatMap(
-    (r) =>
-      Group.fromState(structure, chalakim, idGen, JSON.parse(r.state)).toState()
-        .blocks,
+  return results.flatMap((r) =>
+    // The group state holds every member's blocks; keep only this user's.
+    Group.fromState(structure, chalakim, idGen, JSON.parse(r.state))
+      .toState()
+      .blocks.filter((b) => b.userId === userId),
   );
 }
 
