@@ -8,13 +8,13 @@ An app for organizing groups to collectively memorize the entire Mishna by Rosh 
 
 NX monorepo. All apps are Cloudflare Workers/Pages unless noted.
 
-| Path | Description |
-|------|-------------|
-| `apps/client/` | Angular frontend — landing page, login/signup, user dashboard, admin pages |
-| `apps/login/` | Cloudflare Worker — authentication via better-auth (Google OAuth, magic links, etc.) |
-| `apps/server/` | Cloudflare Worker — main REST API using Hono; serves the Angular app's data needs. Also owns email: an hourly cron triggers the `ReminderWorkflow` (a Cloudflare Workflow) that sends weekly/reminder emails via Resend, and admin "send now" sends one inline. |
-| `apps/mobile/` | Flutter app (Android/iOS) — the user-facing functionality (no admin) against the same APIs, plus on-device study reminders. Mishna text ships as bundled assets from the `mishna_text` pub package. Not part of the NX TS graph; `project.json` wraps Flutter commands under targets deliberately named off NX's CI conventions so the whole Flutter toolchain stays out of CI's `nx run-many -t lint test build`: `analyze`, `test-flutter` (`flutter test`), and `build-apk` (`flutter build apk --release`). Run them by hand (e.g. `nx test-flutter mobile`); the apk build is a separate, manual process. |
-| `libs/shared/domain/` | Core domain models and logic (framework-free) |
+| Path                  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/client/`        | Angular frontend — landing page, login/signup, user dashboard, admin pages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `apps/login/`         | Cloudflare Worker — authentication via better-auth (Google OAuth, magic links, etc.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `apps/server/`        | Cloudflare Worker — main REST API using Hono; serves the Angular app's data needs. Also owns email: an hourly cron triggers the `ReminderWorkflow` (a Cloudflare Workflow) that sends weekly/reminder emails via Resend, and admin "send now" sends one inline.                                                                                                                                                                                                                                                                                                                                                |
+| `apps/mobile/`        | Flutter app (Android/iOS) — the user-facing functionality (no admin) against the same APIs, plus on-device study reminders. Mishna text ships as bundled assets from the `mishna_text` pub package. Not part of the NX TS graph; `project.json` wraps Flutter commands under targets deliberately named off NX's CI conventions so the whole Flutter toolchain stays out of CI's `nx run-many -t lint test build`: `analyze`, `test-flutter` (`flutter test`), and `build-apk` (`flutter build apk --release`). Run them by hand (e.g. `nx test-flutter mobile`); the apk build is a separate, manual process. |
+| `libs/shared/domain/` | Core domain models and logic (framework-free)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## Tech Stack
 
@@ -50,7 +50,7 @@ Determinism: ids come from an injected `IdGenerator`, randomness (lot picks) fro
   functionality and behavior (sign-in/up, join, the weekly assignment + week pager,
   learned check-off, My Mishnayos, Review, settings). When you add or change a
   user-facing feature in one, make the matching change in the other in the same effort
-  (Material 3 vs. Web Awesome means the *look* differs — the *behavior* shouldn't).
+  (Material 3 vs. Web Awesome means the _look_ differs — the _behavior_ shouldn't).
   Admin is web-only and on-device reminders are mobile-only, by design — those are the
   only intentional gaps.
 
@@ -82,6 +82,31 @@ can automate them):
 ## Admin Features
 
 Admin page (in `apps/client`) shows:
+
 - Number of active groups
 - Progress of each group
 - Members of each group
+
+<!-- nx configuration start-->
+<!-- Leave the start & end comments to automatically receive updates. -->
+
+## General Guidelines for working with Nx
+
+- For navigating/exploring the workspace, invoke the `nx-workspace` skill first - it has patterns for querying projects, targets, and dependencies
+- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
+- Prefix nx commands with the workspace's package manager (e.g., `pnpm nx build`, `npm exec nx test`) - avoids using globally installed CLI
+- You have access to the Nx MCP server and its tools, use them to help the user
+- For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
+- NEVER guess CLI flags - always check nx_docs or `--help` first when unsure
+
+## Scaffolding & Generators
+
+- For scaffolding tasks (creating apps, libs, project structure, setup), ALWAYS invoke the `nx-generate` skill FIRST before exploring or calling MCP tools
+
+## When to use nx_docs
+
+- USE for: advanced config options, unfamiliar flags, migration guides, plugin configuration, edge cases
+- DON'T USE for: basic generator syntax (`nx g @nx/react:app`), standard commands, things you already know
+- The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
+
+<!-- nx configuration end-->
