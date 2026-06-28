@@ -22,9 +22,6 @@ const engine = new AssignmentEngine(structure, new CycleCalendar());
 const repo = new D1EmailRepository({
   db: env.DB,
   authDb: env.AUTH_DB,
-  structure,
-  chalakim,
-  idGen,
 });
 
 // NY (EDT, UTC-4) on this instant is Wednesday 2026-06-03 08:00. dow=3 (Wed).

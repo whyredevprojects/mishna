@@ -1,6 +1,5 @@
-import { Block, Group, MishnaRef } from '@mishna/domain';
+import { Block, GroupState, MishnaRef, blocksForUser } from '@mishna/domain';
 import { refKey } from '@mishna/email-domain';
-import { chalakim, idGen, structure } from '../domain';
 
 // ---------------------------------------------------------------------------
 // Data access for the admin views and the admin "send now" path. Reads from two
@@ -126,15 +125,11 @@ export async function loadGroupBlocksFor(
       .bind(...chunk)
       .all<{ group_id: string; user_id: string; state: string }>();
     for (const r of results) {
-      const blocks = Group.fromState(
-        structure,
-        chalakim,
-        idGen,
-        JSON.parse(r.state),
-      ).toState().blocks;
-      const mine = blocks
-        .filter((b) => b.userId === r.user_id)
-        .map((block) => ({ groupId: r.group_id, block }));
+      const state: GroupState = JSON.parse(r.state);
+      const mine = blocksForUser([state], r.user_id).map((block) => ({
+        groupId: r.group_id,
+        block,
+      }));
       const existing = byUser.get(r.user_id);
       if (existing) existing.push(...mine);
       else byUser.set(r.user_id, mine);
@@ -256,11 +251,10 @@ export async function loadBlocks(env: Env, userId: string): Promise<Block[]> {
   )
     .bind(userId)
     .all<{ state: string }>();
-  return results.flatMap((r) =>
-    // The group state holds every member's blocks; keep only this user's.
-    Group.fromState(structure, chalakim, idGen, JSON.parse(r.state))
-      .toState()
-      .blocks.filter((b) => b.userId === userId),
+  // The group state holds every member's blocks; `blocksForUser` keeps only this user's.
+  return blocksForUser(
+    results.map((r) => JSON.parse(r.state) as GroupState),
+    userId,
   );
 }
 

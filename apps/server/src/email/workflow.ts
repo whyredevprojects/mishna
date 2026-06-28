@@ -6,7 +6,7 @@ import {
 import { Resend } from 'resend';
 import { planSends } from '@mishna/email-domain';
 import { D1EmailRepository } from '@mishna/email-data';
-import { assignmentEngine, chalakim, idGen, structure } from '../domain';
+import { assignmentEngine } from '../domain';
 import { httpTextResolver } from './quota';
 import { OutgoingEmail, SenderDeps, processJobs } from './sender';
 
@@ -23,9 +23,6 @@ function emailRepo(env: Env): D1EmailRepository {
   return new D1EmailRepository({
     db: env.DB,
     authDb: env.AUTH_DB,
-    structure,
-    chalakim,
-    idGen,
   });
 }
 

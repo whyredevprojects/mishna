@@ -12,14 +12,7 @@
 // is unit-testable with any D1 (the app wires `env.DB`/`env.AUTH_DB`).
 // ---------------------------------------------------------------------------
 
-import {
-  Block,
-  Group,
-  IdGenerator,
-  MishnaChalakim,
-  MishnaRef,
-  MishnaStructure,
-} from '@mishna/domain';
+import { Block, GroupState, MishnaRef, blocksForUser } from '@mishna/domain';
 import { Candidate, EmailKind, EmailRepository } from '@mishna/email-domain';
 
 /** The collaborators a {@link D1EmailRepository} needs, injected explicitly. */
@@ -28,9 +21,6 @@ export interface D1EmailRepositoryDeps {
   db: D1Database;
   /** mishna-auth: the better-auth user table (read-only). */
   authDb: D1Database;
-  structure: MishnaStructure;
-  chalakim: MishnaChalakim;
-  idGen: IdGenerator;
 }
 
 const DEFAULTS = {
@@ -132,10 +122,9 @@ export class D1EmailRepository implements EmailRepository {
 
   /** Blocks per user across their groups, as `userId → Block[]`. Chunked. */
   async loadBlocks(userIds: string[]): Promise<Map<string, Block[]>> {
-    const { db, structure, chalakim, idGen } = this.deps;
     const byUser = new Map<string, Block[]>();
     for (const chunk of chunked(userIds)) {
-      const { results } = await db
+      const { results } = await this.deps.db
         .prepare(
           `SELECT m.user_id AS user_id, g.state AS state
              FROM groups g
@@ -145,15 +134,11 @@ export class D1EmailRepository implements EmailRepository {
         .bind(...chunk)
         .all<{ user_id: string; state: string }>();
       for (const r of results) {
-        // The group state holds every member's blocks; keep only this user's.
-        const blocks = Group.fromState(
-          structure,
-          chalakim,
-          idGen,
-          JSON.parse(r.state),
-        )
-          .toState()
-          .blocks.filter((b) => b.userId === r.user_id);
+        // The group state holds every member's blocks; `blocksForUser` keeps this user's.
+        const blocks = blocksForUser(
+          [JSON.parse(r.state) as GroupState],
+          r.user_id,
+        );
         const existing = byUser.get(r.user_id);
         if (existing) existing.push(...blocks);
         else byUser.set(r.user_id, [...blocks]);

@@ -23,9 +23,6 @@ describe('D1EmailRepository', () => {
     const repo: EmailRepository = new D1EmailRepository({
       db: {} as never,
       authDb: {} as never,
-      structure: {} as never,
-      chalakim: {} as never,
-      idGen: () => 'id',
     });
     expect(typeof repo.loadCandidates).toBe('function');
     expect(typeof repo.recordSent).toBe('function');

@@ -208,6 +208,18 @@ user-management routes proxy better-auth's admin plugin
 (`/api/auth/admin/*` on the login worker) for identity, merging in join/group data
 this worker owns. `/api/admin/groups` still returns `userId`s only.
 
+**One source of truth for "a user's blocks."** A group's persisted `state` carries
+*every* member's blocks, so deriving one user's portion means filtering to that user.
+That rule is **not** re-implemented in the route/data layer — it lives once in
+`@mishna/domain`'s `blocksForUser(states, userId)`. The web readers (`index.ts`
+`userBlocks`/`groupIdForRef`/`userBlockSize`), the admin readers (`email/data.ts`
+`loadBlocks`/`loadGroupBlocksFor`), and the bulk-email adapter (`@mishna/email-data`'s
+`D1EmailRepository.loadBlocks`) all `JSON.parse` the raw group state and route through it.
+(A divergent inline copy that returned the *whole group's* blocks was the bug that
+motivated this — see the multi-member regression test in `email/email.integration.test.ts`.)
+Genuinely per-group, all-members reads — e.g. `GET /api/admin/groups/:id` listing each
+member's lots — deliberately do not filter.
+
 ## Migrations
 
 The `mishna-app` schema is a set of numbered D1 migrations in `migrations/`, tracked by

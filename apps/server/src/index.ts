@@ -5,7 +5,9 @@ import {
   Commitment,
   EmailKind,
   Group,
+  GroupState,
   MishnaRef,
+  blocksForUser,
   computeJoinOptions,
   localParts,
   mishnahDataset,
@@ -53,18 +55,16 @@ function userGroups(env: Env, userId: string): Promise<Group[]> {
   return repo.loadGroupsForUser(userId);
 }
 
-/** Every block the user holds, flattened across all their groups. */
-function flattenBlocks(groups: Group[]): Block[] {
-  return groups.flatMap((g) => g.toState().blocks);
-}
-
 /**
- * Only the blocks `userId` holds, flattened across all their groups. A group's
- * state carries every member's blocks, so anything that computes a single user's
- * portion must filter — otherwise it sees the whole group.
+ * Only the blocks `userId` holds, flattened across all their groups. Routes through
+ * the domain's `blocksForUser` — a group's state carries every member's blocks, so
+ * the per-user filter is one shared rule, not re-implemented here.
  */
 function userBlocks(groups: Group[], userId: string): Block[] {
-  return flattenBlocks(groups).filter((b) => b.userId === userId);
+  return blocksForUser(
+    groups.map((g) => g.toState()),
+    userId,
+  );
 }
 
 /** Whether `ref` falls within one of the block's ranges. */
@@ -85,9 +85,9 @@ function groupIdForRef(
   ref: MishnaRef,
 ): string | null {
   for (const group of groups) {
-    const block = group
-      .toState()
-      .blocks.find((b) => b.userId === userId);
+    // At most one block per group is this user's; route the filter through the
+    // shared rule rather than re-finding by userId here.
+    const [block] = blocksForUser([group.toState()], userId);
     if (block && blockContains(block, ref)) {
       return group.id;
     }
@@ -222,10 +222,11 @@ function adminAuthFetch(
 }
 
 /** Total mishnayot a user holds in one group, summed across their blocks. */
-function userBlockSize(blocks: Block[], userId: string): number {
-  return blocks
-    .filter((b) => b.userId === userId)
-    .reduce((sum, b) => sum + b.totalSize, 0);
+function userBlockSize(state: GroupState, userId: string): number {
+  return blocksForUser([state], userId).reduce(
+    (sum, b) => sum + b.totalSize,
+    0,
+  );
 }
 
 /** A well-formed `{ ref, groupId }` completion body, or null if malformed. */
@@ -406,7 +407,7 @@ app.get('/api/me/chaluka', requireAuth, async (c) => {
   // block per group, but their lots spill into a second group at an overflow
   // boundary, so the group must be tracked per range (hence per mishna).
   const tagged = groups.flatMap((g) => {
-    const block = g.toState().blocks.find((b) => b.userId === userId);
+    const [block] = blocksForUser([g.toState()], userId);
     return block ? block.ranges.map((range) => ({ range, groupId: g.id })) : [];
   });
   tagged.sort(
@@ -766,7 +767,7 @@ app.get('/api/admin/users/:id', requireAdmin, async (c) => {
   const groups = await repo.loadGroupsForUser(id);
   const groupSummaries = groups.map((g) => ({
     id: g.id,
-    blockSize: userBlockSize(g.toState().blocks, id),
+    blockSize: userBlockSize(g.toState(), id),
   }));
 
   return c.json({
@@ -787,12 +788,9 @@ app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
   if (!groupRow) {
     return c.json({ error: 'group not found' }, 404);
   }
-  const blocks = Group.fromState(
-    structure,
-    chalakim,
-    idGen,
-    JSON.parse(groupRow.state),
-  ).toState().blocks;
+  // The whole group's blocks (every member) — this view is per-group, not per-user.
+  const state: GroupState = JSON.parse(groupRow.state);
+  const blocks = state.blocks;
   const { results: memberRows } = await c.env.DB.prepare(
     'SELECT user_id FROM group_members WHERE group_id = ?',
   )
@@ -817,7 +815,7 @@ app.get('/api/admin/groups/:id', requireAdmin, async (c) => {
       name: who?.name ?? null,
       email: who?.email ?? null,
       emailVerified: who?.emailVerified ?? false,
-      blockSize: userBlockSize(blocks, uid),
+      blockSize: userBlockSize(state, uid),
       lots: (lotsByUser.get(uid) ?? []).sort((a, b) => a - b),
     };
   });
