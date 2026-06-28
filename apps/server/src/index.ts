@@ -1012,7 +1012,7 @@ async function sendEmailNow(
   const weekStart = weekStartOnOrBefore(parts, prefs.weeklyEmailDow);
   try {
     const prepared = await prepareOne(env, userId, kind, weekStart);
-    await processJobs(env, prepared ? [prepared] : [], senderDeps(env));
+    await processJobs(prepared ? [prepared] : [], senderDeps(env));
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     console.error('send email now failed', kind, userId, '—', detail);

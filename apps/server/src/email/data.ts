@@ -1,33 +1,24 @@
 import { Block, Group, MishnaRef } from '@mishna/domain';
+import { refKey } from '@mishna/email-domain';
 import { chalakim, idGen, structure } from '../domain';
 
 // ---------------------------------------------------------------------------
-// Data access for the email path. Reads from two D1 databases:
+// Data access for the admin views and the admin "send now" path. Reads from two
+// D1 databases:
 //   DB       — mishna-app: participants, user_email_prefs, completions, groups,
 //              group_members, email_log (the server owns the schema/migrations).
 //   AUTH_DB  — mishna-auth: the better-auth `user` table (email + name only).
 // They're separate databases, so user identity is merged in memory.
+//
+// The *bulk* email path's batched readers (the EmailRepository port + its D1
+// implementation) live in `@mishna/email-data`; this file keeps the single-user
+// send-now loaders and the admin-only batched readers that aren't part of the port.
 // ---------------------------------------------------------------------------
 
 export interface Recipient {
   userId: string;
   email: string;
   name: string | null;
-  timezone: string;
-  weeklyEmailDow: number;
-  reminderEmailDow: number;
-  weeklyEnabled: boolean;
-  reminderEnabled: boolean;
-}
-
-/**
- * A participant + their email preferences, *without* the email address. The bulk
- * email path resolves who is due from these (timezone math needs every prefs row),
- * then fetches addresses only for the due subset — so we don't load the whole
- * `AUTH_DB` user table every hour.
- */
-export interface Candidate {
-  userId: string;
   timezone: string;
   weeklyEmailDow: number;
   reminderEmailDow: number;
@@ -58,9 +49,6 @@ const DEFAULTS = {
   reminderEnabled: true,
 };
 
-interface ParticipantRow {
-  user_id: string;
-}
 interface PrefsRow {
   user_id: string;
   timezone: string;
@@ -76,54 +64,6 @@ interface UserRow {
   emailVerified: number;
 }
 
-/**
- * Every joined participant with their email preferences (defaults where no prefs
- * row exists), but *without* addresses. Two full-table queries, merged in memory —
- * cheap regardless of headcount (a few MB of small rows). The bulk path filters
- * these to the ones due at 08:00 local and only then resolves emails for that
- * subset (`loadEmailsFor`), instead of loading the whole user table every hour.
- */
-export async function loadCandidates(env: Env): Promise<Candidate[]> {
-  const [participants, prefs] = await Promise.all([
-    env.DB.prepare('SELECT user_id FROM participants').all<ParticipantRow>(),
-    env.DB
-      .prepare(
-        `SELECT user_id, timezone, weekly_email_dow, reminder_email_dow,
-                weekly_enabled, reminder_enabled FROM user_email_prefs`,
-      )
-      .all<PrefsRow>(),
-  ]);
-
-  const prefsByUser = new Map(prefs.results.map((p) => [p.user_id, p]));
-  return participants.results.map(({ user_id }) =>
-    buildCandidate(user_id, prefsByUser.get(user_id)),
-  );
-}
-
-/**
- * Addresses for the given user ids, as `userId → email` (users with no usable
- * address, or whose email isn't verified, are omitted). Chunked under D1's
- * 100-param ceiling. Read from `AUTH_DB`. The `emailVerified = 1` filter is the
- * email path's verified-only guard: we never mail an unverified address. Google
- * sign-ins are verified automatically; password sign-ups stay unverified.
- */
-export async function loadEmailsFor(
-  env: Env,
-  userIds: string[],
-): Promise<Map<string, string>> {
-  const byId = new Map<string, string>();
-  for (const chunk of chunked(userIds)) {
-    const { results } = await env.AUTH_DB.prepare(
-      `SELECT id, email FROM "user"
-        WHERE "emailVerified" = 1 AND id IN (${placeholders(chunk.length)})`,
-    )
-      .bind(...chunk)
-      .all<{ id: string; email: string | null }>();
-    for (const r of results) if (r.email) byId.set(r.id, r.email);
-  }
-  return byId;
-}
-
 /** One user's identity for the admin views, regardless of join/verification. */
 export interface Identity {
   email: string | null;
@@ -133,8 +73,8 @@ export interface Identity {
 
 /**
  * Identities (name/email/verified) for the given user ids, from `AUTH_DB`, as
- * `userId → Identity`. Unlike `loadEmailsFor` this keeps unverified users (the
- * admin needs to *see* who's unverified) and carries the flag through. Chunked.
+ * `userId → Identity`. Keeps unverified users (the admin needs to *see* who's
+ * unverified) and carries the flag through. Chunked.
  */
 export async function loadIdentitiesFor(
   env: Env,
@@ -167,8 +107,8 @@ export interface GroupBlock {
 
 /**
  * The blocks a user holds, *tagged with their group id*, as `userId → GroupBlock[]`.
- * Like `loadBlocksFor` but keeps each block's group so callers can resolve the
- * `groupId` a given mishna belongs to (needed when acting on a completion). Chunked.
+ * Keeps each block's group so callers can resolve the `groupId` a given mishna
+ * belongs to (needed when acting on a completion). Chunked.
  */
 export async function loadGroupBlocksFor(
   env: Env,
@@ -205,8 +145,8 @@ export async function loadGroupBlocksFor(
 /**
  * The set of `${userId}|${kind}|${weekStart}` already in `email_log`, for the given
  * users. Bounded to `sinceWeekStart` onward so each user matches at most this week's
- * rows (not their whole cycle of history); chunked to 99 ids to leave room for the
- * `sinceWeekStart` bind. Used to drop already-sent jobs in one pass.
+ * rows; chunked to 99 ids to leave room for the `sinceWeekStart` bind. Used by the
+ * admin assignments view's per-user `emailSent` flag.
  */
 export async function alreadySentSet(
   env: Env,
@@ -226,39 +166,7 @@ export async function alreadySentSet(
   return sent;
 }
 
-/** Blocks per user across their groups, as `userId → Block[]`. Chunked. The batched
- *  mirror of `loadBlocks`. */
-export async function loadBlocksFor(
-  env: Env,
-  userIds: string[],
-): Promise<Map<string, Block[]>> {
-  const byUser = new Map<string, Block[]>();
-  for (const chunk of chunked(userIds)) {
-    const { results } = await env.DB.prepare(
-      `SELECT m.user_id AS user_id, g.state AS state
-         FROM groups g
-         JOIN group_members m ON g.id = m.group_id
-        WHERE m.user_id IN (${placeholders(chunk.length)})`,
-    )
-      .bind(...chunk)
-      .all<{ user_id: string; state: string }>();
-    for (const r of results) {
-      const blocks = Group.fromState(
-        structure,
-        chalakim,
-        idGen,
-        JSON.parse(r.state),
-      ).toState().blocks;
-      const existing = byUser.get(r.user_id);
-      if (existing) existing.push(...blocks);
-      else byUser.set(r.user_id, [...blocks]);
-    }
-  }
-  return byUser;
-}
-
-/** Completed refs per user, as `userId → MishnaRef[]`. Chunked. The primitive the
- *  email path feeds to `getNextAssignment` (next still-unlearned bucket). */
+/** Completed refs per user, as `userId → MishnaRef[]`. Chunked. */
 export async function loadCompletedRefsFor(
   env: Env,
   userIds: string[],
@@ -317,17 +225,6 @@ export async function loadRecipient(
   return buildRecipient(userId, user, prefs ?? undefined);
 }
 
-function buildCandidate(userId: string, prefs: PrefsRow | undefined): Candidate {
-  return {
-    userId,
-    timezone: prefs?.timezone ?? DEFAULTS.timezone,
-    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULTS.weeklyEmailDow,
-    reminderEmailDow: prefs?.reminder_email_dow ?? DEFAULTS.reminderEmailDow,
-    weeklyEnabled: prefs ? prefs.weekly_enabled === 1 : DEFAULTS.weeklyEnabled,
-    reminderEnabled: prefs ? prefs.reminder_enabled === 1 : DEFAULTS.reminderEnabled,
-  };
-}
-
 function buildRecipient(
   userId: string,
   user: UserRow,
@@ -365,11 +262,6 @@ export async function loadBlocks(env: Env, userId: string): Promise<Block[]> {
   );
 }
 
-/** `mesechta|perek|mishna` identity, matching the server's completions key. */
-export function refKey(ref: MishnaRef): string {
-  return `${ref.mesechta}|${ref.perek}|${ref.mishna}`;
-}
-
 /** Every mishna the user has marked learned (distinct, any group/cycle). The
  *  single-user mirror of `loadCompletedRefsFor`, for the admin "send now" path. */
 export async function loadCompleted(
@@ -382,20 +274,4 @@ export async function loadCompleted(
     .bind(userId)
     .all<MishnaRef>();
   return results;
-}
-
-/** Record a successful send (idempotent upsert on the (user, kind, week) key). */
-export async function recordSent(
-  env: Env,
-  userId: string,
-  kind: string,
-  weekStart: string,
-): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO email_log (user_id, kind, week_start, sent_at)
-       VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id, kind, week_start) DO UPDATE SET sent_at = excluded.sent_at`,
-  )
-    .bind(userId, kind, weekStart, Date.now())
-    .run();
 }

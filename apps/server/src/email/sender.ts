@@ -1,7 +1,10 @@
-import { EmailKind, MishnaRef, weekStartToDate } from '@mishna/domain';
-import { loadBlocks, loadCompleted, loadRecipient, recordSent, refKey } from './data';
+import { EmailKind, weekStartToDate } from '@mishna/domain';
+import { PreparedEmail, refKey } from '@mishna/email-domain';
+import { loadBlocks, loadCompleted, loadRecipient } from './data';
 import { TextResolver, nextRefs } from './quota';
 import { reminderEmail, weeklyEmail } from './templates';
+
+export type { PreparedEmail } from '@mishna/email-domain';
 
 /** One outgoing email, in Resend's batch shape. */
 export interface OutgoingEmail {
@@ -9,21 +12,6 @@ export interface OutgoingEmail {
   to: string;
   subject: string;
   html: string;
-}
-
-/**
- * A fully-resolved send: the recipient address and the exact mishnayot to render
- * are already in hand, so the sender does no further DB reads. `planSends` produces
- * these for the bulk path (with batched reads); `prepareOne` produces one for admin
- * "send now". `refs` is the user's next still-unlearned bucket (weekly) or just its
- * still-pending mishnayot (reminder) — whichever the email should show.
- */
-export interface PreparedEmail {
-  userId: string;
-  kind: EmailKind;
-  weekStart: string;
-  to: string;
-  refs: MishnaRef[];
 }
 
 /** Side-effecting dependencies, injected so the consumer is testable offline. */
@@ -35,6 +23,12 @@ export interface SenderDeps {
    * collapsed by Resend rather than re-delivered.
    */
   send: (emails: OutgoingEmail[], idempotencyKey: string) => Promise<void>;
+  /**
+   * Persist a successful send (the `email_log` dedup write), so the same
+   * (user, kind, week) isn't re-sent on a later run. Wired to the
+   * `D1EmailRepository.recordSent` of `@mishna/email-data` in production.
+   */
+  record: (userId: string, kind: EmailKind, weekStart: string) => Promise<void>;
   from: string;
   appOrigin: string;
 }
@@ -105,7 +99,6 @@ async function buildEmail(
  * idempotency key collapsing the re-delivery and `email_log` deduping across runs.
  */
 export async function processJobs(
-  env: Env,
   jobs: PreparedEmail[],
   deps: SenderDeps,
 ): Promise<void> {
@@ -119,6 +112,6 @@ export async function processJobs(
   await deps.send(emails, await batchIdempotencyKey(jobs));
 
   for (const job of jobs) {
-    await recordSent(env, job.userId, job.kind, job.weekStart);
+    await deps.record(job.userId, job.kind, job.weekStart);
   }
 }

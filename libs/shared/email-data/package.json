@@ -1,0 +1,16 @@
+{
+  "name": "@mishna/email-data",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "@mishna/domain": "0.0.1",
+    "@mishna/email-domain": "0.0.1",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250404.0"
+  }
+}

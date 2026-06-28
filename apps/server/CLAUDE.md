@@ -15,7 +15,7 @@ allocation writes so concurrent joins can't corrupt a group.
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `email/` | The email module: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics), `orchestrator.ts` (`planSends` — who is due at 08:00 local, fully resolved via batched reads → `PreparedEmail[]`), `sender.ts` (`PreparedEmail`, `processJobs` — render → Resend batch w/ idempotency key → log, plus `prepareOne` for admin), `data.ts` (`loadCandidates` + batched `loadEmailsFor`/`alreadySentSet`/`loadBlocksFor`/`loadCompletedRefsFor` over `DB` + `AUTH_DB`; single-user `loadRecipient`/`loadBlocks`/`loadCompleted` for the admin path), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
+| `email/` | The email module. The bulk **decision logic** (`planSends` — who is due at 08:00 local → `PreparedEmail[]`) and its **D1 reads** now live in the `@mishna/email-domain` + `@mishna/email-data` libs; this app owns the side-effecting half: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics; builds a `D1EmailRepository` and calls the lib's `planSends`), `sender.ts` (`processJobs` — render → Resend batch w/ idempotency key → `deps.record`, plus `prepareOne` for admin; re-exports `PreparedEmail` from the lib), `data.ts` (the admin/send-now readers only — `loadGroupBlocksFor`/`loadIdentitiesFor`/`alreadySentSet`/`loadCompletedFor` + single-user `loadRecipient`/`loadBlocks`/`loadCompleted`), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
@@ -139,7 +139,8 @@ rollup.)
 Email is owned here, not in a separate worker. The default export's `scheduled` handler
 fires on an **hourly cron** and creates one `ReminderWorkflow` instance per tick (its id is
 derived from `controller.scheduledTime`, so a double cron fire — cron is at-least-once —
-dedupes to one run). The Workflow (`email/workflow.ts`) calls `planSends` to find who is
+dedupes to one run). The Workflow (`email/workflow.ts`) builds a `D1EmailRepository`
+(`@mishna/email-data`) and calls `planSends` (`@mishna/email-domain`) to find who is
 due an email *now* (08:00 in the user's own timezone; weekly on their weekly weekday,
 reminder on their reminder weekday when something's still unlearned), then sends the fully
 resolved `PreparedEmail`s in Resend-batch-sized chunks — each chunk a durable `step.do`,
@@ -166,7 +167,11 @@ at 08:00 local, then resolves the survivors with a handful of set-based `IN (...
 only — not the whole `user` table every hour). So a run is O(due/100) subrequests, not
 O(due); the ceiling is users-due-in-one-hour, kept well inside budget. `planSends` returns
 `PreparedEmail`s (address + the exact mishnayot to render), so `processJobs` does no
-further per-user DB reads — it renders, sends, and `recordSent`s.
+further per-user DB reads — it renders, sends, and records the send (`deps.record` →
+`D1EmailRepository.recordSent`). Those batched readers are now the `EmailRepository`
+port's methods (`loadCandidates`/`alreadySent`/`loadBlocks`/`loadCompleted`/`loadEmails`),
+implemented by `D1EmailRepository` in `@mishna/email-data`; the decision logic itself is
+`@mishna/email-domain`.
 
 **Idempotency is layered.** `email_log` dedups across runs/days (`recordSent` after a
 successful send; `alreadySentSet` before). *Within* a run, each batch carries a

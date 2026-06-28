@@ -1,0 +1,19 @@
+{
+  "name": "email-data",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/email-data/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/shared/email-data",
+        "main": "libs/shared/email-data/src/index.ts",
+        "tsConfig": "libs/shared/email-data/tsconfig.lib.json",
+        "assets": ["libs/shared/email-data/*.md"]
+      }
+    }
+  }
+}

@@ -4,6 +4,8 @@
   "dependencies": {
     "@hebcal/core": "^6.5.2",
     "@mishna/domain": "*",
+    "@mishna/email-data": "*",
+    "@mishna/email-domain": "*",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
     "better-auth": "^1.6.13",

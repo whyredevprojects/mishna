@@ -4,7 +4,9 @@ import {
   WorkflowStep,
 } from 'cloudflare:workers';
 import { Resend } from 'resend';
-import { planSends } from './orchestrator';
+import { planSends } from '@mishna/email-domain';
+import { D1EmailRepository } from '@mishna/email-data';
+import { assignmentEngine, chalakim, idGen, structure } from '../domain';
 import { httpTextResolver } from './quota';
 import { OutgoingEmail, SenderDeps, processJobs } from './sender';
 
@@ -16,13 +18,26 @@ interface Params {
 /** Resend's `/batch` endpoint accepts up to 100 emails per call. */
 const BATCH = 100;
 
+/** The D1-backed email repository (the EmailRepository port impl) over this env. */
+function emailRepo(env: Env): D1EmailRepository {
+  return new D1EmailRepository({
+    db: env.DB,
+    authDb: env.AUTH_DB,
+    structure,
+    chalakim,
+    idGen,
+  });
+}
+
 /** Wire the real side effects: Resend for sending, HTTP fetch for Hebrew text. */
 export function senderDeps(env: Env): SenderDeps {
   const resend = new Resend(env.RESEND_API_KEY);
+  const repo = emailRepo(env);
   return {
     resolveText: httpTextResolver(env.APP_ORIGIN),
     from: env.RESEND_FROM_EMAIL,
     appOrigin: env.APP_ORIGIN,
+    record: (userId, kind, weekStart) => repo.recordSent(userId, kind, weekStart),
     send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
       const { error } = await resend.batch.send(emails, { idempotencyKey });
       if (error) {
@@ -48,7 +63,9 @@ export class ReminderWorkflow extends WorkflowEntrypoint<Env, Params> {
 
     // Capture the start in a step so the duration survives workflow replays.
     const startedAt = await step.do('started-at', async () => Date.now());
-    const jobs = await step.do('plan-sends', () => planSends(this.env, now));
+    const jobs = await step.do('plan-sends', () =>
+      planSends(emailRepo(this.env), assignmentEngine, now),
+    );
 
     let sent = 0;
     for (let i = 0; i < jobs.length; i += BATCH) {

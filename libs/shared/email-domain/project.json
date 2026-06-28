@@ -1,0 +1,19 @@
+{
+  "name": "email-domain",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/email-domain/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/shared/email-domain",
+        "main": "libs/shared/email-domain/src/index.ts",
+        "tsConfig": "libs/shared/email-domain/tsconfig.lib.json",
+        "assets": ["libs/shared/email-domain/*.md"]
+      }
+    }
+  }
+}
