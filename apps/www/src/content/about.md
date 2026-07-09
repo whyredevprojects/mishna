@@ -31,11 +31,20 @@ When you become a member you commit to **memorize 1, 2, or 3 mishnayos each week
 
 <br>
 
+<br>
+
 **The Frierdiker Rebbes membership request**
-![IMG_3598.jpeg](https://images.mishna2go.com/about/17fdcddd-7cfb-4fd3-b8de-19f8d05651de-IMG_3598.jpeg)
+![CM frierdike rebbe signup.png](https://images.mishna2go.com/about/eef82060-4c1c-4884-9f33-980fc1a573bc-CM-frierdike-rebbe-signup.png)
 
 **The Rebbes membership request**
 ![5cd61227-fb22-40a3-bd28-1b4b99000f97.jpeg](https://images.mishna2go.com/about/5f8c4732-bb25-4cb8-b035-575fa0212f3a-5cd61227-fb22-40a3-bd28-1b4b99000f97.jpeg)
 
 **The Rebbes Historical Division of the Mishnayos into Chalokim for the Goirel**
 ![0086e7b4-4622-4096-852c-f7f072401057.jpeg](https://images.mishna2go.com/about/ed44f620-e93b-43b9-865e-24bba7db6431-0086e7b4-4622-4096-852c-f7f072401057.jpeg)
+
+A letter
+![WhatsApp Image 2026-06-02 at 11.49.28 PM.jpeg](https://images.mishna2go.com/about/f8efd57d-1684-4906-9feb-5721d3f8fb92-WhatsApp-Image-2026-06-02-at-11.49.28-PM.jpeg)
+
+![WhatsApp Image 2026-06-02 at 11.49.42 PM.jpeg](https://images.mishna2go.com/about/d46adf7c-3f95-4f24-b712-5b4fa47c0d3a-WhatsApp-Image-2026-06-02-at-11.49.42-PM.jpeg)
+
+<br>
