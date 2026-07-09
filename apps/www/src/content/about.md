@@ -42,9 +42,10 @@ When you become a member you commit to **memorize 1, 2, or 3 mishnayos each week
 **The Rebbes Historical Division of the Mishnayos into Chalokim for the Goirel**
 ![0086e7b4-4622-4096-852c-f7f072401057.jpeg](https://images.mishna2go.com/about/ed44f620-e93b-43b9-865e-24bba7db6431-0086e7b4-4622-4096-852c-f7f072401057.jpeg)
 
-A letter
-![WhatsApp Image 2026-06-02 at 11.49.28 PM.jpeg](https://images.mishna2go.com/about/f8efd57d-1684-4906-9feb-5721d3f8fb92-WhatsApp-Image-2026-06-02-at-11.49.28-PM.jpeg)
+A lette
 
-![WhatsApp Image 2026-06-02 at 11.49.42 PM.jpeg](https://images.mishna2go.com/about/d46adf7c-3f95-4f24-b712-5b4fa47c0d3a-WhatsApp-Image-2026-06-02-at-11.49.42-PM.jpeg)
+<br>
+
+![Screenshot 2026-07-09 113952.png](https://images.mishna2go.com/about/5aa0fe75-6cda-4b7b-a867-50b7cfd1c906-Screenshot-2026-07-09-113952.png)![Screenshot 2026-07-09 114015.png](https://images.mishna2go.com/about/a42bd5b7-8932-4e5a-a654-6446418b983a-Screenshot-2026-07-09-114015.png)
 
 <br>
