@@ -11,13 +11,13 @@ import { ToastService } from '../services/toast.service';
 import { DayOfWeek, EmailPrefs } from '../models/api.types';
 
 const DAY_NAMES = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
+  $localize`:@@day.sunday:Sunday`,
+  $localize`:@@day.monday:Monday`,
+  $localize`:@@day.tuesday:Tuesday`,
+  $localize`:@@day.wednesday:Wednesday`,
+  $localize`:@@day.thursday:Thursday`,
+  $localize`:@@day.friday:Friday`,
+  $localize`:@@day.saturday:Saturday`,
 ];
 
 /** Account info plus the editable email preferences (timezone + reminder schedule). */
@@ -64,32 +64,36 @@ const DAY_NAMES = [
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack readable">
-      <h2>Settings</h2>
+      <h2 i18n="@@settings.title">Settings</h2>
 
       @if (auth.me()?.user; as user) {
         <wa-card>
-          <strong slot="header">Account</strong>
+          <strong slot="header" i18n="@@settings.account">Account</strong>
           <dl>
-            <dt>Name</dt>
+            <dt i18n="@@settings.name">Name</dt>
             <dd>{{ user.name || '—' }}</dd>
-            <dt>Email</dt>
+            <dt i18n="@@settings.email">Email</dt>
             <dd>{{ user.email || '—' }}</dd>
-            <dt>User ID</dt>
+            <dt i18n="@@settings.userId">User ID</dt>
             <dd class="mono">{{ user.id }}</dd>
-            <dt>Role</dt>
+            <dt i18n="@@settings.role">Role</dt>
             <dd>{{ user.role || 'user' }}</dd>
           </dl>
         </wa-card>
 
         <wa-card>
-          <strong slot="header">Email preferences</strong>
+          <strong slot="header" i18n="@@settings.emailPreferences"
+            >Email preferences</strong
+          >
           @if (loading()) {
             <wa-spinner style="font-size: 2rem"></wa-spinner>
           } @else {
             <div class="fields">
               <div class="tz-row">
                 <wa-select
+                  i18n-label="@@settings.timezoneLabel"
                   label="Timezone"
+                  i18n-hint="@@settings.timezoneHint"
                   hint="Emails are sent at 8:00 AM in this timezone."
                   [value]="timezone()"
                   (change)="timezone.set($any($event.target).value)"
@@ -100,12 +104,14 @@ const DAY_NAMES = [
                 </wa-select>
                 <wa-button appearance="outlined" (click)="detectTimezone()">
                   <wa-icon slot="start" name="location-crosshairs"></wa-icon>
-                  Detect
+                  <span i18n="@@settings.detect">Detect</span>
                 </wa-button>
               </div>
 
               <wa-select
+                i18n-label="@@settings.weeklyDayLabel"
                 label="Weekly email day"
+                i18n-hint="@@settings.weeklyDayHint"
                 hint="The day you receive that week's mishnayos (in Hebrew)."
                 [value]="String(weeklyEmailDow())"
                 (change)="weeklyEmailDow.set(asDow($any($event.target).value))"
@@ -116,6 +122,7 @@ const DAY_NAMES = [
               </wa-select>
 
               <wa-checkbox
+                i18n="@@settings.weeklyEnabled"
                 [attr.checked]="weeklyEnabled() ? '' : null"
                 (change)="weeklyEnabled.set($any($event.target).checked)"
               >
@@ -125,7 +132,9 @@ const DAY_NAMES = [
               <wa-divider></wa-divider>
 
               <wa-select
+                i18n-label="@@settings.reminderDayLabel"
                 label="Reminder email day"
+                i18n-hint="@@settings.reminderDayHint"
                 hint="A nudge if you haven't finished that week's mishnayos yet."
                 [value]="String(reminderEmailDow())"
                 (change)="
@@ -138,6 +147,7 @@ const DAY_NAMES = [
               </wa-select>
 
               <wa-checkbox
+                i18n="@@settings.reminderEnabled"
                 [attr.checked]="reminderEnabled() ? '' : null"
                 (change)="reminderEnabled.set($any($event.target).checked)"
               >
@@ -150,7 +160,7 @@ const DAY_NAMES = [
                   [attr.loading]="saving() ? '' : null"
                   (click)="save()"
                 >
-                  Save preferences
+                  <span i18n="@@settings.save">Save preferences</span>
                 </wa-button>
               </div>
             </div>
@@ -195,7 +205,9 @@ export class SettingsComponent {
       },
       error: () => {
         this.loading.set(false);
-        this.toast.error('Could not load your preferences.');
+        this.toast.error(
+          $localize`:@@settings.loadError:Could not load your preferences.`,
+        );
       },
     });
   }
@@ -225,11 +237,13 @@ export class SettingsComponent {
     this.settings.updatePreferences(prefs).subscribe({
       next: () => {
         this.saving.set(false);
-        this.toast.success('Preferences saved.');
+        this.toast.success($localize`:@@settings.saved:Preferences saved.`);
       },
       error: () => {
         this.saving.set(false);
-        this.toast.error('Could not save your preferences.');
+        this.toast.error(
+          $localize`:@@settings.saveError:Could not save your preferences.`,
+        );
       },
     });
   }

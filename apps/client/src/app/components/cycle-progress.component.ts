@@ -25,12 +25,20 @@ import { Cycle } from '../models/api.types';
   template: `
     <div>
       <div class="label">
-        <span class="muted">Cycle progress</span>
-        <span>Day {{ cycle().daysElapsed }} / {{ cycle().totalDays }}</span>
+        <span class="muted" i18n="@@cycle.progressLabel">Cycle progress</span>
+        <span i18n="@@cycle.dayXofY"
+          >Day {{ cycle().daysElapsed }} / {{ cycle().totalDays }}</span
+        >
       </div>
       <wa-progress-bar [value]="percent()"></wa-progress-bar>
-      <p class="muted center" style="margin-block: var(--wa-space-xs);">
-        {{ cycle().daysRemaining }} days remaining until Rosh Chodesh Sivan
+      <p
+        class="muted center"
+        style="margin-block: var(--wa-space-xs);"
+        i18n="@@cycle.daysRemaining"
+      >
+        {cycle().daysRemaining, plural, =1 {1 day remaining until Rosh Chodesh
+        Sivan} other {{{ cycle().daysRemaining }} days remaining until Rosh
+        Chodesh Sivan}}
       </p>
     </div>
   `,

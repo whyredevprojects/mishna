@@ -24,4 +24,18 @@ import '@awesome.me/webawesome/dist/components/select/select.js';
 import '@awesome.me/webawesome/dist/components/spinner/spinner.js';
 import '@awesome.me/webawesome/dist/components/tag/tag.js';
 
-bootstrapApplication(App, appConfig).catch((err) => console.error(err));
+// Persisted locale preference: before bootstrapping, honor a stored choice by
+// redirecting to the matching build (English at `/`, Hebrew at `/he/`). This
+// ships in both builds; the guard prevents a redirect loop by only acting when
+// the current path's locale doesn't match the preference.
+const pref = localStorage.getItem('preferredLocale');
+const inHe = /^\/he(\/|$)/.test(location.pathname);
+if (pref === 'he' && !inHe) {
+  location.replace('/he' + location.pathname + location.search);
+} else if (pref === 'en' && inHe) {
+  location.replace(
+    location.pathname.replace(/^\/he(?=\/|$)/, '') + location.search || '/',
+  );
+} else {
+  bootstrapApplication(App, appConfig).catch((err) => console.error(err));
+}

@@ -123,7 +123,7 @@ export class DataTableComponent {
   readonly clickable = input(false);
   /** Row property used as the `@for` track key. */
   readonly trackKey = input('id');
-  readonly emptyText = input('Nothing to show.');
+  readonly emptyText = input($localize`Nothing to show.`);
   readonly rowClick = output<unknown>();
 
   protected readonly cell = contentChild.required<TemplateRef<unknown>>('cell');

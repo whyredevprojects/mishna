@@ -1,5 +1,13 @@
 # TODO — deferred work
 
+## Hebrew (RTL) parity for apps/mobile (Flutter)
+
+The web app (`apps/client`) now ships a full Hebrew (`he`) locale at `/he/` with RTL
+support (build-time `@angular/localize`; see `apps/client/CLAUDE.md` → **i18n / Hebrew**).
+Per the root CLAUDE.md rule to keep the web and mobile user-facing experiences in sync,
+`apps/mobile` should get matching Hebrew localization + RTL + a language switcher. Not yet
+done — tracked here as the follow-up.
+
 ## Decide how to define a "week"
 
 Commitment is now per **week** (1/2/3 mishnayos), so we had to pick what a "week" means

@@ -12,3 +12,13 @@
   Cache-Control: no-cache
 /manifest.webmanifest
   Cache-Control: no-cache
+/he/ngsw.json
+  Cache-Control: no-cache
+/he/ngsw-worker.js
+  Cache-Control: no-cache
+/he/safety-worker.js
+  Cache-Control: no-cache
+/he/worker-basic.min.js
+  Cache-Control: no-cache
+/he/manifest.he.webmanifest
+  Cache-Control: no-cache

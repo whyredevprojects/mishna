@@ -1,0 +1,24 @@
+# Cloudflare Pages _redirects for the Hebrew (/he/) locale build.
+# Pages evaluates _redirects BEFORE serving static assets, so we must NOT use a
+# blanket `/he/* /he/index.html 200` rewrite (it would swallow the real hashed
+# assets under /he/). Instead we enumerate route-shaped paths only, mirroring
+# apps/client/src/app/app.routes.ts.
+# IMPORTANT: any NEW client route must be added here (both English at / — handled
+# by Pages' built-in SPA fallback — and Hebrew here under /he/).
+/he /he/ 301
+/he/join /he/index.html 200
+/he/forgot-password /he/index.html 200
+/he/reset-password /he/index.html 200
+/he/dashboard /he/index.html 200
+/he/my-mishnayos /he/index.html 200
+/he/my-mishnayos/stats /he/index.html 200
+/he/chaluka /he/index.html 200
+/he/review /he/index.html 200
+/he/settings /he/index.html 200
+/he/admin /he/index.html 200
+/he/admin/users /he/index.html 200
+/he/admin/users/* /he/index.html 200
+/he/admin/groups /he/index.html 200
+/he/admin/groups/* /he/index.html 200
+/he/admin/assignments /he/index.html 200
+/he/admin/about /he/index.html 200

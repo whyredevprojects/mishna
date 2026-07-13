@@ -28,6 +28,56 @@ this entirely and aligning with the ngsw manifest keys. (Static assets like `fav
 A residual hardening worth doing: make Pages return a real `404` for asset-looking misses
 instead of the SPA shell (see `TODO.md`).
 
+## i18n / Hebrew (RTL)
+
+Localized with **build-time `@angular/localize`**. English is the source locale, served
+at the site root (`/`); Hebrew is a **separate build** served under `/he/`. Two builds
+(not one multi-output build) because each locale needs its own `deployUrl` — the English
+build sets `deployUrl: "/"` (load-bearing, see **Rendering model** above) and the Hebrew
+build sets `deployUrl: "/he/"` so its eager `<script>`/`<link>` URLs and ngsw manifest
+keys are `/he/…`-absolute.
+
+- **Config lives in `project.json`.** The top-level `i18n` block maps locale `he` →
+  `src/locale/messages.he.xlf` with `baseHref: "/he/"`. Build config **`production-he`**
+  sets `localize: ["he"]`, `deployUrl: "/he/"`, `outputPath: dist/apps/client-he`,
+  `index: src/index.he.html`, `serviceWorker: ngsw-config.he.json`, and
+  `i18nMissingTranslation: "error"` (a missing Hebrew target fails the build — this is the
+  completeness gate). `development-he` + serve config `he` mirror it for `nx serve`. The
+  `@angular/localize/init` polyfill is in the base `build` options so `$localize` exists in
+  the untranslated English build and under dev-serve (localize inlining is off there).
+- **Per-locale shells/configs**: `src/index.he.html` (`<html lang="he" dir="rtl">`, Hebrew
+  head), `public/manifest.he.webmanifest` (scope/start_url `/he/`), `ngsw-config.he.json`
+  (a copy of `ngsw-config.json` **without** the `!/he/**` navigation exclusion — the
+  generator joins the `/he/` baseHref onto index/asset paths automatically). The root
+  `ngsw-config.json` **excludes** `/he/**` from its navigationUrls so the English SW never
+  claims Hebrew routes. `public/_headers` adds no-cache for the `/he/` ngsw + manifest.
+- **`public/_redirects` is coupled to `app.routes.ts`.** Cloudflare Pages evaluates
+  `_redirects` before static assets, so we can't use a blanket `/he/* → /he/index.html`
+  rewrite (it would swallow the hashed assets). Instead we **enumerate route-shaped paths**
+  under `/he/`. **Any new client route must be added there** (English uses Pages' built-in
+  SPA fallback).
+- **Locale-aware code** (`util/locale.ts`): `CURRENT_LOCALE`/`IS_HEBREW` derive from
+  `$localize.locale`; `localizePath(p)` prefixes `/he` in the Hebrew build (used for OAuth
+  `callbackURL` + password-reset `redirectTo` so auth returns into the right build).
+  Hebrew domain text (mishna text, `tractateHebrewName`) needs no translation, but the
+  API's English (transliterated) mesechta names do: `util/mesechta-hebrew-names.ts` is a
+  generated `nameEn → nameHe` map (exhaustiveness pinned by its `.spec.ts` against
+  `@mishna/domain`'s `mishnahDataset`), consumed by `formatRefLocalized()` in `util/format.ts`.
+  `MishnaTextService` derives its tractate-JSON base from `document.baseURI` so it fetches
+  `/he/*.json` (SW-cached) under Hebrew. RTL: styles already use logical properties + Web
+  Awesome handles RTL; directional icons opt in with `class="dir-flip"` (global rule in
+  `styles.scss`), and the English translation paragraph in `mishna-card` is pinned `dir="ltr"`.
+- **Switcher + persistence**: `app-shell` and `site-header` render a language toggle whose
+  label is the *other* language's own name (rendered outside the i18n pipeline). On click it
+  writes `localStorage.preferredLocale` and does a full-page `location.assign` to the matching
+  path. `main.ts` reads `preferredLocale` **before** bootstrap and redirects to the matching
+  build (guarded against loops). Ships in both builds.
+- **Translation workflow**: `nx extract-i18n client` regenerates `src/locale/messages.xlf`
+  (XLIFF 2, source). Copy new units into `messages.he.xlf` (set `trgLang="he"`, add a
+  `<target>` per `<segment>`, preserve `<ph>`/ICU placeholders, never edit ids). The
+  `production-he` build fails on any missing target.
+- **Admin stays English/unmarked by design** (`pages/admin*`), as does Hebrew domain content.
+
 ## PWA / offline
 
 Installable PWA backed by the Angular service worker (NGSW). The goal is that a

@@ -36,15 +36,21 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
-      <h2>My Mishnayos</h2>
+      <h2 i18n="@@myMishnayos.title">My Mishnayos</h2>
       <nav class="subnav">
         <a
           routerLink="/my-mishnayos"
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
+          i18n="@@myMishnayos.tab.assignments"
           >Assignments</a
         >
-        <a routerLink="/my-mishnayos/stats" routerLinkActive="active">Stats</a>
+        <a
+          routerLink="/my-mishnayos/stats"
+          routerLinkActive="active"
+          i18n="@@myMishnayos.tab.stats"
+          >Stats</a
+        >
       </nav>
       <router-outlet />
     </div>

@@ -40,9 +40,9 @@ import { Commitment, JoinOption } from '../models/api.types';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <wa-card>
-      <strong slot="header">Join the current cycle</strong>
+      <strong slot="header" i18n="@@join.form.header">Join the current cycle</strong>
 
-      <p>How many mishnayot will you memorize each week?</p>
+      <p i18n="@@join.form.question">How many mishnayot will you memorize each week?</p>
 
       @if (options(); as opts) {
         <wa-radio-group
@@ -53,8 +53,13 @@ import { Commitment, JoinOption } from '../models/api.types';
         >
           @for (o of opts; track o.commitment) {
             <wa-radio appearance="button" [value]="String(o.commitment)">
-              <span class="option-main">{{ mainLabel(o) }}</span>
-              <span class="option-sub">{{ subLabel(o) }}</span>
+              @if (o.singleLot) {
+                <span class="option-main" i18n="@@join.opt.singleLot">1 lot</span>
+                <span class="option-sub" i18n="@@join.opt.singleLotSub">up to {{ o.maxMishnas }} mishnayos · about {{ o.perDay }} a day</span>
+              } @else {
+                <span class="option-main" i18n="@@join.opt.perWeek">{o.commitment, plural, =1 {1 mishna a week} other {{{ o.commitment }} mishnayos a week}}</span>
+                <span class="option-sub" i18n="@@join.opt.approxLots">{o.approxLots, plural, =1 {about 1 lot} other {about {{ o.approxLots }} lots}}</span>
+              }
             </wa-radio>
           }
         </wa-radio-group>
@@ -65,7 +70,7 @@ import { Commitment, JoinOption } from '../models/api.types';
             [attr.loading]="loading() ? '' : null"
             (click)="submit()"
           >
-            Join
+            <span i18n="@@join.form.submit">Join</span>
           </wa-button>
         </div>
       } @else {
@@ -92,21 +97,6 @@ export class JoinFormComponent {
         this.selected.set(opts[0]?.commitment ?? 1);
       }
     });
-  }
-
-  protected mainLabel(o: JoinOption): string {
-    if (o.singleLot) {
-      return '1 lot';
-    }
-    const noun = o.commitment === 1 ? 'mishna' : 'mishnayos';
-    return `${o.commitment} ${noun} a week`;
-  }
-
-  protected subLabel(o: JoinOption): string {
-    if (o.singleLot) {
-      return `up to ${o.maxMishnas} mishnayos · about ${o.perDay} a day`;
-    }
-    return `about ${o.approxLots} ${o.approxLots === 1 ? 'lot' : 'lots'}`;
   }
 
   protected onSelect(event: Event): void {

@@ -65,13 +65,15 @@ export class SwRecoveryService {
     this.swUpdate.versionUpdates
       .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))
       .subscribe(() => {
-        this.toast.action('A new version is available.', 'Reload', () =>
-          document.location.reload(),
+        this.toast.action(
+          $localize`A new version is available.`,
+          $localize`Reload`,
+          () => document.location.reload(),
         );
       });
 
     this.swUpdate.unrecoverable.subscribe(() => {
-      this.toast.error('Refreshing to recover the app…');
+      this.toast.error($localize`Refreshing to recover the app…`);
       this.reloadOnce();
     });
   }

@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { IS_HEBREW } from '../util/locale';
 
 /** Authenticated layout: a top bar with a burger that opens a navigation drawer, and a router-outlet for the page. */
 @Component({
@@ -66,21 +67,22 @@ import { AuthService } from '../services/auth.service';
   template: `
     <header class="topbar">
       <wa-button class="burger" appearance="plain" (click)="drawerOpen.set(true)">
-        <wa-icon name="bars" label="Menu"></wa-icon>
+        <wa-icon name="bars" i18n-label label="Menu"></wa-icon>
       </wa-button>
-      <h1>Chevras Mishnayos Baal Peh</h1>
+      <h1 i18n="@@brand.title">Chevras Mishnayos Baal Peh</h1>
       <span class="spacer"></span>
+      <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
       <nav class="topbar-nav">
-        <wa-button routerLink="/dashboard" appearance="plain"><wa-icon slot="start" name="calendar-day"></wa-icon> Today</wa-button>
-        <wa-button routerLink="/my-mishnayos" appearance="plain"><wa-icon slot="start" name="book"></wa-icon> My Mishnayos</wa-button>
-        <wa-button routerLink="/review" appearance="plain"><wa-icon slot="start" name="magnifying-glass"></wa-icon> Review</wa-button>
-        <wa-button routerLink="/settings" appearance="plain"><wa-icon slot="start" name="user"></wa-icon> Settings</wa-button>
+        <wa-button routerLink="/dashboard" appearance="plain"><wa-icon slot="start" name="calendar-day"></wa-icon> <span i18n="@@nav.today">Today</span></wa-button>
+        <wa-button routerLink="/my-mishnayos" appearance="plain"><wa-icon slot="start" name="book"></wa-icon> <span i18n="@@nav.myMishnayos">My Mishnayos</span></wa-button>
+        <wa-button routerLink="/review" appearance="plain"><wa-icon slot="start" name="magnifying-glass"></wa-icon> <span i18n="@@nav.review">Review</span></wa-button>
+        <wa-button routerLink="/settings" appearance="plain"><wa-icon slot="start" name="user"></wa-icon> <span i18n="@@nav.settings">Settings</span></wa-button>
         @if (auth.isAdmin()) {
-          <wa-button routerLink="/admin" appearance="plain"><wa-icon slot="start" name="gear"></wa-icon> Admin</wa-button>
+          <wa-button routerLink="/admin" appearance="plain"><wa-icon slot="start" name="gear"></wa-icon> <span i18n="@@nav.admin">Admin</span></wa-button>
         }
         <wa-button appearance="plain" (click)="logout()">
           <wa-icon slot="start" name="right-from-bracket"></wa-icon>
-          Log out
+          <span i18n="@@nav.logout">Log out</span>
         </wa-button>
       </nav>
     </header>
@@ -90,19 +92,21 @@ import { AuthService } from '../services/auth.service';
     </main>
 
     <wa-drawer
+      i18n-label
       label="Chevras Mishnayos Baal Peh"
       placement="start"
       [attr.open]="drawerOpen() ? '' : null"
       (wa-after-hide)="drawerOpen.set(false)"
     >
       <nav>
-        <wa-button routerLink="/dashboard" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="calendar-day"></wa-icon> Today</wa-button>
-        <wa-button routerLink="/my-mishnayos" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="book"></wa-icon> My Mishnayos</wa-button>
-        <wa-button routerLink="/review" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="magnifying-glass"></wa-icon> Review</wa-button>
-        <wa-button routerLink="/settings" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="user"></wa-icon> Settings</wa-button>
+        <wa-button routerLink="/dashboard" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="calendar-day"></wa-icon> <span i18n="@@nav.today">Today</span></wa-button>
+        <wa-button routerLink="/my-mishnayos" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="book"></wa-icon> <span i18n="@@nav.myMishnayos">My Mishnayos</span></wa-button>
+        <wa-button routerLink="/review" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="magnifying-glass"></wa-icon> <span i18n="@@nav.review">Review</span></wa-button>
+        <wa-button routerLink="/settings" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="user"></wa-icon> <span i18n="@@nav.settings">Settings</span></wa-button>
         @if (auth.isAdmin()) {
-          <wa-button routerLink="/admin" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="gear"></wa-icon> Admin</wa-button>
+          <wa-button routerLink="/admin" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="gear"></wa-icon> <span i18n="@@nav.admin">Admin</span></wa-button>
         }
+        <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
       </nav>
 
       <wa-button
@@ -111,7 +115,7 @@ import { AuthService } from '../services/auth.service';
         (click)="logout()"
       >
         <wa-icon slot="start" name="right-from-bracket"></wa-icon>
-        Log out
+        <span i18n="@@nav.logout">Log out</span>
       </wa-button>
     </wa-drawer>
 
@@ -122,6 +126,16 @@ export class AppShellComponent {
   private readonly router = inject(Router);
 
   protected readonly drawerOpen = signal(false);
+
+  protected readonly IS_HEBREW = IS_HEBREW;
+  protected readonly switcherLabel = IS_HEBREW ? 'English' : 'עברית';
+
+  switchLocale(): void {
+    const target = IS_HEBREW ? 'en' : 'he';
+    localStorage.setItem('preferredLocale', target);
+    const stripped = location.pathname.replace(/^\/he(?=\/|$)/, '') + location.search;
+    location.assign(target === 'he' ? '/he' + (stripped || '/') : (stripped || '/'));
+  }
 
   protected logout(): void {
     this.auth.signOut().subscribe(() => this.router.navigate(['/']));

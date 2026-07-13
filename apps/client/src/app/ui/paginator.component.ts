@@ -43,8 +43,9 @@ import {
           appearance="outlined"
           [attr.disabled]="page() === 0 ? '' : null"
           (click)="go(page() - 1)"
+          i18n
         >
-          <wa-icon slot="start" name="chevron-left"></wa-icon>
+          <wa-icon slot="start" name="chevron-left" class="dir-flip"></wa-icon>
           Prev
         </wa-button>
         <wa-button
@@ -52,9 +53,10 @@ import {
           appearance="outlined"
           [attr.disabled]="isLast() ? '' : null"
           (click)="go(page() + 1)"
+          i18n
         >
           Next
-          <wa-icon slot="end" name="chevron-right"></wa-icon>
+          <wa-icon slot="end" name="chevron-right" class="dir-flip"></wa-icon>
         </wa-button>
       </div>
     </div>
@@ -73,10 +75,11 @@ export class PaginatorComponent {
   );
 
   protected readonly rangeLabel = computed(() => {
-    if (this.total() === 0) return '0 of 0';
+    if (this.total() === 0) return $localize`0 of 0`;
     const start = this.page() * this.pageSize() + 1;
     const end = Math.min(this.total(), (this.page() + 1) * this.pageSize());
-    return `${start}–${end} of ${this.total()}`;
+    const total = this.total();
+    return $localize`${start}:start:–${end}:end: of ${total}:total:`;
   });
 
   protected go(p: number): void {

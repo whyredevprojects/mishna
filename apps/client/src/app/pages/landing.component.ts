@@ -65,10 +65,10 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
     <div class="fill-center">
       <wa-card>
-        <h1 slot="header" class="center">Chevras Mishnayos Baal Peh</h1>
+        <h1 slot="header" class="center" i18n="@@brand.title">Chevras Mishnayos Baal Peh</h1>
 
         <div class="stack">
-          <p class="tagline center">
+          <p class="tagline center" i18n="@@landing.tagline">
             Memorize the entire Mishna together by Rosh Chodesh Sivan — one
             mishna at a time.
           </p>
@@ -79,6 +79,7 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
 
           <wa-input
             type="email"
+            i18n-label="@@field.email"
             label="Email"
             autocomplete="email"
             [value]="email()"
@@ -86,6 +87,7 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
           ></wa-input>
           <wa-input
             type="password"
+            i18n-label="@@field.password"
             label="Password"
             autocomplete="current-password"
             [value]="password()"
@@ -106,11 +108,11 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
             [attr.disabled]="captchaToken() ? null : ''"
             (click)="logIn()"
           >
-            Log in
+            <span i18n="@@header.logIn">Log in</span>
           </wa-button>
 
           <p class="forgot-link center">
-            <a routerLink="/forgot-password">Forgot your password?</a>
+            <a routerLink="/forgot-password" i18n="@@landing.forgotPassword">Forgot your password?</a>
           </p>
 
           <wa-divider></wa-divider>
@@ -120,16 +122,16 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
             (click)="signInWithGoogle()"
           >
             <wa-icon slot="start" name="google" family="brands"></wa-icon>
-            Sign in with Google
+            <span i18n="@@landing.signInGoogle">Sign in with Google</span>
           </wa-button>
 
           @if (googleError()) {
-            <p class="error center">
+            <p class="error center" i18n="@@landing.googleError">
               Could not start Google sign-in. Please try again.
             </p>
           }
 
-          <p class="join-link center">
+          <p class="join-link center" i18n="@@landing.joinPrompt">
             New to the program?
             <a routerLink="/join">Become a member</a>
           </p>
@@ -182,7 +184,7 @@ export class LandingComponent {
       },
       error: () => {
         this.loading.set(false);
-        this.error.set('Incorrect email or password.');
+        this.error.set($localize`:@@landing.errorBadCredentials:Incorrect email or password.`);
         // The Turnstile token was consumed by this attempt; get a fresh one so a
         // retry isn't rejected for reusing it.
         this.captchaToken.set(null);

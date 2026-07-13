@@ -5,6 +5,15 @@
   "prefix": "app",
   "sourceRoot": "apps/client/src",
   "tags": [],
+  "i18n": {
+    "sourceLocale": "en-US",
+    "locales": {
+      "he": {
+        "translation": "apps/client/src/locale/messages.he.xlf",
+        "baseHref": "/he/"
+      }
+    }
+  },
   "targets": {
     "build": {
       "executor": "@angular/build:application",
@@ -12,6 +21,7 @@
       "options": {
         "outputPath": "dist/apps/client",
         "browser": "apps/client/src/main.ts",
+        "polyfills": ["@angular/localize/init"],
         "tsConfig": "apps/client/tsconfig.app.json",
         "inlineStyleLanguage": "scss",
         "stylePreprocessorOptions": {
@@ -52,10 +62,50 @@
           "outputHashing": "all",
           "serviceWorker": "apps/client/ngsw-config.json"
         },
+        "production-he": {
+          "localize": ["he"],
+          "deployUrl": "/he/",
+          "outputPath": "dist/apps/client-he",
+          "index": {
+            "input": "apps/client/src/index.he.html",
+            "output": "index.html"
+          },
+          "i18nMissingTranslation": "error",
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "900kb",
+              "maximumError": "1.5mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all",
+          "serviceWorker": "apps/client/ngsw-config.he.json"
+        },
         "development": {
           "optimization": false,
           "extractLicenses": false,
           "sourceMap": true,
+          "fileReplacements": [
+            {
+              "replace": "apps/client/src/environments/environment.ts",
+              "with": "apps/client/src/environments/environment.development.ts"
+            }
+          ]
+        },
+        "development-he": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true,
+          "localize": ["he"],
+          "index": {
+            "input": "apps/client/src/index.he.html",
+            "output": "index.html"
+          },
           "fileReplacements": [
             {
               "replace": "apps/client/src/environments/environment.ts",
@@ -75,12 +125,23 @@
         },
         "development": {
           "buildTarget": "client:build:development"
+        },
+        "he": {
+          "buildTarget": "client:build:development-he"
         }
       },
       "defaultConfiguration": "development",
       "dependsOn": ["server:serve", "login:serve"],
       "options": {
         "proxyConfig": "apps/client/proxy.conf.json"
+      }
+    },
+    "extract-i18n": {
+      "executor": "@angular/build:extract-i18n",
+      "options": {
+        "buildTarget": "client:build:development",
+        "format": "xlf2",
+        "outputPath": "apps/client/src/locale"
       }
     },
     "lint": {
@@ -90,7 +151,8 @@
       "executor": "@angular/build:unit-test",
       "options": {
         "watch": false,
-        "runnerConfig": true
+        "runnerConfig": true,
+        "setupFiles": ["apps/client/src/test-setup-i18n.ts"]
       }
     },
     "serve-static": {
@@ -107,7 +169,13 @@
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
       "options": {
-        "command": "wrangler pages deploy dist/apps/client/browser --project-name=chevramishnayos --branch=main"
+        "commands": [
+          "npx nx build client --configuration=production-he",
+          "rm -rf dist/apps/client/browser/he",
+          "cp -r dist/apps/client-he/browser/he dist/apps/client/browser/he",
+          "wrangler pages deploy dist/apps/client/browser --project-name=chevramishnayos --branch=main"
+        ],
+        "parallel": false
       }
     }
   }

@@ -20,8 +20,7 @@ import { AssignmentService } from '../services/assignment.service';
 import { ToastService } from '../services/toast.service';
 import { queryKeys } from '../queries/query-keys';
 
-const SYNC_ERROR =
-  "We weren't able to update your progress. Please try again later.";
+const SYNC_ERROR = $localize`We weren't able to update your progress. Please try again later.`;
 
 /**
  * The user's current mishnayot — one {@link MishnaCardComponent} per mishna, with a
@@ -68,13 +67,13 @@ const SYNC_ERROR =
       </div>
 
       @if (allDone()) {
-        <div class="done-banner">
+        <div class="done-banner" i18n>
           <wa-icon name="circle-check" variant="solid"></wa-icon>
           Learned these mishnayos!
         </div>
       }
     } @else {
-      <div class="done-banner">
+      <div class="done-banner" i18n>
         <wa-icon name="circle-check" variant="solid"></wa-icon>
         You’ve finished all your mishnayos!
       </div>

@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { QueryClient } from '@tanstack/angular-query-experimental';
 import { Me } from '../models/api.types';
+import { localizePath } from '../util/locale';
 
 /** Progress of the Google OAuth sign-in: idle, redirecting, or failed to start. */
 export type GoogleSignInState = 'none' | 'loading' | 'error';
@@ -105,7 +106,7 @@ export class AuthService {
     this.http
       .post<{ url?: string; redirect?: boolean }>('/api/auth/sign-in/social', {
         provider: 'google',
-        callbackURL,
+        callbackURL: localizePath(callbackURL),
       })
       .subscribe({
         next: (res) => {

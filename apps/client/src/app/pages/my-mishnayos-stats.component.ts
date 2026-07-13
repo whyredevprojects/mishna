@@ -1,6 +1,7 @@
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  LOCALE_ID,
   computed,
   inject,
   ChangeDetectionStrategy
@@ -10,6 +11,8 @@ import { injectQuery } from '@tanstack/angular-query-experimental';
 import { AssignmentService } from '../services/assignment.service';
 import { chalukaQueryOptions } from '../queries/queries';
 import { formatRef, formatLongDate } from '../util/format';
+import { IS_HEBREW } from '../util/locale';
+import { MESECHTA_HEBREW_NAMES } from '../util/mesechta-hebrew-names';
 
 /** One mesechta's slice of the user's portion. */
 interface MesechtaProgress {
@@ -87,44 +90,52 @@ interface MesechtaProgress {
       @if (query.isPending()) {
         <div class="spinner-wrap"><wa-spinner style="font-size: 2rem"></wa-spinner></div>
       } @else if (query.isError()) {
-        <wa-callout variant="danger">Could not load your chaluka.</wa-callout>
+        <wa-callout variant="danger" i18n="@@stats.loadError"
+          >Could not load your chaluka.</wa-callout
+        >
       } @else if (total() === 0) {
-        <wa-callout variant="neutral">
+        <wa-callout variant="neutral" i18n="@@chaluka.notJoined">
           You haven’t joined the cycle yet.
           <a routerLink="/dashboard">Pick a commitment</a> to get your chaluka.
         </wa-callout>
       } @else {
         <wa-card>
-          <strong slot="header">Overall progress</strong>
+          <strong slot="header" i18n="@@stats.overallProgress"
+            >Overall progress</strong
+          >
           <div class="stack">
             <div class="headline">
               <span class="count">{{ learned() }} / {{ total() }}</span>
-              <span class="pct">{{ pct() }}% complete</span>
+              <span class="pct" i18n="@@stats.pctComplete"
+                >{{ pct() }}% complete</span
+              >
             </div>
             <wa-progress-bar [value]="pct()"></wa-progress-bar>
-            <span class="muted">mishnayos memorized</span>
+            <span class="muted" i18n="@@stats.mishnayosMemorized"
+              >mishnayos memorized</span
+            >
           </div>
         </wa-card>
 
         <wa-card>
-          <strong slot="header">Stats</strong>
+          <strong slot="header" i18n="@@stats.title">Stats</strong>
           <dl>
-            <dt>Weekly goal</dt>
-            <dd>{{ commitment() }} / week</dd>
-            <dt>Completion rate</dt>
+            <dt i18n="@@stats.weeklyGoal">Weekly goal</dt>
+            <dd i18n="@@stats.perWeek">{{ commitment() }} / week</dd>
+            <dt i18n="@@stats.completionRate">Completion rate</dt>
             <dd>{{ pct() }}%</dd>
-            <dt>Member since</dt>
+            <dt i18n="@@stats.memberSince">Member since</dt>
             <dd>{{ memberSince() }}</dd>
           </dl>
         </wa-card>
 
         <wa-card>
-          <strong slot="header">By mesechta</strong>
+          <strong slot="header" i18n="@@stats.byMesechta">By mesechta</strong>
           <div class="breakdown">
             @for (m of breakdown(); track m.mesechta) {
               <div>
                 <div class="row">
-                  <strong>{{ m.mesechta }}</strong>
+                  <strong>{{ mesechtaName(m.mesechta) }}</strong>
                   <span class="frac">{{ m.done }} / {{ m.total }}</span>
                 </div>
                 <wa-progress-bar [value]="rowPct(m)"></wa-progress-bar>
@@ -138,6 +149,12 @@ interface MesechtaProgress {
 })
 export class MyMishnayosStatsComponent {
   private readonly assignments = inject(AssignmentService);
+  private readonly locale = inject(LOCALE_ID);
+
+  /** The mesechta breakdown row name, Hebrew in the Hebrew build. */
+  protected mesechtaName(mesechta: string): string {
+    return IS_HEBREW ? (MESECHTA_HEBREW_NAMES[mesechta] ?? mesechta) : mesechta;
+  }
 
   protected readonly query = injectQuery(() =>
     chalukaQueryOptions(this.assignments),
@@ -158,7 +175,7 @@ export class MyMishnayosStatsComponent {
   );
   protected readonly memberSince = computed(() => {
     const joinedAt = this.query.data()?.joinedAt;
-    return joinedAt ? formatLongDate(joinedAt) : '—';
+    return joinedAt ? formatLongDate(joinedAt, this.locale) : '—';
   });
 
   /** The portion grouped by mesechta, in corpus order, with learned counts. */

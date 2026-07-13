@@ -46,10 +46,11 @@ import { queryKeys } from '../queries/query-keys';
 
     <div class="fill-center">
       <wa-card>
-        <h1 slot="header" class="center">Become a Member</h1>
+        <h1 slot="header" class="center" i18n="@@header.becomeMember">Become a Member</h1>
 
         <div class="stack">
           <wa-input
+            i18n-label="@@field.name"
             label="Name"
             autocomplete="name"
             [value]="name()"
@@ -57,6 +58,7 @@ import { queryKeys } from '../queries/query-keys';
           ></wa-input>
           <wa-input
             type="email"
+            i18n-label="@@field.email"
             label="Email"
             autocomplete="email"
             [value]="email()"
@@ -64,6 +66,7 @@ import { queryKeys } from '../queries/query-keys';
           ></wa-input>
           <wa-input
             type="password"
+            i18n-label="@@field.password"
             label="Password"
             autocomplete="new-password"
             [value]="password()"
@@ -84,7 +87,7 @@ import { queryKeys } from '../queries/query-keys';
             [attr.disabled]="captchaToken() ? null : ''"
             (click)="createAccount()"
           >
-            Become a member
+            <span i18n="@@join.submit">Become a member</span>
           </wa-button>
 
           <wa-divider></wa-divider>
@@ -94,16 +97,16 @@ import { queryKeys } from '../queries/query-keys';
             (click)="joinWithGoogle()"
           >
             <wa-icon slot="start" name="google" family="brands"></wa-icon>
-            Join with Google
+            <span i18n="@@join.signInGoogle">Join with Google</span>
           </wa-button>
 
           @if (googleError()) {
-            <p class="error center">
+            <p class="error center" i18n="@@join.googleError">
               Could not start Google sign-up. Please try again.
             </p>
           }
 
-          <p class="login-link center">
+          <p class="login-link center" i18n="@@join.loginPrompt">
             Already have an account?
             <a routerLink="/">Log in</a>
           </p>
@@ -146,7 +149,7 @@ export class JoinComponent {
         error: () => {
           this.loading.set(false);
           this.error.set(
-            'Could not create the account. The email may already be registered, or the password is too short.',
+            $localize`:@@join.errorCreate:Could not create the account. The email may already be registered, or the password is too short.`,
           );
           // The Turnstile token was consumed by this attempt; get a fresh one so a
           // retry isn't rejected for reusing it.

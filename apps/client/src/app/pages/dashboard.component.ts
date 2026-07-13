@@ -73,19 +73,21 @@ import {
             <wa-button
               appearance="plain"
               aria-label="Previous mishnayos"
+              i18n-aria-label="@@dashboard.prevMishnayos"
               [attr.disabled]="canPrev() ? null : ''"
               (click)="prev()"
             >
-              <wa-icon name="chevron-left"></wa-icon>
+              <wa-icon name="chevron-left" class="dir-flip"></wa-icon>
             </wa-button>
             <span class="pager-label muted">{{ pagerLabel() }}</span>
             <wa-button
               appearance="plain"
               aria-label="Next mishnayos"
+              i18n-aria-label="@@dashboard.nextMishnayos"
               [attr.disabled]="canNext() ? null : ''"
               (click)="next()"
             >
-              <wa-icon name="chevron-right"></wa-icon>
+              <wa-icon name="chevron-right" class="dir-flip"></wa-icon>
             </wa-button>
           </div>
           <div
@@ -186,10 +188,10 @@ export class DashboardComponent {
   );
   protected readonly error = computed(() => {
     if (this.assignmentQuery.isError()) {
-      return 'Could not load this week’s assignment.';
+      return $localize`Could not load this week’s assignment.`;
     }
     if (this.joinMutation.isError()) {
-      return 'Could not join the cycle. Please try again.';
+      return $localize`Could not join the cycle. Please try again.`;
     }
     return null;
   });
@@ -220,9 +222,9 @@ export class DashboardComponent {
   protected readonly pagerLabel = computed(() => {
     const at = this.served();
     const current = this.currentBucket();
-    if (at < current) return 'Already learned';
-    if (at > current) return 'Coming up';
-    return 'Current mishnayos';
+    if (at < current) return $localize`Already learned`;
+    if (at > current) return $localize`Coming up`;
+    return $localize`Current mishnayos`;
   });
   protected readonly canPrev = computed(() => this.served() > 0);
   // A user's portion is finite; the last bucket is the end of the road forward.

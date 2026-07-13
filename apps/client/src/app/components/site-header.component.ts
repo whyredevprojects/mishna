@@ -1,5 +1,6 @@
 import { CUSTOM_ELEMENTS_SCHEMA, Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { IS_HEBREW } from '../util/locale';
 
 /**
  * Public top bar for the unauthenticated pages (landing, join). Site name on the
@@ -34,11 +35,22 @@ import { RouterLink } from '@angular/router';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <header class="topbar">
-      <a class="brand" routerLink="/">Chevras Mishnayos Baal Peh</a>
+      <a class="brand" routerLink="/" i18n="@@brand.title">Chevras Mishnayos Baal Peh</a>
       <span class="spacer"></span>
-      <wa-button appearance="plain" routerLink="/">Log in</wa-button>
-      <wa-button variant="brand" routerLink="/join">Become a Member</wa-button>
+      <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
+      <wa-button appearance="plain" routerLink="/" i18n="@@header.logIn">Log in</wa-button>
+      <wa-button variant="brand" routerLink="/join" i18n="@@header.becomeMember">Become a Member</wa-button>
     </header>
   `,
 })
-export class SiteHeaderComponent {}
+export class SiteHeaderComponent {
+  protected readonly IS_HEBREW = IS_HEBREW;
+  protected readonly switcherLabel = IS_HEBREW ? 'English' : 'עברית';
+
+  switchLocale(): void {
+    const target = IS_HEBREW ? 'en' : 'he';
+    localStorage.setItem('preferredLocale', target);
+    const stripped = location.pathname.replace(/^\/he(?=\/|$)/, '') + location.search;
+    location.assign(target === 'he' ? '/he' + (stripped || '/') : (stripped || '/'));
+  }
+}

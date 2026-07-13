@@ -9,6 +9,7 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { SiteHeaderComponent } from '../components/site-header.component';
 import { TurnstileComponent } from '../components/turnstile.component';
+import { localizePath } from '../util/locale';
 
 /** Public "forgot password" page: collects an email and asks the login worker to
  * send a reset link. Always shows the same neutral confirmation (no enumeration). */
@@ -43,21 +44,22 @@ import { TurnstileComponent } from '../components/turnstile.component';
 
     <div class="fill-center">
       <wa-card>
-        <h1 slot="header" class="center">Reset your password</h1>
+        <h1 slot="header" class="center" i18n="@@forgot.title">Reset your password</h1>
 
         <div class="stack">
           @if (sent()) {
-            <p class="tagline center">
+            <p class="tagline center" i18n="@@forgot.sent">
               If an account exists for that email, we've sent a link to reset
               your password. Check your inbox.
             </p>
           } @else {
-            <p class="tagline">
+            <p class="tagline" i18n="@@forgot.tagline">
               Enter your email and we'll send you a link to set a new password.
             </p>
 
             <wa-input
               type="email"
+              i18n-label="@@field.email"
               label="Email"
               autocomplete="email"
               [value]="email()"
@@ -76,11 +78,11 @@ import { TurnstileComponent } from '../components/turnstile.component';
               [attr.disabled]="captchaToken() ? null : ''"
               (click)="submit()"
             >
-              Send reset link
+              <span i18n="@@forgot.submit">Send reset link</span>
             </wa-button>
           }
 
-          <p class="login-link center">
+          <p class="login-link center" i18n="@@forgot.loginPrompt">
             Remembered it?
             <a routerLink="/">Log in</a>
           </p>
@@ -101,7 +103,7 @@ export class ForgotPasswordComponent {
     const token = this.captchaToken();
     if (this.loading() || !this.email() || !token) return;
     this.loading.set(true);
-    const redirectTo = `${window.location.origin}/reset-password`;
+    const redirectTo = `${window.location.origin}${localizePath('/reset-password')}`;
     this.auth.requestPasswordReset(this.email(), redirectTo, token).subscribe({
       // Same outcome on success or failure — never reveal whether the email exists.
       next: () => {

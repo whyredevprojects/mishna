@@ -21,9 +21,10 @@ import { MishnaCardComponent } from '../components/mishna-card.component';
 import { chalukaQueryOptions } from '../queries/queries';
 import { queryKeys } from '../queries/query-keys';
 import { formatRef } from '../util/format';
+import { IS_HEBREW } from '../util/locale';
+import { MESECHTA_HEBREW_NAMES } from '../util/mesechta-hebrew-names';
 
-const SYNC_ERROR =
-  "We weren't able to update your progress. Please try again later.";
+const SYNC_ERROR = $localize`:@@assignments.syncError:We weren't able to update your progress. Please try again later.`;
 
 /** One row in the list: a mishna, its learned status, and the group it belongs to. */
 interface AssignmentRow {
@@ -85,9 +86,11 @@ interface MesechtaGroup {
       @if (query.isPending()) {
         <div class="spinner-wrap"><wa-spinner style="font-size: 2rem"></wa-spinner></div>
       } @else if (query.isError()) {
-        <wa-callout variant="danger">Could not load your assignments.</wa-callout>
+        <wa-callout variant="danger" i18n="@@assignments.loadError"
+          >Could not load your assignments.</wa-callout
+        >
       } @else if (total() === 0) {
-        <wa-callout variant="neutral">
+        <wa-callout variant="neutral" i18n="@@chaluka.notJoined">
           You haven’t joined the cycle yet.
           <a routerLink="/dashboard">Pick a commitment</a> to get your chaluka.
         </wa-callout>
@@ -95,7 +98,7 @@ interface MesechtaGroup {
         @for (g of groups(); track g.mesechta) {
           <wa-card>
             <div slot="header" class="card-head">
-              <strong>{{ g.mesechta }}</strong>
+              <strong>{{ mesechtaName(g.mesechta) }}</strong>
               <span class="frac">{{ g.done }} / {{ g.rows.length }}</span>
             </div>
             <div class="rows">
@@ -121,6 +124,11 @@ export class MyMishnayosAssignmentsComponent {
   private readonly queryClient = inject(QueryClient);
 
   protected readonly key = formatRef;
+
+  /** The mesechta section header name, Hebrew in the Hebrew build. */
+  protected mesechtaName(mesechta: string): string {
+    return IS_HEBREW ? (MESECHTA_HEBREW_NAMES[mesechta] ?? mesechta) : mesechta;
+  }
 
   protected readonly query = injectQuery(() =>
     chalukaQueryOptions(this.assignments),

@@ -1,8 +1,23 @@
 import type { MishnaRef } from '../models/api.types';
+import { IS_HEBREW } from './locale';
+import { MESECHTA_HEBREW_NAMES } from './mesechta-hebrew-names';
 
 /** "Berachos 1:1" — the human-readable label for a single mishna. */
 export function formatRef(ref: MishnaRef): string {
   return `${ref.mesechta} ${ref.perek}:${ref.mishna}`;
+}
+
+/**
+ * Locale-aware ref label: Hebrew formatting (mapped mesechta name + פרק/משנה)
+ * in the Hebrew build, else the English `formatRef`. The numeric ref stays
+ * as-is; only the mesechta name and structure words are translated.
+ */
+export function formatRefLocalized(ref: MishnaRef): string {
+  if (IS_HEBREW) {
+    const hebrewName = MESECHTA_HEBREW_NAMES[ref.mesechta] ?? ref.mesechta;
+    return formatRefHe(hebrewName, ref.perek, ref.mishna);
+  }
+  return formatRef(ref);
 }
 
 /** Hebrew label for a mishna, e.g. "ברכות פרק 8 משנה 7". */
@@ -29,9 +44,9 @@ export function sundayOnOrBefore(d: Date): string {
 }
 
 /** A friendly "Tuesday, June 2, 2026" for display, read in UTC. */
-export function formatLongDate(iso: string): string {
+export function formatLongDate(iso: string, locale?: string): string {
   const date = new Date(iso.length === 10 ? `${iso}T00:00:00.000Z` : iso);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

@@ -12,7 +12,8 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import { MishnaRef } from '../models/api.types';
 import { MishnaText, MishnaTextService } from '../services/mishna-text.service';
-import { formatRef, formatRefHe } from '../util/format';
+import { formatRefHe, formatRefLocalized } from '../util/format';
+import { IS_HEBREW } from '../util/locale';
 
 /**
  * One mishna: its Hebrew text, an English toggle, and the "I Learned This Baal
@@ -122,7 +123,7 @@ import { formatRef, formatRefHe } from '../util/format';
             (keydown.space)="onSpace($event)"
           >
             <wa-icon
-              class="chev"
+              class="chev dir-flip"
               [attr.name]="expanded() ? 'chevron-down' : 'chevron-right'"
             ></wa-icon>
             <span class="ref">{{ ref().perek }}:{{ ref().mishna }}</span>
@@ -131,13 +132,13 @@ import { formatRef, formatRefHe } from '../util/format';
             <wa-checkbox
               size="small"
               [attr.checked]="done() ? '' : null"
-              [attr.aria-label]="'Mark ' + format(ref()) + ' memorized'"
+              [attr.aria-label]="memorizedLabel(ref())"
               (change)="learned.emit()"
             ></wa-checkbox>
           } @else if (done()) {
-            <wa-tag size="small" variant="success">Memorized</wa-tag>
+            <wa-tag size="small" variant="success" i18n>Memorized</wa-tag>
           } @else {
-            <wa-tag size="small">Pending</wa-tag>
+            <wa-tag size="small" i18n>Pending</wa-tag>
           }
         </div>
 
@@ -155,8 +156,8 @@ import { formatRef, formatRefHe } from '../util/format';
     } @else {
       <wa-card [class.learned]="!showCheckbox() && done()">
         <div slot="header" class="header">
-          <strong>{{ format(ref()) }}</strong>
-          @if (text(); as t) {
+          <strong>{{ formatLocalized(ref()) }}</strong>
+          @if (!IS_HEBREW && text(); as t) {
             <span class="he hebrew-text">{{
               formatHe(t.tractateHebrewName, ref().perek, ref().mishna)
             }}</span>
@@ -173,6 +174,7 @@ import { formatRef, formatRefHe } from '../util/format';
             <wa-checkbox
               [attr.checked]="done() ? '' : null"
               (change)="learned.emit()"
+              i18n
             >I Learned This Baal Peh</wa-checkbox>
           }
         </div>
@@ -185,17 +187,21 @@ import { formatRef, formatRefHe } from '../util/format';
       } @else if (text(); as t) {
         <p class="hebrew hebrew-text">{{ t.hebrew }}</p>
         @if (showEnglish()) {
-          <p class="english">{{ t.english }}</p>
+          <p class="english" dir="ltr">{{ t.english }}</p>
         }
       } @else {
-        <p class="muted">Text unavailable for this mishna.</p>
+        <p class="muted" i18n>Text unavailable for this mishna.</p>
       }
     </ng-template>
 
     <ng-template #englishToggleTpl>
       <wa-button appearance="outlined" (click)="showEnglish.set(!showEnglish())">
         <wa-icon slot="start" name="language"></wa-icon>
-        {{ showEnglish() ? 'Hide English' : 'English' }}
+        @if (showEnglish()) {
+          <span i18n="@@mishna.hideEnglish">Hide English</span>
+        } @else {
+          <span i18n="@@mishna.showEnglish">English</span>
+        }
       </wa-button>
     </ng-template>
   `,
@@ -217,8 +223,14 @@ export class MishnaCardComponent {
   readonly collapsible = input(false);
   readonly learned = output<void>();
 
-  protected readonly format = formatRef;
+  protected readonly formatLocalized = formatRefLocalized;
   protected readonly formatHe = formatRefHe;
+  protected readonly IS_HEBREW = IS_HEBREW;
+
+  /** aria-label for the memorized checkbox, localized with the ref interpolated. */
+  protected memorizedLabel(ref: MishnaRef): string {
+    return $localize`Mark ${this.formatLocalized(ref)}:ref: memorized`;
+  }
 
   /** Open state in {@link collapsible} mode; ignored otherwise. */
   protected readonly expanded = signal(false);

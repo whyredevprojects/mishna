@@ -1,0 +1,1160 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff version="2.0" xmlns="urn:oasis:names:tc:xliff:document:2.0" srcLang="en-US" trgLang="he">
+  <file id="ngi18n" original="ng.template">
+    <unit id="2102825898069375693">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:70</note>
+      </notes>
+      <segment>
+        <source>Menu</source>
+        <target>תפריט</target>
+      </segment>
+    </unit>
+    <unit id="brand.title">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:72,73</note>
+        <note category="location">apps/client/src/app/components/site-header.component.ts:38,39</note>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:68,70</note>
+      </notes>
+      <segment>
+        <source>Chevras Mishnayos Baal Peh</source>
+        <target>חברת משניות בעל פה</target>
+      </segment>
+    </unit>
+    <unit id="nav.today">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:76,77</note>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:102,103</note>
+      </notes>
+      <segment>
+        <source>Today</source>
+        <target>היום</target>
+      </segment>
+    </unit>
+    <unit id="nav.myMishnayos">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:77,78</note>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:103,104</note>
+      </notes>
+      <segment>
+        <source>My Mishnayos</source>
+        <target>המשניות שלי</target>
+      </segment>
+    </unit>
+    <unit id="nav.review">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:78,79</note>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:104,105</note>
+      </notes>
+      <segment>
+        <source>Review</source>
+        <target>חזרה</target>
+      </segment>
+    </unit>
+    <unit id="nav.settings">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:79,80</note>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:105,106</note>
+      </notes>
+      <segment>
+        <source>Settings</source>
+        <target>הגדרות</target>
+      </segment>
+    </unit>
+    <unit id="nav.admin">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:81,82</note>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:107,108</note>
+      </notes>
+      <segment>
+        <source>Admin</source>
+        <target>ניהול</target>
+      </segment>
+    </unit>
+    <unit id="nav.logout">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:85,86</note>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:118,119</note>
+      </notes>
+      <segment>
+        <source>Log out</source>
+        <target>יציאה</target>
+      </segment>
+    </unit>
+    <unit id="6278582763442807469">
+      <notes>
+        <note category="location">apps/client/src/app/components/app-shell.component.ts:96,97</note>
+      </notes>
+      <segment>
+        <source>Chevras Mishnayos Baal Peh</source>
+        <target>חברת משניות בעל פה</target>
+      </segment>
+    </unit>
+    <unit id="cycle.progressLabel">
+      <notes>
+        <note category="location">apps/client/src/app/components/cycle-progress.component.ts:28,29</note>
+      </notes>
+      <segment>
+        <source>Cycle progress</source>
+        <target>התקדמות המחזור</target>
+      </segment>
+    </unit>
+    <unit id="cycle.dayXofY">
+      <notes>
+        <note category="location">apps/client/src/app/components/cycle-progress.component.ts:30,32</note>
+      </notes>
+      <segment>
+        <source>Day <ph id="0" equiv="INTERPOLATION" disp="{{ cycle().daysElapsed }}"/> / <ph id="1" equiv="INTERPOLATION_1" disp="{{ cycle().totalDays }}"/></source>
+        <target>יום <ph id="0" equiv="INTERPOLATION" disp="{{ cycle().daysElapsed }}"/> מתוך <ph id="1" equiv="INTERPOLATION_1" disp="{{ cycle().totalDays }}"/></target>
+      </segment>
+    </unit>
+    <unit id="cycle.daysRemaining">
+      <notes>
+        <note category="location">apps/client/src/app/components/cycle-progress.component.ts:39,45</note>
+      </notes>
+      <segment>
+        <source> <ph id="0" equiv="ICU" disp="{cycle().daysRemaining, plural, =1 {1 day remaining until Rosh Chodesh
+        Sivan} other {{{ cycle().daysRemaining }} days remaining until Rosh
+        Chodesh Sivan}}" subFlows="2612619775451858875"/> </source>
+        <target> <ph id="0" equiv="ICU" disp="{cycle().daysRemaining, plural, =1 {1 day remaining until Rosh Chodesh
+        Sivan} other {{{ cycle().daysRemaining }} days remaining until Rosh
+        Chodesh Sivan}}" subFlows="2612619775451858875"/> </target>
+      </segment>
+    </unit>
+    <unit id="1321517775709725718">
+      <notes>
+        <note category="location">apps/client/src/app/components/cycle-progress.component.ts:39,41</note>
+      </notes>
+      <segment>
+        <source>{VAR_PLURAL, plural, =1 {1 day remaining until Rosh Chodesh
+        Sivan} other {<ph id="0" equiv="INTERPOLATION"/> days remaining until Rosh
+        Chodesh Sivan}}</source>
+        <target>{VAR_PLURAL, plural, =1 {נותר יום אחד עד ראש חודש סיון} =2 {נותרו יומיים עד ראש חודש סיון} other {נותרו <ph id="0" equiv="INTERPOLATION"/> ימים עד ראש חודש סיון}}</target>
+      </segment>
+    </unit>
+    <unit id="join.form.header">
+      <notes>
+        <note category="location">apps/client/src/app/components/join-form.component.ts:43,45</note>
+      </notes>
+      <segment>
+        <source>Join the current cycle</source>
+        <target>הצטרפות למחזור הנוכחי</target>
+      </segment>
+    </unit>
+    <unit id="join.form.question">
+      <notes>
+        <note category="location">apps/client/src/app/components/join-form.component.ts:45,47</note>
+      </notes>
+      <segment>
+        <source>How many mishnayot will you memorize each week?</source>
+        <target>כמה משניות תלמד בעל פה בכל שבוע?</target>
+      </segment>
+    </unit>
+    <unit id="join.opt.singleLot">
+      <notes>
+        <note category="location">apps/client/src/app/components/join-form.component.ts:57,58</note>
+      </notes>
+      <segment>
+        <source>1 lot</source>
+        <target>חלק אחד</target>
+      </segment>
+    </unit>
+    <unit id="join.opt.singleLotSub">
+      <notes>
+        <note category="location">apps/client/src/app/components/join-form.component.ts:58,59</note>
+      </notes>
+      <segment>
+        <source>up to <ph id="0" equiv="INTERPOLATION" disp="{{ o.maxMishnas }}"/> mishnayos · about <ph id="1" equiv="INTERPOLATION_1" disp="{{ o.perDay }}"/> a day</source>
+        <target>עד <ph id="0" equiv="INTERPOLATION" disp="{{ o.maxMishnas }}"/> משניות · בערך <ph id="1" equiv="INTERPOLATION_1" disp="{{ o.perDay }}"/> ביום</target>
+      </segment>
+    </unit>
+    <unit id="join.opt.perWeek">
+      <notes>
+        <note category="location">apps/client/src/app/components/join-form.component.ts:60,61</note>
+      </notes>
+      <segment>
+        <source>{VAR_PLURAL, plural, =1 {1 mishna a week} other {<ph id="0" equiv="INTERPOLATION"/> mishnayos a week}}</source>
+        <target>{VAR_PLURAL, plural, =1 {משנה אחת בשבוע} =2 {שתי משניות בשבוע} =3 {שלוש משניות בשבוע} other {<ph id="0" equiv="INTERPOLATION"/> משניות בשבוע}}</target>
+      </segment>
+    </unit>
+    <unit id="join.opt.approxLots">
+      <notes>
+        <note category="location">apps/client/src/app/components/join-form.component.ts:61,63</note>
+      </notes>
+      <segment>
+        <source>{VAR_PLURAL, plural, =1 {about 1 lot} other {about <ph id="0" equiv="INTERPOLATION"/> lots}}</source>
+        <target>{VAR_PLURAL, plural, =1 {בערך חלק אחד} =2 {בערך שני חלקים} =3 {בערך שלושה חלקים} other {בערך <ph id="0" equiv="INTERPOLATION"/> חלקים}}</target>
+      </segment>
+    </unit>
+    <unit id="join.form.submit">
+      <notes>
+        <note category="location">apps/client/src/app/components/join-form.component.ts:73,75</note>
+      </notes>
+      <segment>
+        <source>Join</source>
+        <target>הצטרפות</target>
+      </segment>
+    </unit>
+    <unit id="4557238987008140272">
+      <notes>
+        <note category="location">apps/client/src/app/components/mishna-card.component.ts:139,140</note>
+      </notes>
+      <segment>
+        <source>Memorized</source>
+        <target>נלמד בעל פה</target>
+      </segment>
+    </unit>
+    <unit id="4416413576346763682">
+      <notes>
+        <note category="location">apps/client/src/app/components/mishna-card.component.ts:141,142</note>
+      </notes>
+      <segment>
+        <source>Pending</source>
+        <target>טרם נלמד</target>
+      </segment>
+    </unit>
+    <unit id="86210965196066517">
+      <notes>
+        <note category="location">apps/client/src/app/components/mishna-card.component.ts:178</note>
+      </notes>
+      <segment>
+        <source>I Learned This Baal Peh</source>
+        <target>למדתי משנה זו בעל פה</target>
+      </segment>
+    </unit>
+    <unit id="7618318393658696295">
+      <notes>
+        <note category="location">apps/client/src/app/components/mishna-card.component.ts:193,194</note>
+      </notes>
+      <segment>
+        <source>Text unavailable for this mishna.</source>
+        <target>הטקסט למשנה זו אינו זמין.</target>
+      </segment>
+    </unit>
+    <unit id="mishna.hideEnglish">
+      <notes>
+        <note category="location">apps/client/src/app/components/mishna-card.component.ts:201,203</note>
+      </notes>
+      <segment>
+        <source>Hide English</source>
+        <target>הסתר תרגום</target>
+      </segment>
+    </unit>
+    <unit id="mishna.showEnglish">
+      <notes>
+        <note category="location">apps/client/src/app/components/mishna-card.component.ts:203,205</note>
+      </notes>
+      <segment>
+        <source>English</source>
+        <target>תרגום לאנגלית</target>
+      </segment>
+    </unit>
+    <unit id="2981605626292053580">
+      <notes>
+        <note category="location">apps/client/src/app/components/mishna-card.component.ts:232</note>
+      </notes>
+      <segment>
+        <source>Mark <ph id="0" equiv="ref" disp="this.formatLocalized(ref)"/> memorized</source>
+        <target>סמן את <ph id="0" equiv="ref" disp="this.formatLocalized(ref)"/> כנלמד בעל פה</target>
+      </segment>
+    </unit>
+    <unit id="header.logIn">
+      <notes>
+        <note category="location">apps/client/src/app/components/site-header.component.ts:41,42</note>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:111,112</note>
+      </notes>
+      <segment>
+        <source>Log in</source>
+        <target>כניסה</target>
+      </segment>
+    </unit>
+    <unit id="header.becomeMember">
+      <notes>
+        <note category="location">apps/client/src/app/components/site-header.component.ts:42,45</note>
+        <note category="location">apps/client/src/app/pages/join.component.ts:49,51</note>
+      </notes>
+      <segment>
+        <source>Become a Member</source>
+        <target>הצטרפות לחברה</target>
+      </segment>
+    </unit>
+    <unit id="1832629730010797880">
+      <notes>
+        <note category="location">apps/client/src/app/components/today-card.component.ts:23</note>
+      </notes>
+      <segment>
+        <source>We weren&apos;t able to update your progress. Please try again later.</source>
+        <target>השינוי לא נשמר — נא לבדוק את החיבור ולנסות שוב.</target>
+      </segment>
+    </unit>
+    <unit id="7986263846381086028">
+      <notes>
+        <note category="location">apps/client/src/app/components/today-card.component.ts:71,73</note>
+      </notes>
+      <segment>
+        <source><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon name=&quot;circle-check&quot; variant=&quot;solid&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> Learned these mishnayos! </source>
+        <target><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon name=&quot;circle-check&quot; variant=&quot;solid&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> למדת את המשניות האלו! </target>
+      </segment>
+    </unit>
+    <unit id="2863469790712008353">
+      <notes>
+        <note category="location">apps/client/src/app/components/today-card.component.ts:77,80</note>
+      </notes>
+      <segment>
+        <source><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon name=&quot;circle-check&quot; variant=&quot;solid&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> You’ve finished all your mishnayos! </source>
+        <target><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon name=&quot;circle-check&quot; variant=&quot;solid&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> סיימת את כל המשניות שלך! </target>
+      </segment>
+    </unit>
+    <unit id="dashboard.prevMishnayos">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:75,76</note>
+      </notes>
+      <segment>
+        <source>Previous mishnayos</source>
+        <target>המשניות הקודמות</target>
+      </segment>
+    </unit>
+    <unit id="dashboard.nextMishnayos">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:85,86</note>
+      </notes>
+      <segment>
+        <source>Next mishnayos</source>
+        <target>המשניות הבאות</target>
+      </segment>
+    </unit>
+    <unit id="5596024541911467822">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:191</note>
+      </notes>
+      <segment>
+        <source>Could not load this week’s assignment.</source>
+        <target>טעינת המנה השבועית נכשלה.</target>
+      </segment>
+    </unit>
+    <unit id="4598804549939327168">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:194</note>
+      </notes>
+      <segment>
+        <source>Could not join the cycle. Please try again.</source>
+        <target>ההצטרפות למחזור נכשלה. נא לנסות שוב.</target>
+      </segment>
+    </unit>
+    <unit id="5191427943920604173">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:225</note>
+      </notes>
+      <segment>
+        <source>Already learned</source>
+        <target>נלמדו כבר</target>
+      </segment>
+    </unit>
+    <unit id="131402376475677470">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:226</note>
+      </notes>
+      <segment>
+        <source>Coming up</source>
+        <target>בהמשך</target>
+      </segment>
+    </unit>
+    <unit id="6142996217503131245">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:227</note>
+      </notes>
+      <segment>
+        <source>Current mishnayos</source>
+        <target>המשניות הנוכחיות</target>
+      </segment>
+    </unit>
+    <unit id="forgot.title">
+      <notes>
+        <note category="location">apps/client/src/app/pages/forgot-password.component.ts:47,49</note>
+      </notes>
+      <segment>
+        <source>Reset your password</source>
+        <target>איפוס סיסמה</target>
+      </segment>
+    </unit>
+    <unit id="forgot.sent">
+      <notes>
+        <note category="location">apps/client/src/app/pages/forgot-password.component.ts:52,53</note>
+      </notes>
+      <segment>
+        <source> If an account exists for that email, we&apos;ve sent a link to reset your password. Check your inbox. </source>
+        <target> אם קיים חשבון עם אימייל זה, שלחנו קישור לאיפוס הסיסמה. נא לבדוק את תיבת הדואר. </target>
+      </segment>
+    </unit>
+    <unit id="forgot.tagline">
+      <notes>
+        <note category="location">apps/client/src/app/pages/forgot-password.component.ts:57,58</note>
+      </notes>
+      <segment>
+        <source> Enter your email and we&apos;ll send you a link to set a new password. </source>
+        <target> הזן את האימייל שלך ונשלח לך קישור לקביעת סיסמה חדשה. </target>
+      </segment>
+    </unit>
+    <unit id="field.email">
+      <notes>
+        <note category="location">apps/client/src/app/pages/forgot-password.component.ts:64</note>
+        <note category="location">apps/client/src/app/pages/join.component.ts:63</note>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:84</note>
+      </notes>
+      <segment>
+        <source>Email</source>
+        <target>אימייל</target>
+      </segment>
+    </unit>
+    <unit id="forgot.submit">
+      <notes>
+        <note category="location">apps/client/src/app/pages/forgot-password.component.ts:81,82</note>
+      </notes>
+      <segment>
+        <source>Send reset link</source>
+        <target>שליחת קישור לאיפוס</target>
+      </segment>
+    </unit>
+    <unit id="forgot.loginPrompt">
+      <notes>
+        <note category="location">apps/client/src/app/pages/forgot-password.component.ts:86,88</note>
+      </notes>
+      <segment>
+        <source> Remembered it? <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/&quot;&gt;" dispEnd="&lt;/a&gt;">Log in</pc></source>
+        <target> נזכרת בסיסמה? <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/&quot;&gt;" dispEnd="&lt;/a&gt;">כניסה</pc></target>
+      </segment>
+    </unit>
+    <unit id="field.name">
+      <notes>
+        <note category="location">apps/client/src/app/pages/join.component.ts:55</note>
+      </notes>
+      <segment>
+        <source>Name</source>
+        <target>שם</target>
+      </segment>
+    </unit>
+    <unit id="field.password">
+      <notes>
+        <note category="location">apps/client/src/app/pages/join.component.ts:70,71</note>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:91,92</note>
+      </notes>
+      <segment>
+        <source>Password</source>
+        <target>סיסמה</target>
+      </segment>
+    </unit>
+    <unit id="join.submit">
+      <notes>
+        <note category="location">apps/client/src/app/pages/join.component.ts:90,91</note>
+      </notes>
+      <segment>
+        <source>Become a member</source>
+        <target>הצטרפות לחברה</target>
+      </segment>
+    </unit>
+    <unit id="join.signInGoogle">
+      <notes>
+        <note category="location">apps/client/src/app/pages/join.component.ts:100,103</note>
+      </notes>
+      <segment>
+        <source>Join with Google</source>
+        <target>הצטרפות עם Google</target>
+      </segment>
+    </unit>
+    <unit id="join.googleError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/join.component.ts:105,107</note>
+      </notes>
+      <segment>
+        <source> Could not start Google sign-up. Please try again. </source>
+        <target> לא ניתן להתחיל הרשמה עם Google. נא לנסות שוב. </target>
+      </segment>
+    </unit>
+    <unit id="join.loginPrompt">
+      <notes>
+        <note category="location">apps/client/src/app/pages/join.component.ts:110,112</note>
+      </notes>
+      <segment>
+        <source> Already have an account? <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/&quot;&gt;" dispEnd="&lt;/a&gt;">Log in</pc></source>
+        <target> כבר יש לך חשבון? <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/&quot;&gt;" dispEnd="&lt;/a&gt;">כניסה</pc></target>
+      </segment>
+    </unit>
+    <unit id="join.errorCreate">
+      <notes>
+        <note category="location">apps/client/src/app/pages/join.component.ts:152</note>
+      </notes>
+      <segment>
+        <source>Could not create the account. The email may already be registered, or the password is too short.</source>
+        <target>יצירת החשבון נכשלה. ייתכן שהאימייל כבר רשום, או שהסיסמה קצרה מדי.</target>
+      </segment>
+    </unit>
+    <unit id="landing.tagline">
+      <notes>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:72,74</note>
+      </notes>
+      <segment>
+        <source> Memorize the entire Mishna together by Rosh Chodesh Sivan — one mishna at a time. </source>
+        <target> לומדים יחד את כל המשניות בעל פה עד ראש חודש סיון — משנה אחת בכל פעם. </target>
+      </segment>
+    </unit>
+    <unit id="landing.forgotPassword">
+      <notes>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:115,118</note>
+      </notes>
+      <segment>
+        <source>Forgot your password?</source>
+        <target>שכחת סיסמה?</target>
+      </segment>
+    </unit>
+    <unit id="landing.signInGoogle">
+      <notes>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:125,128</note>
+      </notes>
+      <segment>
+        <source>Sign in with Google</source>
+        <target>כניסה עם Google</target>
+      </segment>
+    </unit>
+    <unit id="landing.googleError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:130,132</note>
+      </notes>
+      <segment>
+        <source> Could not start Google sign-in. Please try again. </source>
+        <target> לא ניתן להתחיל כניסה עם Google. נא לנסות שוב. </target>
+      </segment>
+    </unit>
+    <unit id="landing.joinPrompt">
+      <notes>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:135,137</note>
+      </notes>
+      <segment>
+        <source> New to the program? <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/join&quot;&gt;" dispEnd="&lt;/a&gt;">Become a member</pc></source>
+        <target> חדש בחברה? <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/join&quot;&gt;" dispEnd="&lt;/a&gt;">הצטרפות לחברה</pc></target>
+      </segment>
+    </unit>
+    <unit id="landing.errorBadCredentials">
+      <notes>
+        <note category="location">apps/client/src/app/pages/landing.component.ts:187</note>
+      </notes>
+      <segment>
+        <source>Incorrect email or password.</source>
+        <target>אימייל או סיסמה שגויים.</target>
+      </segment>
+    </unit>
+    <unit id="assignments.syncError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-assignments.component.ts:27</note>
+      </notes>
+      <segment>
+        <source>We weren&apos;t able to update your progress. Please try again later.</source>
+        <target>השינוי לא נשמר — נא לבדוק את החיבור ולנסות שוב.</target>
+      </segment>
+    </unit>
+    <unit id="assignments.loadError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-assignments.component.ts:90,92</note>
+      </notes>
+      <segment>
+        <source>Could not load your assignments.</source>
+        <target>טעינת המשניות שלך נכשלה.</target>
+      </segment>
+    </unit>
+    <unit id="chaluka.notJoined">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-assignments.component.ts:94,96</note>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:98,100</note>
+        <note category="location">apps/client/src/app/pages/review.component.ts:119,121</note>
+      </notes>
+      <segment>
+        <source> You haven’t joined the cycle yet. <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/dashboard&quot;&gt;" dispEnd="&lt;/a&gt;">Pick a commitment</pc> to get your chaluka. </source>
+        <target> עדיין לא הצטרפת למחזור. <pc id="0" equivStart="START_LINK" equivEnd="CLOSE_LINK" type="link" dispStart="&lt;a routerLink=&quot;/dashboard&quot;&gt;" dispEnd="&lt;/a&gt;">בחר קצב לימוד</pc> כדי לקבל את החלוקה שלך. </target>
+      </segment>
+    </unit>
+    <unit id="stats.loadError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:94,96</note>
+      </notes>
+      <segment>
+        <source>Could not load your chaluka.</source>
+        <target>טעינת החלוקה שלך נכשלה.</target>
+      </segment>
+    </unit>
+    <unit id="stats.overallProgress">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:104,106</note>
+      </notes>
+      <segment>
+        <source>Overall progress</source>
+        <target>התקדמות כללית</target>
+      </segment>
+    </unit>
+    <unit id="stats.pctComplete">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:110,111</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="INTERPOLATION" disp="{{ pct() }}"/>% complete</source>
+        <target>הושלמו <ph id="0" equiv="INTERPOLATION" disp="{{ pct() }}"/>%</target>
+      </segment>
+    </unit>
+    <unit id="stats.mishnayosMemorized">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:115,118</note>
+      </notes>
+      <segment>
+        <source>mishnayos memorized</source>
+        <target>משניות נלמדו בעל פה</target>
+      </segment>
+    </unit>
+    <unit id="stats.title">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:121,123</note>
+      </notes>
+      <segment>
+        <source>Stats</source>
+        <target>נתונים</target>
+      </segment>
+    </unit>
+    <unit id="stats.weeklyGoal">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:123,124</note>
+      </notes>
+      <segment>
+        <source>Weekly goal</source>
+        <target>יעד שבועי</target>
+      </segment>
+    </unit>
+    <unit id="stats.perWeek">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:124,125</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="INTERPOLATION" disp="{{ commitment() }}"/> / week</source>
+        <target><ph id="0" equiv="INTERPOLATION" disp="{{ commitment() }}"/> בשבוע</target>
+      </segment>
+    </unit>
+    <unit id="stats.completionRate">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:125,126</note>
+      </notes>
+      <segment>
+        <source>Completion rate</source>
+        <target>אחוז השלמה</target>
+      </segment>
+    </unit>
+    <unit id="stats.memberSince">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:127,128</note>
+      </notes>
+      <segment>
+        <source>Member since</source>
+        <target>חבר מאז</target>
+      </segment>
+    </unit>
+    <unit id="stats.byMesechta">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos-stats.component.ts:133,134</note>
+      </notes>
+      <segment>
+        <source>By mesechta</source>
+        <target>פירוט לפי מסכת</target>
+      </segment>
+    </unit>
+    <unit id="myMishnayos.title">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos.component.ts:39,40</note>
+      </notes>
+      <segment>
+        <source>My Mishnayos</source>
+        <target>המשניות שלי</target>
+      </segment>
+    </unit>
+    <unit id="myMishnayos.tab.assignments">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos.component.ts:46,49</note>
+      </notes>
+      <segment>
+        <source>Assignments</source>
+        <target>חלוקה</target>
+      </segment>
+    </unit>
+    <unit id="myMishnayos.tab.stats">
+      <notes>
+        <note category="location">apps/client/src/app/pages/my-mishnayos.component.ts:53,55</note>
+      </notes>
+      <segment>
+        <source>Stats</source>
+        <target>נתונים</target>
+      </segment>
+    </unit>
+    <unit id="4200328509857455180">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:50,52</note>
+      </notes>
+      <segment>
+        <source>Choose a new password</source>
+        <target>בחר סיסמה חדשה</target>
+      </segment>
+    </unit>
+    <unit id="2971371755771089529">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:55</note>
+      </notes>
+      <segment>
+        <source> Your password has been reset. You can now log in with it. </source>
+        <target> הסיסמה אופסה בהצלחה. כעת ניתן להיכנס איתה. </target>
+      </segment>
+    </unit>
+    <unit id="2336550011721758066">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:58,59</note>
+      </notes>
+      <segment>
+        <source>Log in</source>
+        <target>כניסה</target>
+      </segment>
+    </unit>
+    <unit id="1419123493802317848">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:62</note>
+      </notes>
+      <segment>
+        <source> This reset link is invalid or has expired. </source>
+        <target> קישור האיפוס אינו תקין או שפג תוקפו. </target>
+      </segment>
+    </unit>
+    <unit id="6494213865687834581">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:65,66</note>
+      </notes>
+      <segment>
+        <source>Request a new link</source>
+        <target>בקשת קישור חדש</target>
+      </segment>
+    </unit>
+    <unit id="3588415639242079458">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:70,71</note>
+      </notes>
+      <segment>
+        <source>New password</source>
+        <target>סיסמה חדשה</target>
+      </segment>
+    </unit>
+    <unit id="913157326139146194">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:89</note>
+      </notes>
+      <segment>
+        <source> Reset password </source>
+        <target> איפוס סיסמה </target>
+      </segment>
+    </unit>
+    <unit id="1136644935167748796">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:114</note>
+      </notes>
+      <segment>
+        <source>Please enter a new password.</source>
+        <target>נא להזין סיסמה חדשה.</target>
+      </segment>
+    </unit>
+    <unit id="2136103318105062832">
+      <notes>
+        <note category="location">apps/client/src/app/pages/reset-password.component.ts:127</note>
+      </notes>
+      <segment>
+        <source>Could not reset the password. The link may have expired, or the password is too short.</source>
+        <target>איפוס הסיסמה נכשל. ייתכן שפג תוקף הקישור, או שהסיסמה קצרה מדי.</target>
+      </segment>
+    </unit>
+    <unit id="review.title">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:109,111</note>
+      </notes>
+      <segment>
+        <source>Review</source>
+        <target>חזרה</target>
+      </segment>
+    </unit>
+    <unit id="review.loadError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:115,117</note>
+      </notes>
+      <segment>
+        <source>Could not load your portion.</source>
+        <target>טעינת החלק שלך נכשלה.</target>
+      </segment>
+    </unit>
+    <unit id="review.mesechtaLabel">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:131,132</note>
+      </notes>
+      <segment>
+        <source>Mesechta</source>
+        <target>מסכת</target>
+      </segment>
+    </unit>
+    <unit id="review.perekLabel">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:145</note>
+      </notes>
+      <segment>
+        <source>Perek</source>
+        <target>פרק</target>
+      </segment>
+    </unit>
+    <unit id="review.perekOption">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:150,151</note>
+      </notes>
+      <segment>
+        <source>Perek <ph id="0" equiv="INTERPOLATION" disp="{{ p.perek }}"/> (<ph id="1" equiv="INTERPOLATION_1" disp="{{ p.done }}"/>/<ph id="2" equiv="INTERPOLATION_2" disp="{{ p.rows.length }}"/>)</source>
+        <target>פרק <ph id="0" equiv="INTERPOLATION" disp="{{ p.perek }}"/> (<ph id="1" equiv="INTERPOLATION_1" disp="{{ p.done }}"/>/<ph id="2" equiv="INTERPOLATION_2" disp="{{ p.rows.length }}"/>)</target>
+      </segment>
+    </unit>
+    <unit id="review.mishnaAria">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:171,172</note>
+      </notes>
+      <segment>
+        <source>Mishna <ph id="0" equiv="INTERPOLATION" disp="{{ row.ref.mishna }}"/></source>
+        <target>משנה <ph id="0" equiv="INTERPOLATION" disp="{{ row.ref.mishna }}"/></target>
+      </segment>
+    </unit>
+    <unit id="review.hideEnglish">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:215</note>
+      </notes>
+      <segment>
+        <source>Hide English</source>
+        <target>הסתר תרגום</target>
+      </segment>
+    </unit>
+    <unit id="review.showEnglish">
+      <notes>
+        <note category="location">apps/client/src/app/pages/review.component.ts:216</note>
+      </notes>
+      <segment>
+        <source>English</source>
+        <target>תרגום לאנגלית</target>
+      </segment>
+    </unit>
+    <unit id="day.sunday">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:14</note>
+      </notes>
+      <segment>
+        <source>Sunday</source>
+        <target>יום ראשון</target>
+      </segment>
+    </unit>
+    <unit id="day.monday">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:15</note>
+      </notes>
+      <segment>
+        <source>Monday</source>
+        <target>יום שני</target>
+      </segment>
+    </unit>
+    <unit id="day.tuesday">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:16</note>
+      </notes>
+      <segment>
+        <source>Tuesday</source>
+        <target>יום שלישי</target>
+      </segment>
+    </unit>
+    <unit id="day.wednesday">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:17</note>
+      </notes>
+      <segment>
+        <source>Wednesday</source>
+        <target>יום רביעי</target>
+      </segment>
+    </unit>
+    <unit id="day.thursday">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:18</note>
+      </notes>
+      <segment>
+        <source>Thursday</source>
+        <target>יום חמישי</target>
+      </segment>
+    </unit>
+    <unit id="day.friday">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:19</note>
+      </notes>
+      <segment>
+        <source>Friday</source>
+        <target>יום שישי</target>
+      </segment>
+    </unit>
+    <unit id="day.saturday">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:20</note>
+      </notes>
+      <segment>
+        <source>Saturday</source>
+        <target>שבת</target>
+      </segment>
+    </unit>
+    <unit id="settings.title">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:67,69</note>
+      </notes>
+      <segment>
+        <source>Settings</source>
+        <target>הגדרות</target>
+      </segment>
+    </unit>
+    <unit id="settings.account">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:71,73</note>
+      </notes>
+      <segment>
+        <source>Account</source>
+        <target>חשבון</target>
+      </segment>
+    </unit>
+    <unit id="settings.name">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:73,74</note>
+      </notes>
+      <segment>
+        <source>Name</source>
+        <target>שם</target>
+      </segment>
+    </unit>
+    <unit id="settings.email">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:75,76</note>
+      </notes>
+      <segment>
+        <source>Email</source>
+        <target>אימייל</target>
+      </segment>
+    </unit>
+    <unit id="settings.userId">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:77,78</note>
+      </notes>
+      <segment>
+        <source>User ID</source>
+        <target>מזהה משתמש</target>
+      </segment>
+    </unit>
+    <unit id="settings.role">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:79,80</note>
+      </notes>
+      <segment>
+        <source>Role</source>
+        <target>תפקיד</target>
+      </segment>
+    </unit>
+    <unit id="settings.emailPreferences">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:86,88</note>
+      </notes>
+      <segment>
+        <source>Email preferences</source>
+        <target>העדפות אימייל</target>
+      </segment>
+    </unit>
+    <unit id="settings.timezoneLabel">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:95,96</note>
+      </notes>
+      <segment>
+        <source>Timezone</source>
+        <target>אזור זמן</target>
+      </segment>
+    </unit>
+    <unit id="settings.timezoneHint">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:97,98</note>
+      </notes>
+      <segment>
+        <source>Emails are sent at 8:00 AM in this timezone.</source>
+        <target>האימיילים נשלחים בשעה 8:00 בבוקר לפי אזור זמן זה.</target>
+      </segment>
+    </unit>
+    <unit id="settings.detect">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:107,108</note>
+      </notes>
+      <segment>
+        <source>Detect</source>
+        <target>זיהוי אוטומטי</target>
+      </segment>
+    </unit>
+    <unit id="settings.weeklyDayLabel">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:113,114</note>
+      </notes>
+      <segment>
+        <source>Weekly email day</source>
+        <target>יום האימייל השבועי</target>
+      </segment>
+    </unit>
+    <unit id="settings.weeklyDayHint">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:115,116</note>
+      </notes>
+      <segment>
+        <source>The day you receive that week&apos;s mishnayos (in Hebrew).</source>
+        <target>היום שבו תקבל את משניות השבוע (בעברית).</target>
+      </segment>
+    </unit>
+    <unit id="settings.weeklyEnabled">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:129,130</note>
+      </notes>
+      <segment>
+        <source> Send me the weekly mishnayos email </source>
+        <target> שלחו לי את האימייל השבועי עם המשניות </target>
+      </segment>
+    </unit>
+    <unit id="settings.reminderDayLabel">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:136,137</note>
+      </notes>
+      <segment>
+        <source>Reminder email day</source>
+        <target>יום אימייל התזכורת</target>
+      </segment>
+    </unit>
+    <unit id="settings.reminderDayHint">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:138,139</note>
+      </notes>
+      <segment>
+        <source>A nudge if you haven&apos;t finished that week&apos;s mishnayos yet.</source>
+        <target>תזכורת אם עדיין לא סיימת את משניות השבוע.</target>
+      </segment>
+    </unit>
+    <unit id="settings.reminderEnabled">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:154,155</note>
+      </notes>
+      <segment>
+        <source> Send me the weekly reminder email </source>
+        <target> שלחו לי את אימייל התזכורת השבועי </target>
+      </segment>
+    </unit>
+    <unit id="settings.save">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:163,164</note>
+      </notes>
+      <segment>
+        <source>Save preferences</source>
+        <target>שמירת ההעדפות</target>
+      </segment>
+    </unit>
+    <unit id="settings.loadError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:209</note>
+      </notes>
+      <segment>
+        <source>Could not load your preferences.</source>
+        <target>טעינת ההעדפות נכשלה.</target>
+      </segment>
+    </unit>
+    <unit id="settings.saved">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:240</note>
+      </notes>
+      <segment>
+        <source>Preferences saved.</source>
+        <target>ההעדפות נשמרו.</target>
+      </segment>
+    </unit>
+    <unit id="settings.saveError">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:245</note>
+      </notes>
+      <segment>
+        <source>Could not save your preferences.</source>
+        <target>שמירת ההעדפות נכשלה.</target>
+      </segment>
+    </unit>
+    <unit id="8289847376326923058">
+      <notes>
+        <note category="location">apps/client/src/app/services/sw-recovery.service.ts:69</note>
+      </notes>
+      <segment>
+        <source>A new version is available.</source>
+        <target>גרסה חדשה זמינה.</target>
+      </segment>
+    </unit>
+    <unit id="7967484035994732534">
+      <notes>
+        <note category="location">apps/client/src/app/services/sw-recovery.service.ts:70</note>
+      </notes>
+      <segment>
+        <source>Reload</source>
+        <target>רענון</target>
+      </segment>
+    </unit>
+    <unit id="6696427619565687649">
+      <notes>
+        <note category="location">apps/client/src/app/services/sw-recovery.service.ts:76</note>
+      </notes>
+      <segment>
+        <source>Refreshing to recover the app…</source>
+        <target>מרענן כדי לשחזר את האפליקציה…</target>
+      </segment>
+    </unit>
+    <unit id="4910641247172221614">
+      <notes>
+        <note category="location">apps/client/src/app/ui/data-table.component.ts:126</note>
+      </notes>
+      <segment>
+        <source>Nothing to show.</source>
+        <target>אין מה להציג.</target>
+      </segment>
+    </unit>
+    <unit id="8071715042106460267">
+      <notes>
+        <note category="location">apps/client/src/app/ui/paginator.component.ts:48,50</note>
+      </notes>
+      <segment>
+        <source><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon slot=&quot;start&quot; name=&quot;chevron-left&quot; class=&quot;dir-flip&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> Prev </source>
+        <target><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon slot=&quot;start&quot; name=&quot;chevron-left&quot; class=&quot;dir-flip&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> הקודם </target>
+      </segment>
+    </unit>
+    <unit id="8997218019842973801">
+      <notes>
+        <note category="location">apps/client/src/app/ui/paginator.component.ts:58,60</note>
+      </notes>
+      <segment>
+        <source> Next <pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon slot=&quot;end&quot; name=&quot;chevron-right&quot; class=&quot;dir-flip&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc></source>
+        <target> הבא <pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon slot=&quot;end&quot; name=&quot;chevron-right&quot; class=&quot;dir-flip&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc></target>
+      </segment>
+    </unit>
+    <unit id="3698232243718635269">
+      <notes>
+        <note category="location">apps/client/src/app/ui/paginator.component.ts:78</note>
+      </notes>
+      <segment>
+        <source>0 of 0</source>
+        <target>0 מתוך 0</target>
+      </segment>
+    </unit>
+    <unit id="1834169081146081384">
+      <notes>
+        <note category="location">apps/client/src/app/ui/paginator.component.ts:82</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="start" disp="start"/>–<ph id="1" equiv="end" disp="end"/> of <ph id="2" equiv="total" disp="total"/></source>
+        <target><ph id="0" equiv="start" disp="start"/>–<ph id="1" equiv="end" disp="end"/> מתוך <ph id="2" equiv="total" disp="total"/></target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

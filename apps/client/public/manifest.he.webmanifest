@@ -1,0 +1,33 @@
+{
+  "name": "חברת משניות",
+  "short_name": "משניות",
+  "description": "לומדים יחד את כל המשניות בעל פה — המנה היומית שלך, עם מעקב.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/he/",
+  "scope": "/he/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf8f5",
+  "theme_color": "#8a5a2b",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -70,3 +70,9 @@ body {
 .hebrew-text {
   font-family: "Frank Ruhl Libre";
 }
+
+/* RTL: directional icons (chevrons/arrows) don't auto-flip under `dir="rtl"`.
+   Opt an icon in with class="dir-flip" to mirror it in the Hebrew build. */
+html[dir="rtl"] wa-icon.dir-flip {
+  transform: scaleX(-1);
+}

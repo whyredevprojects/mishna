@@ -16,6 +16,8 @@ import { AssignmentService } from '../services/assignment.service';
 import { MishnaCardComponent } from '../components/mishna-card.component';
 import { chalukaQueryOptions } from '../queries/queries';
 import { formatRef } from '../util/format';
+import { IS_HEBREW } from '../util/locale';
+import { MESECHTA_HEBREW_NAMES } from '../util/mesechta-hebrew-names';
 import { loadReviewSpot, saveReviewSpot } from '../util/review-storage';
 
 /** One mishna of the user's portion, flagged learned-or-not. */
@@ -104,14 +106,16 @@ interface MesechtaGroup {
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack readable">
-      <h2>Review</h2>
+      <h2 i18n="@@review.title">Review</h2>
 
       @if (query.isPending()) {
         <div class="spinner-wrap"><wa-spinner style="font-size: 2rem"></wa-spinner></div>
       } @else if (query.isError()) {
-        <wa-callout variant="danger">Could not load your portion.</wa-callout>
+        <wa-callout variant="danger" i18n="@@review.loadError"
+          >Could not load your portion.</wa-callout
+        >
       } @else if (total() === 0) {
-        <wa-callout variant="neutral">
+        <wa-callout variant="neutral" i18n="@@chaluka.notJoined">
           You haven’t joined the cycle yet.
           <a routerLink="/dashboard">Pick a commitment</a> to get your chaluka.
         </wa-callout>
@@ -123,24 +127,26 @@ interface MesechtaGroup {
         >
           <div class="selectors">
             <wa-select
+              i18n-label="@@review.mesechtaLabel"
               label="Mesechta"
               [value]="sel.mesechta"
               (change)="onMesechta($event)"
             >
               @for (m of mesechtaGroups(); track m.mesechta) {
                 <wa-option [value]="m.mesechta"
-                  >{{ m.mesechta }} ({{ m.done }}/{{ m.total }})</wa-option
+                  >{{ mesechtaName(m.mesechta) }} ({{ m.done }}/{{ m.total }})</wa-option
                 >
               }
             </wa-select>
 
             <wa-select
+              i18n-label="@@review.perekLabel"
               label="Perek"
               [value]="sel.perek.toString()"
               (change)="onPerek($event)"
             >
               @for (p of perakim(); track p.perek) {
-                <wa-option [value]="p.perek.toString()"
+                <wa-option [value]="p.perek.toString()" i18n="@@review.perekOption"
                   >Perek {{ p.perek }} ({{ p.done }}/{{ p.rows.length }})</wa-option
                 >
               }
@@ -154,13 +160,15 @@ interface MesechtaGroup {
             (click)="showEnglish.set(!showEnglish())"
           >
             <wa-icon slot="start" name="language"></wa-icon>
-            {{ showEnglish() ? 'Hide English' : 'English' }}
+            {{ englishToggleLabel() }}
           </wa-button>
 
           <div class="strip">
             @for (row of rows(); track row.ref.mishna) {
               <wa-button
                 size="small"
+                i18n-aria-label="@@review.mishnaAria"
+                aria-label="Mishna {{ row.ref.mishna }}"
                 [attr.appearance]="row.ref.mishna === sel.mishna ? 'accent' : (row.done ? 'filled' : 'outlined')"
                 [attr.variant]="row.done ? 'success' : 'neutral'"
                 [class.dim]="!row.done && row.ref.mishna !== sel.mishna"
@@ -200,6 +208,18 @@ export class ReviewComponent {
 
   /** Whether English is shown for every card in the perek (one shared toggle). */
   protected readonly showEnglish = signal(false);
+
+  /** The English-toggle button label, localized. */
+  protected readonly englishToggleLabel = computed(() =>
+    this.showEnglish()
+      ? $localize`:@@review.hideEnglish:Hide English`
+      : $localize`:@@review.showEnglish:English`,
+  );
+
+  /** A mesechta selector option's name, Hebrew in the Hebrew build. */
+  protected mesechtaName(mesechta: string): string {
+    return IS_HEBREW ? (MESECHTA_HEBREW_NAMES[mesechta] ?? mesechta) : mesechta;
+  }
 
   protected readonly total = computed(
     () => this.query.data()?.assigned.length ?? 0,

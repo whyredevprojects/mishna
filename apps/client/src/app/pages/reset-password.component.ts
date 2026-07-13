@@ -47,25 +47,28 @@ import { SiteHeaderComponent } from '../components/site-header.component';
 
     <div class="fill-center">
       <wa-card>
-        <h1 slot="header" class="center">Choose a new password</h1>
+        <h1 slot="header" class="center" i18n>Choose a new password</h1>
 
         <div class="stack">
           @if (done()) {
-            <p class="tagline center">
+            <p class="tagline center" i18n>
               Your password has been reset. You can now log in with it.
             </p>
-            <p class="login-link center"><a routerLink="/">Log in</a></p>
+            <p class="login-link center">
+              <a routerLink="/" i18n>Log in</a>
+            </p>
           } @else if (!token()) {
-            <p class="error">
+            <p class="error" i18n>
               This reset link is invalid or has expired.
             </p>
             <p class="login-link center">
-              <a routerLink="/forgot-password">Request a new link</a>
+              <a routerLink="/forgot-password" i18n>Request a new link</a>
             </p>
           } @else {
             <wa-input
               type="password"
               label="New password"
+              i18n-label
               autocomplete="new-password"
               [value]="password()"
               (input)="password.set($any($event.target).value)"
@@ -81,6 +84,7 @@ import { SiteHeaderComponent } from '../components/site-header.component';
               variant="brand"
               [attr.loading]="loading() ? '' : null"
               (click)="submit()"
+              i18n
             >
               Reset password
             </wa-button>
@@ -107,7 +111,7 @@ export class ResetPasswordComponent {
   protected submit(): void {
     if (this.loading()) return;
     if (!this.password()) {
-      this.error.set('Please enter a new password.');
+      this.error.set($localize`Please enter a new password.`);
       return;
     }
     this.error.set(null);
@@ -120,7 +124,7 @@ export class ResetPasswordComponent {
       error: () => {
         this.loading.set(false);
         this.error.set(
-          'Could not reset the password. The link may have expired, or the password is too short.',
+          $localize`Could not reset the password. The link may have expired, or the password is too short.`,
         );
       },
     });
