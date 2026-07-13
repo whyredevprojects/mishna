@@ -2,15 +2,15 @@
 
 <h1>Chevras Mishnayos Baal Peh</h1><strong>Established by the Frierdiker Rebbe</strong> <em>Membership is free</em>
 
-
-
-<h2>How It Works</h2>Goral on <strong>Chalokim</strong> based on the <strong>Rebbe's division</strong> of <strong>ששה סדרי משנה</strong>. Each Chelek is around 4 Prokim.<ul><li><strong>Membership:</strong> Register at mishna2go.com</li><li><strong>Quota:</strong> Select 1, 2, or 3 Mishnayos per week.</li><li><strong>Delivery:</strong> Weekly emails and reminders.</li><li><strong>Learn:</strong> Memorize the Mishnah/s for the week.</li><li><strong>Tachlis:</strong> חזר when you walk in the street.</li><li>Together, throughout the year we memorize <strong>the entire Mishnayos</strong>, concluding <strong>אסרו חג שבועות</strong>.</li></ul>
-
+<h2>How It Works</h2>
+<ul><li><strong>Membership:</strong> Register at mishna2go.com</li><li><strong>Quota:</strong> Select 1, 2, or 3 Mishnayos per week.</li><li><strong>Delivery:</strong> Weekly emails and reminders.</li><li><strong>Learn:</strong> Memorize the Mishnah/s for the week.</li><li><strong>Tachlis:</strong> חזר when you walk in the street.</li><li>Together, throughout the year we memorize <strong>the entire Mishnayos</strong>, concluding <strong>אסרו חג שבועות</strong>.</li><li>Goral on **Chalokim** based on the **Rebbe's division** of **ששה סדרי משנה**. Each Chelek is around 4 Prokim.</li></ul>
 
 ***
+
 <h2>Who Is This For?</h2><blockquote><h3>Every Yid should know Mishnayos by heart</h3>"<strong>Everyone</strong> should learn <strong>Mishnayos by heart</strong> according to his capacity, <strong>review</strong> them while walking in the <strong>street</strong>, and through this we will merit to greet <strong>Moshiach</strong>."<em>Hayom Yom – 21 Kislev</em></blockquote>
 
 ***
+
 <h2>Resources</h2><h3>Hebrew</h3><a href="https://www.chabad.org/therebbe/article_cdo/aid/4646093/jewish/page.htm">The Rebbe's letter explaining Mishnayos Baal Peh</a>
 
 <h3>English</h3><a href="https://www.chabad.org/therebbe/letters/default_cdo/aid/5920908/jewish/A-detailed-explanation-of-the-importance-of-studying-Mishnayos-by-heart.htm">A detailed explanation of the importance of studying Mishnayos by heart</a>
@@ -29,7 +29,7 @@
 
 ***
 
-<h3>A Letter</h3><table><tr><td><img src="https://images.mishna2go.com/about/5aa0fe75-6cda-4b7b-a867-50b7cfd1c906-Screenshot-2026-07-09-113952.png"></td><td><img src="https://images.mishna2go.com/about/a42bd5b7-8932-4e5a-a654-6446418b983a-Screenshot-2026-07-09-114015.png"></td></tr>| --- | --- |
+<h3>A Letter</h3>\| \-\-\- \| \-\-\- \| \|<table><tr><td><img src="https://images.mishna2go.com/about/5aa0fe75-6cda-4b7b-a867-50b7cfd1c906-Screenshot-2026-07-09-113952.png"></td><td><img src="https://images.mishna2go.com/about/a42bd5b7-8932-4e5a-a654-6446418b983a-Screenshot-2026-07-09-114015.png"></td></tr>| --- | --- |
 |
 
 </table>
