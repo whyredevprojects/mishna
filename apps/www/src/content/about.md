@@ -1,5 +1,4 @@
-### \<div style="max-width:1000px;margin:0 auto;padding:20px;font-family:Arial,sans-serif;line-height:1.7;">
-
+\</div>\<div style="max-width:1000px;margin:0 auto;padding:20px;font-family:Arial,sans-serif;line-height:1.7;">
  \<div style="text-align:center;padding:40px 20px;border-bottom:1px solid #ddd;">
  \<div style="font-size:1.2em;color:#666;letter-spacing:2px;">
  בעל פה • חזרה • טהרת האויר
