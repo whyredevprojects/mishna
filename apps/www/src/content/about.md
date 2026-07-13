@@ -1,6 +1,12 @@
 <strong>בעל פה • חזרה • טהרת האויר</strong>
 
-<h1>Chevras Mishnayos Baal Peh</h1><strong>Established by the Frierdiker Rebbe</strong> <em>Membership is free</em>
+<h1>Chevras Mishnayos Baal Peh</h1><strong>Established by the Frierdiker Rebbe</strong> 
+The entire Mishnayos is devided. Each member learns just **1, 2, or 3 Mishnayos by heart each week**, the goal - to bring Moshiach.
+ציון במשפט תפדה
+אין כל הגליות הללו מתכנסות אלא בזכות המשניות
+*ויק"ר פ"ז, ג*
+
+<em>Membership is free</em>
 
 <h2>How It Works</h2>
 <ul><li><strong>Membership:</strong> Register at mishna2go.com</li><li><strong>Quota:</strong> Select 1, 2, or 3 Mishnayos per week.</li><li><strong>Delivery:</strong> Weekly emails and reminders.</li><li><strong>Learn:</strong> Memorize the Mishnah/s for the week.</li><li><strong>Tachlis:</strong> חזר when you walk in the street.</li><li>Together, throughout the year we memorize <strong>the entire Mishnayos</strong>, concluding <strong>אסרו חג שבועות</strong>.</li><li>Goral on **Chalokim** based on the **Rebbe's division** of **ששה סדרי משנה**. Each Chelek is around 4 Prokim.</li></ul>
