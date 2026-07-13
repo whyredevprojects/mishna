@@ -5,16 +5,16 @@
 **Established by the Frierdiker Rebbe**
 *Membership is free*
 
-> **You choose** 
+## **You choose** 
 
 **1 - 3 Mishnayos per week.** 
 *(The entire Mishnayos is divided by Goirel. Each portion around 4 פרקים)* 
 
-> **Repeat Mishnayos** 
+## **Repeat Mishnayos** 
 
 When you walk in the street or whenever the opportunity arises.
 
-> **Bring Moshiach**  
+## **Bring Moshiach**  
 
 **אין כל הגליות הללו מתכנסות אלא בזכות המשניות** 
 *ויק"ר פ"ז, ג*
