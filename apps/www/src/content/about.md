@@ -22,9 +22,14 @@ When you walk in the street or whenever the opportunity arises.
 
 # Who Is This For
 
-Every Yid should know Mishnayos by heart
-The Frierdiker Rebbe repeatedly urged that every Jew memorize Mishnayos according to his ability.
-"Everyone should learn Mishnayos by heart according to his capacity, review them while walking in the street, and through this we will merit to greet Moshiach." (Hayom Yom, 21 Kislev)
+> Every Yid should know Mishnayos by heart
+
+
+"Everyone should learn Mishnayos by heart according to his capacity, 
+review them while walking in the street, 
+and through this 
+we will merit to greet Moshiach."
+ *(Hayom Yom, 21 Kislev)*
 
 ## How it works
 
