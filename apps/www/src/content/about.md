@@ -20,7 +20,7 @@ When you walk in the street or whenever the opportunity arises.
 *ויק"ר פ"ז, ג*
 **ציון במשפט תפדה**
 
-\<div style="padding:73.33% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/1209593637?badge=0&amp;autopause=0&amp;player\_id=0&amp;app\_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" title="Rebbe tzion bmishpat is mishnayos">\</iframe>\</div>\<script src="https://player.vimeo.com/api/player.js">\</script>
+<iframe src="https://player.vimeo.com/video/1209593637?badge=0&amp;autopause=0&amp;player\_id=0&amp;app\_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" title="Rebbe tzion bmishpat is mishnayos">\</iframe>\<script src="https://player.vimeo.com/api/player.js">\</script>
 
 # Who Is This For
 
