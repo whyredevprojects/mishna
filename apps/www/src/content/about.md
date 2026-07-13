@@ -6,8 +6,9 @@
 
 <h2>Repeat Mishnayos</h2>When you walk in the street or whenever the opportunity arises.
 
-<h2>Bring Moshiach</h2> אין כל הגליות הללו מתכנסות אלא בזכות המשניות ויק"ר פ"ז, ג
-###### ציון במשפט תפדה
+<h2>Bring Moshiach</h2> אין כל הגליות הללו מתכנסות אלא בזכות המשניות 
+<i>(ויק"ר פ"ז, ג)<i>
+<h6>ציון במשפט תפדה</h6>
 
 <h2>Who Is This For</h2><h3>Every Yid should know Mishnayos by heart</h3>"<strong>Everyone</strong> should learn <strong>Mishnayos by heart</strong> according to his capacity, <strong>review</strong> them while walking in the <strong>street</strong>, and through this we will merit to greet <strong>Moshiach</strong>." <em>(Hayom Yom, 21 Kislev)</em>
 
