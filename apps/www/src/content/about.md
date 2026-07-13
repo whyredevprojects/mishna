@@ -1,61 +1,14 @@
 # בעל פה • חזרה • טהרת האויר
+
 ## Chevras Mishnayos Baal Peh
-**Established by the Frierdiker Rebbe**
-*Membership is free*
----
-| ### You Choose | ### Repeat Mishnayos | ### Bring Moshiach |
-|:---:|:---:|:---:|
+
+### **Established by the Frierdiker Rebbe***Membership is free*
+
+| You Choose | Repeat Mishnayos | Bring Moshiach |
+| :--------: | :--------------: | :------------: |
 | **1 - 3 Mishnayos per week** | When you walk in the street or whenever the opportunity arises. | **אין כל הגליות הללו מתכנסות אלא בזכות המשניות** |
-| *(The entire Mishnayos is divided by Goirel. Each portion around 4 פרקים)* | | *ויק"ר פ"ז, ג*<br><br>**ציון במשפט תפדה** |
----
-<iframe src="https://player.vimeo.com/video/1209593637?badge=0&autopause=0&player_id=0&app_id=58479"
-frameborder="0"
-allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
-referrerpolicy="strict-origin-when-cross-origin"
-title="Rebbe tzion bmishpat is mishnayos"
-style="width:100%;aspect-ratio:16/9;">
+| *(The entire Mishnayos is divided by Goirel. Each portion around 4 פרקים)* |  | *ויק"ר פ"ז, ג*<br>**ציון במשפט תפדה** |
 
-</iframe>
+***
 
-<script src="https://player.vimeo.com/api/player.js"></script>
----
-## Who Is This For
-> ###### Every Yid should know Mishnayos by heart
->
-> "**Everyone** should learn **Mishnayos by heart** according to his capacity, **review** them while walking in the **street**, and through this we will merit to greet **Moshiach**."
->
-> *(Hayom Yom, 21 Kislev)*
----
-## How it works
-*Goral on **Chalokim** based on the **Rebbe's division** of **ששה סדרי משנה**. Each Chelek is around 4 Prokim.*
-- **Membership:** Register at mishna2go.com
-- **Quota:** Select 1, 2, or 3 Mishnayos per week.
-- **Delivery:** Weekly emails and reminders.
-- **Learn:** Memorize the Mishnah/s for the week.
-- **Tachlis:** חזר when you walk in the street.
----
-## Overview
-**Chevras Mishnayos Baal Peh** is a great source of *bracha* and protection, and becoming a member is **completely free**.
-When you become a member you commit to **memorize 1, 2, or 3 Mishnayos each week**, you're assigned a *Chelek* — about **4 Prokim** of Mishnayos — chosen by **Gorel**.
-Together, throughout the year we memorize **the entire Mishnayos**, concluding **אסרו חג שבועות**.
----
-## Learn More
-### Hebrew
-[The Rebbes letter (explains Mishnayos Baal Peh)](https://www.chabad.org/therebbe/article_cdo/aid/4646093/jewish/page.htm)
-### English
-[A detailed explanation of the importance of studying Mishnayos by heart](https://www.chabad.org/therebbe/letters/default_cdo/aid/5920908/jewish/A-detailed-explanation-of-the-importance-of-studying-Mishnayos-by-heart.htm)
----
-## Historical Documents
-### The Frierdiker Rebbe's Membership Request
-![](https://images.mishna2go.com/about/eef82060-4c1c-4884-9f33-980fc1a573bc-CM-frierdike-rebbe-signup.png)
----
-### The Rebbe's Membership Request
-![](https://images.mishna2go.com/about/5f8c4732-bb25-4cb8-b035-575fa0212f3a-5cd61227-fb22-40a3-bd28-1b4b99000f97.jpeg)
----
-### The Rebbe's Historical Division of the Mishnayos into Chalokim
-![](https://images.mishna2go.com/about/ed44f620-e93b-43b9-865e-24bba7db6431-0086e7b4-4622-4096-852c-f7f072401057.jpeg)
----
-### A Letter
-| | |
-|:-:|:-:|
-| ![](https://images.mishna2go.com/about/5aa0fe75-6cda-4b7b-a867-50b7cfd1c906-Screenshot-2026-07-09-113952.png) | ![](https://images.mishna2go.com/about/a42bd5b7-8932-4e5a-a654-6446418b983a-Screenshot-2026-07-09-114015.png) |
+\-\-\- \#\# Who Is This For \> \#\#\#\#\#\# Every Yid should know Mishnayos by heart \> \> "\*\*Everyone\*\* should learn \*\*Mishnayos by heart\*\* according to his capacity\, \*\*review\*\* them while walking in the \*\*street\*\*\, and through this we will merit to greet \*\*Moshiach\*\*\." \> \> \*\(Hayom Yom\, 21 Kislev\)\* \-\-\- \#\# How it works \*Goral on \*\*Chalokim\*\* based on the \*\*Rebbe's division\*\* of \*\*ששה סדרי משנה\*\*\. Each Chelek is around 4 Prokim\.\* \- \*\*Membership:\*\* Register at mishna2go\.com \- \*\*Quota:\*\* Select 1\, 2\, or 3 Mishnayos per week\. \- \*\*Delivery:\*\* Weekly emails and reminders\. \- \*\*Learn:\*\* Memorize the Mishnah/s for the week\. \- \*\*Tachlis:\*\* חזר when you walk in the street\. \-\-\- \#\# Overview \*\*Chevras Mishnayos Baal Peh\*\* is a great source of \*bracha\* and protection\, and becoming a member is \*\*completely free\*\*\. When you become a member you commit to \*\*memorize 1\, 2\, or 3 Mishnayos each week\*\*\, you're assigned a \*Chelek\* — about \*\*4 Prokim\*\* of Mishnayos — chosen by \*\*Gorel\*\*\. Together\, throughout the year we memorize \*\*the entire Mishnayos\*\*\, concluding \*\*אסרו חג שבועות\*\*\. \-\-\- \#\# Learn More \#\#\# Hebrew \[The Rebbes letter \(explains Mishnayos Baal Peh\)\]\(https://www\.chabad\.org/therebbe/article\_cdo/aid/4646093/jewish/page\.htm\) \#\#\# English \[A detailed explanation of the importance of studying Mishnayos by heart\]\(https://www\.chabad\.org/therebbe/letters/default\_cdo/aid/5920908/jewish/A\-detailed\-explanation\-of\-the\-importance\-of\-studying\-Mishnayos\-by\-heart\.htm\) \-\-\- \#\# Historical Documents \#\#\# The Frierdiker Rebbe's Membership Request \!\[\]\(https://images\.mishna2go\.com/about/eef82060\-4c1c\-4884\-9f33\-980fc1a573bc\-CM\-frierdike\-rebbe\-signup\.png\) \-\-\- \#\#\# The Rebbe's Membership Request \!\[\]\(https://images\.mishna2go\.com/about/5f8c4732\-bb25\-4cb8\-b035\-575fa0212f3a\-5cd61227\-fb22\-40a3\-bd28\-1b4b99000f97\.jpeg\) \-\-\- \#\#\# The Rebbe's Historical Division of the Mishnayos into Chalokim \!\[\]\(https://images\.mishna2go\.com/about/ed44f620\-e93b\-43b9\-865e\-24bba7db6431\-0086e7b4\-4622\-4096\-852c\-f7f072401057\.jpeg\) \-\-\- \#\#\# A Letter \| \| \| \|:\-:\|:\-:\| \| \!\[\]\(https://images\.mishna2go\.com/about/5aa0fe75\-6cda\-4b7b\-a867\-50b7cfd1c906\-Screenshot\-2026\-07\-09\-113952\.png\) \| \!\[\]\(https://images\.mishna2go\.com/about/a42bd5b7\-8932\-4e5a\-a654\-6446418b983a\-Screenshot\-2026\-07\-09\-114015\.png\) \|
