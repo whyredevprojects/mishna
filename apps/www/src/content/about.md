@@ -4,9 +4,27 @@
 
 **Established by the Frierdiker Rebbe**
 *Membership is free*
-**You choose: 1 - 3 Mishnayos per week.** 
-*(The entire Mishnayos is divided by Goirel.)* 
-**Repeat Mishnayos** \- when you walk in the street or whenever the opportunity arises\.
+
+> **You choose** 
+
+**1 - 3 Mishnayos per week.** 
+*(The entire Mishnayos is divided by Goirel. Each portion around 4 פרקים)* 
+
+> **Repeat Mishnayos** 
+
+When you walk in the street or whenever the opportunity arises.
+
+> **Bring Moshiach**  
+
+**אין כל הגליות הללו מתכנסות אלא בזכות המשניות** 
+*ויק"ר פ"ז, ג*
+**ציון במשפט תפדה** 
+
+# Who Is This For
+
+Every Yid should know Mishnayos by heart
+The Frierdiker Rebbe repeatedly urged that every Jew memorize Mishnayos according to his ability.
+"Everyone should learn Mishnayos by heart according to his capacity, review them while walking in the street, and through this we will merit to greet Moshiach." (Hayom Yom, 21 Kislev)
 
 ## How it works
 
