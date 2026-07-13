@@ -1,28 +1,27 @@
 ### בעל פה • חזרה • טהרת האויר
 
-## Chevras Mishnayos Baal Peh
+#### Chevras Mishnayos Baal Peh
 
 **Established by the Frierdiker Rebbe**
 *Membership is free*
 
-## **You choose**
+#### **You choose**
 
 **1 - 3 Mishnayos per week.**
 *(The entire Mishnayos is divided by Goirel. Each portion around 4 פרקים)*
 
-## **Repeat Mishnayos**
+#### **Repeat Mishnayos**
 
 When you walk in the street or whenever the opportunity arises.
 
-## **Bring Moshiach**
+#### **Bring Moshiach**
 
 **אין כל הגליות הללו מתכנסות אלא בזכות המשניות**
 *ויק"ר פ"ז, ג*
 **ציון במשפט תפדה**
-
 <iframe src="https://player.vimeo.com/video/1209593637?badge=0&amp;autopause=0&amp;player\_id=0&amp;app\_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" title="Rebbe tzion bmishpat is mishnayos">\</iframe>\<script src="https://player.vimeo.com/api/player.js">\</script>
 
-# Who Is This For
+## Who Is This For
 
 #### Every Yid should know Mishnayos by heart
 
