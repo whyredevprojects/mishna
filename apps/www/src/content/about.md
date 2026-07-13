@@ -24,7 +24,7 @@ When you walk in the street or whenever the opportunity arises.
 
 # Who Is This For
 
-> Every Yid should know Mishnayos by heart
+#### Every Yid should know Mishnayos by heart
 
 "**Everyone** should learn **Mishnayos by heart** according to his capacity, **review** them while walking in the **street**, and through this we will merit to greet **Moshiach**."
 *(Hayom Yom, 21 Kislev)*
