@@ -6,15 +6,13 @@
 
 <h2>Repeat Mishnayos</h2>When you walk in the street or whenever the opportunity arises.
 
-<h2>Bring Moshiach</h2> אין כל הגליות הללו מתכנסות אלא בזכות המשניות ויק"ר פ"ז, ג 
-<p>ציון במשפט תפדה</p>
+<h2>Bring Moshiach</h2> אין כל הגליות הללו מתכנסות אלא בזכות המשניות ויק"ר פ"ז, ג
+###### ציון במשפט תפדה
 
 <h2>Who Is This For</h2><h3>Every Yid should know Mishnayos by heart</h3>"<strong>Everyone</strong> should learn <strong>Mishnayos by heart</strong> according to his capacity, <strong>review</strong> them while walking in the <strong>street</strong>, and through this we will merit to greet <strong>Moshiach</strong>." <em>(Hayom Yom, 21 Kislev)</em>
 
-<h2>How it works</h2>Goral on <strong>Chalokim</strong> based on the <strong>Rebbe's division</strong> of <strong>ששה סדרי משנה</strong>. Each Chelek is around 4 Prokim.<ul><li><strong>Membership:</strong> Register at mishna2go.com</li><li><strong>Quota:</strong> Select 1, 2, or 3 Mishnayos per week.</li><li><strong>Delivery:</strong> Weekly emails and reminders.</li><li><strong>Learn:</strong> Memorize the Mishnah/s for the week.</li><li><strong>Tachlis:</strong> חזר when you walk in the street.
-</li><li>
-Together, throughout the year we memorize <strong>the entire Mishnayos</strong> concluding <strong>אסרו חג שבועות</strong>.
-</li></ul>
+<h2>How it works</h2>Goral on <strong>Chalokim</strong> based on the <strong>Rebbe's division</strong> of <strong>ששה סדרי משנה</strong>. Each Chelek is around 4 Prokim.<ul><li><strong>Membership:</strong> Register at mishna2go.com</li><li><strong>Quota:</strong> Select 1, 2, or 3 Mishnayos per week.</li><li><strong>Delivery:</strong> Weekly emails and reminders.</li><li><strong>Learn:</strong> Memorize the Mishnah/s for the week.</li><li><strong>Tachlis:</strong> חזר when you walk in the street.</li><li>Together, throughout the year we memorize <strong>the entire Mishnayos</strong> concluding <strong>אסרו חג שבועות</strong>.</li></ul>
+
 <h2>Resources</h2><h3>Hebrew</h3><a href="https://www.chabad.org/therebbe/article_cdo/aid/4646093/jewish/page.htm"> The Rebbes letter (explains Mishnayos Baal Peh)</a>
 
 <h3>English</h3><a href="https://www.chabad.org/therebbe/letters/default_cdo/aid/5920908/jewish/A-detailed-explanation-of-the-importance-of-studying-Mishnayos-by-heart.htm"> A detailed explanation of the importance of studying Mishnayos by heart</a>
