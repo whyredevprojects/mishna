@@ -5,22 +5,22 @@
 **Established by the Frierdiker Rebbe**
 *Membership is free*
 
-## **You choose** 
+## **You choose**
 
-**1 - 3 Mishnayos per week.** 
-*(The entire Mishnayos is divided by Goirel. Each portion around 4 פרקים)* 
+**1 - 3 Mishnayos per week.**
+*(The entire Mishnayos is divided by Goirel. Each portion around 4 פרקים)*
 
-## **Repeat Mishnayos** 
+## **Repeat Mishnayos**
 
 When you walk in the street or whenever the opportunity arises.
 
-## **Bring Moshiach**  
+## **Bring Moshiach**
 
-**אין כל הגליות הללו מתכנסות אלא בזכות המשניות** 
+**אין כל הגליות הללו מתכנסות אלא בזכות המשניות**
 *ויק"ר פ"ז, ג*
-**ציון במשפט תפדה** 
+**ציון במשפט תפדה**
 
-```
+```html
 <div style="padding:73.33% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/1209593637?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Rebbe tzion bmishpat is mishnayos"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
 ```
 
