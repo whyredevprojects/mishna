@@ -4,6 +4,7 @@ import {
   computed,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
@@ -90,6 +91,7 @@ interface LotInput {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
       <a class="back" routerLink="/admin/groups">← All groups</a>

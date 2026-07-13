@@ -4,6 +4,7 @@ import {
   computed,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -50,6 +51,7 @@ import { adminUserQueryOptions } from '../queries/queries';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
       @if (query.isPending()) {

@@ -5,7 +5,11 @@ import {
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideRouter, withNavigationErrorHandler } from '@angular/router';
+import {
+  provideRouter,
+  withNavigationErrorHandler,
+  withRouterConfig,
+} from '@angular/router';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import {
   provideTanStackQuery,
@@ -24,6 +28,10 @@ export const appConfig: ApplicationConfig = {
     // one-shot, guarded reload onto the fresh shell. See its doc comment.
     provideRouter(
       appRoutes,
+      // Angular 22 changed the paramsInheritanceStrategy default to 'always';
+      // pin the pre-22 'emptyOnly' behavior so child routes don't inherit
+      // ancestor params/data they weren't written to expect.
+      withRouterConfig({ paramsInheritanceStrategy: 'emptyOnly' }),
       withNavigationErrorHandler((e) => {
         if (isChunkLoadError(e.error)) {
           inject(SwRecoveryService).recoverFromChunkError();

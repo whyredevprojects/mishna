@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
@@ -78,6 +79,7 @@ interface MesechtaGroup {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
       @if (query.isPending()) {

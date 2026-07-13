@@ -56,3 +56,4 @@ vitest.config.*.timestamp*
 __screenshots__/
 
 .nx/polygraph
+.nx/migrate-runs

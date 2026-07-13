@@ -4,6 +4,7 @@ import {
   computed,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import {
   injectMutation,
@@ -57,6 +58,7 @@ import {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (loading()) {
       <div class="spinner-wrap"><wa-spinner style="font-size: 2rem"></wa-spinner></div>

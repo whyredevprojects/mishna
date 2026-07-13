@@ -3,6 +3,7 @@ import {
   Component,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../services/auth.service';
@@ -36,6 +37,7 @@ import { TurnstileComponent } from '../components/turnstile.component';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-site-header></app-site-header>
 

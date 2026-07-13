@@ -4,6 +4,7 @@ import {
   inject,
   signal,
   viewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -58,6 +59,7 @@ import { cycleQueryOptions, meQueryOptions } from '../queries/queries';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-site-header></app-site-header>
 

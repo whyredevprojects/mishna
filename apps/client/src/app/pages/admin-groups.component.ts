@@ -1,4 +1,4 @@
-import { CUSTOM_ELEMENTS_SCHEMA, Component, inject } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 import { AdminService } from '../services/admin.service';
@@ -29,6 +29,7 @@ import { DataTableComponent, TableColumn } from '../ui/data-table.component';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
       @if (query.isPending()) {

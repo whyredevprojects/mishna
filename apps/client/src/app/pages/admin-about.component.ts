@@ -7,6 +7,7 @@ import {
   effect,
   inject,
   viewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
@@ -57,6 +58,7 @@ import { adminAboutQueryOptions } from '../queries/queries';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
       <div class="head">

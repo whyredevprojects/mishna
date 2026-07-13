@@ -11,6 +11,9 @@ export default [
       '**/vitest.config.*.timestamp*',
       '**/worker-configuration.d.ts',
       '**/.wrangler',
+      // Generated Eleventy build output (apps/www) — never lint bundled/minified assets.
+      '**/_site',
+      '**/.cache',
     ],
   },
   {

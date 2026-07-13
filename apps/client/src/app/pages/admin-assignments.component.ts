@@ -3,6 +3,7 @@ import {
   Component,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { injectQuery, QueryClient } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
@@ -43,6 +44,7 @@ const PAGE_SIZE = 50;
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
       <div class="toolbar">

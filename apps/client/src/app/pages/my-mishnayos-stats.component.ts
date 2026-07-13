@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { injectQuery } from '@tanstack/angular-query-experimental';
@@ -80,6 +81,7 @@ interface MesechtaProgress {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack">
       @if (query.isPending()) {

@@ -3,6 +3,7 @@ import {
   Component,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { AuthService } from '../services/auth.service';
 import { SettingsService } from '../services/settings.service';
@@ -60,6 +61,7 @@ const DAY_NAMES = [
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="stack readable">
       <h2>Settings</h2>

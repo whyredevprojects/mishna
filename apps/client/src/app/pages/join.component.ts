@@ -4,6 +4,7 @@ import {
   inject,
   signal,
   viewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { QueryClient } from '@tanstack/angular-query-experimental';
@@ -39,6 +40,7 @@ import { queryKeys } from '../queries/query-keys';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-site-header></app-site-header>
 

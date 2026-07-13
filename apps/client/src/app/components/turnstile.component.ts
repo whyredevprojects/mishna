@@ -6,6 +6,7 @@ import {
   output,
   signal,
   viewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { environment } from '../../environments/environment';
 
@@ -66,6 +67,7 @@ function loadTurnstile(): Promise<void> {
  */
 @Component({
   selector: 'app-turnstile',
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `<div #widget></div>`,
 })
 export class TurnstileComponent implements AfterViewInit, OnDestroy {

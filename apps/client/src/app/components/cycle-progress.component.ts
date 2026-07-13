@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   input,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { Cycle } from '../models/api.types';
 
@@ -20,6 +21,7 @@ import { Cycle } from '../models/api.types';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div>
       <div class="label">

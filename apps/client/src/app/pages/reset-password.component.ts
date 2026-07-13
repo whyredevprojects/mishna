@@ -3,6 +3,7 @@ import {
   Component,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../services/auth.service';
@@ -40,6 +41,7 @@ import { SiteHeaderComponent } from '../components/site-header.component';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-site-header></app-site-header>
 

@@ -6,6 +6,7 @@ import {
   contentChild,
   input,
   output,
+  ChangeDetectionStrategy
 } from '@angular/core';
 
 /** One column of a {@link DataTableComponent}. `key` is matched in the cell template. */
@@ -73,6 +74,7 @@ export interface TableColumn {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="wrap">
       <table>

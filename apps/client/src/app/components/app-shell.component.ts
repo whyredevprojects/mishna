@@ -3,6 +3,7 @@ import {
   Component,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../services/auth.service';
@@ -61,6 +62,7 @@ import { AuthService } from '../services/auth.service';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <header class="topbar">
       <wa-button class="burger" appearance="plain" (click)="drawerOpen.set(true)">

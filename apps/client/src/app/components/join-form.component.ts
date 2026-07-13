@@ -5,6 +5,7 @@ import {
   input,
   output,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { Commitment, JoinOption } from '../models/api.types';
 
@@ -36,6 +37,7 @@ import { Commitment, JoinOption } from '../models/api.types';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <wa-card>
       <strong slot="header">Join the current cycle</strong>

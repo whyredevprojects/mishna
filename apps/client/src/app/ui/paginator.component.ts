@@ -4,6 +4,7 @@ import {
   computed,
   input,
   output,
+  ChangeDetectionStrategy
 } from '@angular/core';
 
 /**
@@ -32,6 +33,7 @@ import {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="pager">
       <span class="range muted">{{ rangeLabel() }}</span>

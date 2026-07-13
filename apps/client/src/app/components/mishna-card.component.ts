@@ -7,6 +7,7 @@ import {
   model,
   output,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MishnaRef } from '../models/api.types';
@@ -106,6 +107,7 @@ import { formatRef, formatRefHe } from '../util/format';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (collapsible()) {
       <div class="disclosure">

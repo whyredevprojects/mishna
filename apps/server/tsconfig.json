@@ -17,6 +17,7 @@
     // runtime here too, else esbuild falls back to the classic `React.createElement`
     // transform and the bundle throws "React is not defined" at render time.
     "jsx": "react-jsx",
-    "jsxImportSource": "react"
+    "jsxImportSource": "react",
+    "ignoreDeprecations": "6.0"
   }
 }

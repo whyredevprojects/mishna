@@ -17,7 +17,12 @@
       "@mishna/domain": ["./libs/shared/domain/src/index.ts"],
       "@mishna/email-domain": ["./libs/shared/email-domain/src/index.ts"],
       "@mishna/email-data": ["./libs/shared/email-data/src/index.ts"]
-    }
+    },
+    "strict": false,
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "esModuleInterop": false,
+    "ignoreDeprecations": "6.0"
   },
   "exclude": ["node_modules", "tmp"]
 }

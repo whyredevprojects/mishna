@@ -6,6 +6,7 @@ import {
   inject,
   input,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import {
   injectMutation,
@@ -53,6 +54,7 @@ const SYNC_ERROR =
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (mishnas().length) {
       <div class="cards">
