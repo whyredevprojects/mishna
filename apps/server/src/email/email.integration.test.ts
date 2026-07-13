@@ -155,6 +155,7 @@ function recordingDeps(sink: { emails: OutgoingEmail[][]; keys: string[] }) {
     record: (userId: string, kind: 'weekly' | 'reminder', weekStart: string) =>
       repo.recordSent(userId, kind, weekStart),
     from: 'test@example.com',
+    replyTo: 'support@example.com',
     appOrigin: 'https://app.test',
   };
 }
@@ -318,6 +319,7 @@ describe('email path', () => {
       expect(sink.emails).toHaveLength(1);
       expect(sink.emails[0]).toHaveLength(1);
       expect(sink.emails[0][0].to).toBe('alice@example.com');
+      expect(sink.emails[0][0].replyTo).toBe('support@example.com');
       expect(sink.emails[0][0].subject).toContain('mishnayos for the coming week');
       expect(deps.resolveText).toHaveBeenCalledOnce();
 
@@ -375,6 +377,7 @@ describe('email path', () => {
           },
           record: () => Promise.resolve(),
           from: 'test@example.com',
+          replyTo: 'support@example.com',
           appOrigin: 'https://app.test',
         }),
       ).rejects.toThrow('boom');

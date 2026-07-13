@@ -81,6 +81,7 @@ crons = ["0 * * * *"]
 APP_ORIGIN = "https://app.mishna2go.com"
 # Verified Resend sender. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
 RESEND_FROM_EMAIL = "Chevras Mishnayos Baal Peh <reminders@mishna2go.com>"
+RESEND_REPLY_TO_EMAIL = "Chevras Mishnayos Baal Peh <support@mishna2go.com>"
 # About-page editor: repo coordinates for committing the www site's about.md via the
 # GitHub Contents API. Frozen from this repo's `git remote origin` — a Worker can't
 # read git at runtime, and this is deliberately not a configurable separate repo.

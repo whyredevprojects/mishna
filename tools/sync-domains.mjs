@@ -58,12 +58,14 @@ const targets = [
     edit('route zone', /(zone_name = ")[^"]*(")/, cfg.apex),
     edit('BETTER_AUTH_URL', /(BETTER_AUTH_URL = ")[^"]*(")/, appOrigin),
     edit('RESEND_FROM_EMAIL', /(RESEND_FROM_EMAIL = ")[^"]*(")/, cfg.email.auth),
+    edit('RESEND_REPLY_TO_EMAIL', /(RESEND_REPLY_TO_EMAIL = ")[^"]*(")/, cfg.email.replyTo),
   ]),
   apply('apps/server/wrangler.toml', [
     edit('route pattern', /(pattern = ")[^"]*(\/api\/\*")/, cfg.appHost),
     edit('route zone', /(zone_name = ")[^"]*(")/, cfg.apex),
     edit('APP_ORIGIN', /(APP_ORIGIN = ")[^"]*(")/, appOrigin),
     edit('RESEND_FROM_EMAIL', /(RESEND_FROM_EMAIL = ")[^"]*(")/, cfg.email.reminders),
+    edit('RESEND_REPLY_TO_EMAIL', /(RESEND_REPLY_TO_EMAIL = ")[^"]*(")/, cfg.email.replyTo),
     edit('R2_PUBLIC_BASE_URL', /(R2_PUBLIC_BASE_URL = ")[^"]*(")/, imagesOrigin),
   ]),
   apply('apps/mobile/lib/core/config.dart', [

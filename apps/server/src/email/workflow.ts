@@ -33,6 +33,7 @@ export function senderDeps(env: Env): SenderDeps {
   return {
     resolveText: httpTextResolver(env.APP_ORIGIN),
     from: env.RESEND_FROM_EMAIL,
+    replyTo: env.RESEND_REPLY_TO_EMAIL,
     appOrigin: env.APP_ORIGIN,
     record: (userId, kind, weekStart) => repo.recordSent(userId, kind, weekStart),
     send: async (emails: OutgoingEmail[], idempotencyKey: string) => {

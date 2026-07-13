@@ -49,6 +49,7 @@ async function send(
   const resend = new Resend(env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: env.RESEND_FROM_EMAIL,
+    replyTo: env.RESEND_REPLY_TO_EMAIL,
     to,
     subject,
     html,

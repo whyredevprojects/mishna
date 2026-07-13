@@ -9,6 +9,7 @@ export type { PreparedEmail } from '@mishna/email-domain';
 /** One outgoing email, in Resend's batch shape. */
 export interface OutgoingEmail {
   from: string;
+  replyTo: string;
   to: string;
   subject: string;
   html: string;
@@ -30,6 +31,7 @@ export interface SenderDeps {
    */
   record: (userId: string, kind: EmailKind, weekStart: string) => Promise<void>;
   from: string;
+  replyTo: string;
   appOrigin: string;
 }
 
@@ -87,7 +89,13 @@ async function buildEmail(
     job.kind === 'weekly'
       ? await weeklyEmail(resolved, deps.appOrigin)
       : await reminderEmail(resolved, deps.appOrigin);
-  return { from: deps.from, to: job.to, subject: built.subject, html: built.html };
+  return {
+    from: deps.from,
+    replyTo: deps.replyTo,
+    to: job.to,
+    subject: built.subject,
+    html: built.html,
+  };
 }
 
 /**
