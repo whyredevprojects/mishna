@@ -2,13 +2,6 @@
   "name": "client",
   "private": true,
   "dependencies": {
-    "@angular-devkit/build-angular": "~21.2.0",
-    "@angular/common": "~21.2.0",
-    "@angular/compiler": "~21.2.0",
-    "@angular/core": "~21.2.0",
-    "@angular/forms": "~21.2.0",
-    "@angular/platform-browser": "~21.2.0",
-    "@angular/router": "~21.2.0",
     "@awesome.me/webawesome": "^3.7.0",
     "@tanstack/angular-query-experimental": "^5.101.0",
     "@toast-ui/editor": "^3.2.2",

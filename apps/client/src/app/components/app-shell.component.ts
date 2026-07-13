@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { IS_HEBREW } from '../util/locale';
+import { IS_HEBREW, switchLocale } from '../util/locale';
 
 /** Authenticated layout: a top bar with a burger that opens a navigation drawer, and a router-outlet for the page. */
 @Component({
@@ -127,14 +127,10 @@ export class AppShellComponent {
 
   protected readonly drawerOpen = signal(false);
 
-  protected readonly IS_HEBREW = IS_HEBREW;
   protected readonly switcherLabel = IS_HEBREW ? 'English' : 'עברית';
 
   switchLocale(): void {
-    const target = IS_HEBREW ? 'en' : 'he';
-    localStorage.setItem('preferredLocale', target);
-    const stripped = location.pathname.replace(/^\/he(?=\/|$)/, '') + location.search;
-    location.assign(target === 'he' ? '/he' + (stripped || '/') : (stripped || '/'));
+    switchLocale();
   }
 
   protected logout(): void {

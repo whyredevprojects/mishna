@@ -1,6 +1,6 @@
 import { CUSTOM_ELEMENTS_SCHEMA, Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { IS_HEBREW } from '../util/locale';
+import { IS_HEBREW, switchLocale } from '../util/locale';
 
 /**
  * Public top bar for the unauthenticated pages (landing, join). Site name on the
@@ -44,13 +44,9 @@ import { IS_HEBREW } from '../util/locale';
   `,
 })
 export class SiteHeaderComponent {
-  protected readonly IS_HEBREW = IS_HEBREW;
   protected readonly switcherLabel = IS_HEBREW ? 'English' : 'עברית';
 
   switchLocale(): void {
-    const target = IS_HEBREW ? 'en' : 'he';
-    localStorage.setItem('preferredLocale', target);
-    const stripped = location.pathname.replace(/^\/he(?=\/|$)/, '') + location.search;
-    location.assign(target === 'he' ? '/he' + (stripped || '/') : (stripped || '/'));
+    switchLocale();
   }
 }

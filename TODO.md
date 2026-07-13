@@ -1,5 +1,10 @@
 # TODO — deferred work
 
+## Drop `legacy-peer-deps=true` from `.npmrc`
+
+Set only because `@nx/devkit@23.1.0-rc.2`'s peer range rejects the `nx 23.1.0-rc.2`
+prerelease under strict semver. Remove once the workspace moves to `nx`/`@nx` 23.1.x stable.
+
 ## Hebrew (RTL) parity for apps/mobile (Flutter)
 
 The web app (`apps/client`) now ships a full Hebrew (`he`) locale at `/he/` with RTL

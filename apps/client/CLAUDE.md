@@ -75,7 +75,10 @@ keys are `/he/…`-absolute.
 - **Translation workflow**: `nx extract-i18n client` regenerates `src/locale/messages.xlf`
   (XLIFF 2, source). Copy new units into `messages.he.xlf` (set `trgLang="he"`, add a
   `<target>` per `<segment>`, preserve `<ph>`/ICU placeholders, never edit ids). The
-  `production-he` build fails on any missing target.
+  `production-he` build fails on any missing target. Units without explicit `@@` ids get
+  content-hash ids, so editing an English source string orphans its Hebrew `<target>` —
+  re-run `nx extract-i18n client` and update `messages.he.xlf` in the same commit (CI's
+  `production-he` build now catches misses).
 - **Admin stays English/unmarked by design** (`pages/admin*`), as does Hebrew domain content.
 
 ## PWA / offline

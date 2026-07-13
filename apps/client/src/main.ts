@@ -1,6 +1,7 @@
 import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';
 import { App } from './app/app';
+import { localeUrl, readPreferredLocale } from './app/util/locale';
 
 // Register the Web Awesome custom elements used across the app. These imports
 // live in the browser entry only — `customElements.define` touches `HTMLElement`,
@@ -28,14 +29,16 @@ import '@awesome.me/webawesome/dist/components/tag/tag.js';
 // redirecting to the matching build (English at `/`, Hebrew at `/he/`). This
 // ships in both builds; the guard prevents a redirect loop by only acting when
 // the current path's locale doesn't match the preference.
-const pref = localStorage.getItem('preferredLocale');
+const pref = readPreferredLocale();
 const inHe = /^\/he(\/|$)/.test(location.pathname);
 if (pref === 'he' && !inHe) {
-  location.replace('/he' + location.pathname + location.search);
+  location.replace(localeUrl('he'));
 } else if (pref === 'en' && inHe) {
-  location.replace(
-    location.pathname.replace(/^\/he(?=\/|$)/, '') + location.search || '/',
-  );
+  location.replace(localeUrl('en'));
+} else if (location.pathname === '/he') {
+  // Self-correct a stale-SW-served English shell landing at the slash-less `/he`:
+  // the Hebrew build lives at `/he/`, so redirect there.
+  location.replace('/he/' + location.search + location.hash);
 } else {
   bootstrapApplication(App, appConfig).catch((err) => console.error(err));
 }

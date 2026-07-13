@@ -22,6 +22,7 @@ import { TodayCardComponent } from '../components/today-card.component';
 import { JoinFormComponent } from '../components/join-form.component';
 import { CycleProgressComponent } from '../components/cycle-progress.component';
 import { formatRef } from '../util/format';
+import { IS_HEBREW } from '../util/locale';
 import { queryKeys } from '../queries/query-keys';
 import {
   cycleQueryOptions,
@@ -248,8 +249,10 @@ export class DashboardComponent {
     const delta = (e.changedTouches[0]?.clientX ?? this.touchStartX) - this.touchStartX;
     this.touchStartX = null;
     if (Math.abs(delta) < 50) return;
-    // Swipe left → forward a bucket, swipe right → back a bucket.
-    if (delta < 0) this.next();
+    // Swipe against the reading direction advances; mirrored in RTL. In LTR a
+    // leftward swipe (delta < 0) goes forward; in RTL a rightward swipe does.
+    const forward = IS_HEBREW ? delta > 0 : delta < 0;
+    if (forward) this.next();
     else this.prev();
   }
 

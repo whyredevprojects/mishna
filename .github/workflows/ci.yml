@@ -40,6 +40,11 @@ jobs:
 
       - run: npx nx run-many -t lint test build
 
+      # Translation-completeness gate: the Hebrew build sets
+      # i18nMissingTranslation:error, so a missing <target> fails here (on the PR)
+      # rather than during the post-migration deploy.
+      - run: npx nx build client --configuration=production-he
+
       # Apply D1 migrations before deploy so new code never runs against an
       # outdated schema. `wrangler d1 migrations apply` is idempotent (only
       # pending migrations run), so this is safe on every push.
