@@ -4,7 +4,9 @@
 
 **Established by the Frierdiker Rebbe**
 *Membership is free*
-Become a member by choosing to learn 1, 2 or 3 Mishnas by heart each week. The entire Mishnayos is divided by Goirel. Members recite the Mishnayos when they walk in the street, on the bus, train, in the store or whenever the opportunity arises.
+**You choose: 1 - 3 Mishnayos per week.** 
+*(The entire Mishnayos is divided by Goirel.)* 
+**Repeat Mishnayos** \- when you walk in the street or whenever the opportunity arises\.
 
 ## How it works
 
@@ -28,6 +30,10 @@ When you become a member you commit to **memorize 1, 2, or 3 mishnayos each week
 
 (English)
 [A detailed explanation of the importance of studying Mishnayos by heart](https://www.chabad.org/therebbe/letters/default_cdo/aid/5920908/jewish/A-detailed-explanation-of-the-importance-of-studying-Mishnayos-by-heart.htm)
+
+<br>
+
+<br>
 
 <br>
 
