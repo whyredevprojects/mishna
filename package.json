@@ -6,6 +6,7 @@
     ":build": "npx nx run-many -t lint test build",
     ":test": "npx nx run-many -t lint test build",
     "dev": "npx nx serve client",
+    "dev:i18n": "npx nx serve-i18n client",
     "e2e": "npx nx e2e client-e2e",
     "sync:domains": "node tools/sync-domains.mjs",
     "email:dev": "npx email dev --dir apps/server/src/email/templates/preview --port 3030",

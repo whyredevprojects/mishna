@@ -165,6 +165,20 @@
         "spa": true
       }
     },
+    "serve-i18n": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": ["build"],
+      "options": {
+        "commands": [
+          "npx nx build client --configuration=production-he",
+          "rm -rf dist/apps/client/browser/he",
+          "cp -r dist/apps/client-he/browser/he dist/apps/client/browser/he",
+          "wrangler pages dev dist/apps/client/browser --port 4200 --compatibility-date=2024-10-22"
+        ],
+        "parallel": false
+      }
+    },
     "deploy": {
       "executor": "nx:run-commands",
       "dependsOn": ["build"],

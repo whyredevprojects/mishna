@@ -87,20 +87,37 @@ keys are `/he/…`-absolute.
 
 `nx serve client` only serves the **English** build (localize inlining is off under
 dev-serve and there's no `/he/` output), so the toggle can't reach a real Hebrew
-bundle there. To exercise the Hebrew bundle/toggle locally, build both and replicate
-the deploy-time merge, then static-serve the merged output:
+bundle there. Angular's dev-server serves **one locale at a time by design** — there is
+no live single-server "both locales" mode. The standard way to exercise both together is
+to build each locale and static-serve the merged output. That's wrapped in one command:
 
 ```
-nx build client
-nx build client --configuration=production-he
-rm -rf dist/apps/client/browser/he
-cp -r dist/apps/client-he/browser/he dist/apps/client/browser/he
-# then static-serve dist/apps/client/browser (e.g. `python3 -m http.server` from that dir)
+npm run dev:i18n      # = nx serve-i18n client
 ```
 
-This mirrors production exactly (English at `/`, Hebrew merged in under `/he/`). The
-`rm -rf` before the `cp -r` matches the `deploy` target in `project.json` and keeps a
-second run idempotent — without it the copy nests into `he/he`.
+The `serve-i18n` target in `project.json` runs the same merge the `deploy` target does
+(build English → build `production-he` → `rm -rf` the old `/he` → `cp -r` the new one),
+then serves `dist/apps/client/browser` on `:4200` via **`wrangler pages dev`** — the same
+Cloudflare Pages runtime as prod, so it applies `public/_headers` (no-cache for the `/he/`
+ngsw + manifest), the English SPA fallback, and the `/he → /he/` redirect from
+`public/_redirects`. That's closer to prod than a bare static server
+(`python3 -m http.server`, which ignores both). The `rm -rf` before the `cp -r` keeps
+re-runs idempotent — without it the copy nests into `he/he`. A fixed
+`--compatibility-date` is passed because `wrangler pages dev` otherwise defaults to
+*today*, which can exceed the bundled workerd runtime and fail to start.
+
+One local-only caveat: `wrangler pages dev` mishandles the `_redirects` **`200` rewrite**
+rules, so a hard refresh on a deep `/he/<route>` (e.g. `/he/dashboard`) 308-redirects to
+`/he/` instead of serving the Hebrew shell inline as real Pages does. Client-side
+navigation (landing on `/he/` and routing within Angular) is unaffected — this only shows
+up on a direct hit/refresh of a deep `/he/` URL. For the locale/RTL/toggle checks this
+target is for, that doesn't matter.
+
+This mirrors production (English at `/`, Hebrew merged in under `/he/`). Scope is
+locale/RTL/toggle verification: like the manual method, and unlike `nx serve client`
+(which proxies `/api` → `:8787`), the merged static serve does **not** proxy the API, so
+backend-hitting flows (login, dashboard data) need the `server`/`login` workers running
+separately.
 
 `nx serve client --configuration=he` **does** serve the Hebrew bundle (at `/he/`) for
 visual/RTL checks, but it can't round-trip the `/ ↔ /he/` toggle on a single origin —
