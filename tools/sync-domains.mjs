@@ -6,8 +6,9 @@
  * propagates its values into the handful of files that can't read that JSON at
  * build time (wrangler.toml routes/vars, the Flutter dart-define defaults, the
  * Eleventy site data, and the Angular Turnstile key). The Angular client itself
- * needs nothing — it uses relative `/api/*` URLs — and apps/login derives its
- * trusted origin from BETTER_AUTH_URL at runtime, so neither is touched here.
+ * needs nothing — it uses relative `/api/*` URLs. apps/login builds cookies from
+ * BETTER_AUTH_URL (overridden to localhost in dev) but also trusts APP_ORIGIN, the
+ * canonical app host, in all envs — both are written here from config/domains.json.
  *
  *   node tools/sync-domains.mjs            # write the derived values into the files
  *   node tools/sync-domains.mjs --check    # exit 1 if any file is out of sync (CI)
@@ -57,6 +58,7 @@ const targets = [
     edit('route pattern', /(pattern = ")[^"]*(\/api\/auth\/\*")/, cfg.appHost),
     edit('route zone', /(zone_name = ")[^"]*(")/, cfg.apex),
     edit('BETTER_AUTH_URL', /(BETTER_AUTH_URL = ")[^"]*(")/, appOrigin),
+    edit('APP_ORIGIN', /(APP_ORIGIN = ")[^"]*(")/, appOrigin),
     edit('RESEND_FROM_EMAIL', /(RESEND_FROM_EMAIL = ")[^"]*(")/, cfg.email.auth),
     edit('RESEND_REPLY_TO_EMAIL', /(RESEND_REPLY_TO_EMAIL = ")[^"]*(")/, cfg.email.replyTo),
   ]),
