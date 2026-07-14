@@ -1,6 +1,6 @@
 import { CUSTOM_ELEMENTS_SCHEMA, Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { IS_HEBREW, switchLocale } from '../util/locale';
+import { IS_HEBREW, heBundleUnavailableThisSession, switchLocale } from '../util/locale';
 
 /**
  * Public top bar for the unauthenticated pages (landing, join). Site name on the
@@ -37,7 +37,9 @@ import { IS_HEBREW, switchLocale } from '../util/locale';
     <header class="topbar">
       <a class="brand" routerLink="/" i18n="@@brand.title">Chevras Mishnayos Baal Peh</a>
       <span class="spacer"></span>
-      <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
+      @if (!langSwitchHidden) {
+        <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
+      }
       <wa-button appearance="plain" routerLink="/" i18n="@@header.logIn">Log in</wa-button>
       <wa-button variant="brand" routerLink="/join" i18n="@@header.becomeMember">Become a Member</wa-button>
     </header>
@@ -45,6 +47,9 @@ import { IS_HEBREW, switchLocale } from '../util/locale';
 })
 export class SiteHeaderComponent {
   protected readonly switcherLabel = IS_HEBREW ? 'English' : 'עברית';
+  // Hide the toggle when the Hebrew bundle isn't served here this session (dev
+  // serve): offering a control that no-ops is worse than not showing it.
+  protected readonly langSwitchHidden = !IS_HEBREW && heBundleUnavailableThisSession();
 
   switchLocale(): void {
     switchLocale();

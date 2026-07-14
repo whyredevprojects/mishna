@@ -81,6 +81,29 @@ keys are `/he/…`-absolute.
   `production-he` build now catches misses).
 - **Admin stays English/unmarked by design** (`pages/admin*`), as does Hebrew domain content.
 
+### Testing the language toggle locally
+
+`nx serve client` only serves the **English** build (localize inlining is off under
+dev-serve and there's no `/he/` output), so the toggle can't reach a real Hebrew
+bundle there. To exercise the Hebrew bundle/toggle locally, build both and replicate
+the deploy-time merge, then static-serve the merged output:
+
+```
+nx build client
+nx build client --configuration=production-he
+cp -r dist/apps/client-he/browser/he dist/apps/client/browser/he
+# then static-serve dist/apps/client/browser (e.g. `python3 -m http.server` from that dir)
+```
+
+This mirrors production exactly (English at `/`, Hebrew merged in under `/he/`).
+
+Note the dev behavior: in a plain `nx serve client`, clicking **עברית** will briefly
+navigate to `/he/` then normalize **back to English** — the Hebrew bundle isn't served
+in dev, so `main.ts` detects the English shell at a `/he` path, returns to `/`, and
+sets a session flag (`sessionStorage.heBundleUnavailable`) that hides the toggle and
+suppresses further `/he` redirects for the rest of the tab. This is expected (no
+bounce/loop); use the merged-build method above to actually see Hebrew.
+
 ## PWA / offline
 
 Installable PWA backed by the Angular service worker (NGSW). The goal is that a

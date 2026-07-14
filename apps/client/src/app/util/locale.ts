@@ -37,6 +37,33 @@ export function writePreferredLocale(target: 'en' | 'he'): void {
 }
 
 /**
+ * Session-scoped flag set when the Hebrew bundle turned out not to be physically
+ * served for a `/he` path (dev serve, or a broken `/he` deploy). It suppresses
+ * further `/he` redirects for the rest of the tab session so the toggle no-ops
+ * instead of flickering `/` ↔ `/he`, WITHOUT touching the durable
+ * `preferredLocale` (prod, where `/he` exists, still honors it next session).
+ */
+const HE_UNAVAILABLE_KEY = 'heBundleUnavailable';
+
+/** True if the Hebrew bundle was found missing earlier this tab session. */
+export function heBundleUnavailableThisSession(): boolean {
+  try {
+    return sessionStorage.getItem(HE_UNAVAILABLE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Record that the Hebrew bundle isn't served here for this tab session. */
+export function markHeBundleUnavailable(): void {
+  try {
+    sessionStorage.setItem(HE_UNAVAILABLE_KEY, '1');
+  } catch {
+    // Ignore unavailable storage.
+  }
+}
+
+/**
  * The current URL rebuilt for `target`'s build: English at the root, Hebrew under
  * `/he`. The `|| '/'` guards the *path* (not path+search) so bare `/he?x=1` still
  * yields an absolute `/` rather than a relative URL that would loop. Search + hash
@@ -54,6 +81,11 @@ export function localeUrl(target: 'en' | 'he'): string {
 /** Toggle to the other build, persisting the choice, via a full-page navigation. */
 export function switchLocale(): void {
   const target = IS_HEBREW ? 'en' : 'he';
+  // If the Hebrew bundle already proved unavailable this session, switching to
+  // it would just bounce back to English — skip the no-op navigation/flicker.
+  if (target === 'he' && heBundleUnavailableThisSession()) {
+    return;
+  }
   writePreferredLocale(target);
   location.assign(localeUrl(target));
 }

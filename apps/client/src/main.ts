@@ -1,7 +1,13 @@
 import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';
 import { App } from './app/app';
-import { localeUrl, readPreferredLocale } from './app/util/locale';
+import {
+  IS_HEBREW,
+  heBundleUnavailableThisSession,
+  localeUrl,
+  markHeBundleUnavailable,
+  readPreferredLocale,
+} from './app/util/locale';
 
 // Register the Web Awesome custom elements used across the app. These imports
 // live in the browser entry only — `customElements.define` touches `HTMLElement`,
@@ -31,7 +37,14 @@ import '@awesome.me/webawesome/dist/components/tag/tag.js';
 // the current path's locale doesn't match the preference.
 const pref = readPreferredLocale();
 const inHe = /^\/he(\/|$)/.test(location.pathname);
-if (pref === 'he' && !inHe) {
+if (inHe && !IS_HEBREW) {
+  // English shell served for a /he path → the Hebrew build isn't physically
+  // here (dev serve, or a broken /he deploy). Return to English for this
+  // session and suppress further /he redirects, WITHOUT discarding the
+  // durable preferredLocale (prod, where /he exists, still honors it).
+  markHeBundleUnavailable();
+  location.replace(localeUrl('en'));
+} else if (pref === 'he' && !inHe && !heBundleUnavailableThisSession()) {
   location.replace(localeUrl('he'));
 } else if (pref === 'en' && inHe) {
   location.replace(localeUrl('en'));

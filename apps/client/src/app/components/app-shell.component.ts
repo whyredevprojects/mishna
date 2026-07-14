@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { IS_HEBREW, switchLocale } from '../util/locale';
+import { IS_HEBREW, heBundleUnavailableThisSession, switchLocale } from '../util/locale';
 
 /** Authenticated layout: a top bar with a burger that opens a navigation drawer, and a router-outlet for the page. */
 @Component({
@@ -71,7 +71,9 @@ import { IS_HEBREW, switchLocale } from '../util/locale';
       </wa-button>
       <h1 i18n="@@brand.title">Chevras Mishnayos Baal Peh</h1>
       <span class="spacer"></span>
-      <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
+      @if (!langSwitchHidden) {
+        <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
+      }
       <nav class="topbar-nav">
         <wa-button routerLink="/dashboard" appearance="plain"><wa-icon slot="start" name="calendar-day"></wa-icon> <span i18n="@@nav.today">Today</span></wa-button>
         <wa-button routerLink="/my-mishnayos" appearance="plain"><wa-icon slot="start" name="book"></wa-icon> <span i18n="@@nav.myMishnayos">My Mishnayos</span></wa-button>
@@ -106,7 +108,9 @@ import { IS_HEBREW, switchLocale } from '../util/locale';
         @if (auth.isAdmin()) {
           <wa-button routerLink="/admin" appearance="plain" (click)="drawerOpen.set(false)"><wa-icon slot="start" name="gear"></wa-icon> <span i18n="@@nav.admin">Admin</span></wa-button>
         }
-        <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
+        @if (!langSwitchHidden) {
+          <wa-button class="lang-switch" appearance="plain" (click)="switchLocale()">{{ switcherLabel }}</wa-button>
+        }
       </nav>
 
       <wa-button
@@ -128,6 +132,9 @@ export class AppShellComponent {
   protected readonly drawerOpen = signal(false);
 
   protected readonly switcherLabel = IS_HEBREW ? 'English' : 'עברית';
+  // Hide the toggle when the Hebrew bundle isn't served here this session (dev
+  // serve): offering a control that no-ops is worse than not showing it.
+  protected readonly langSwitchHidden = !IS_HEBREW && heBundleUnavailableThisSession();
 
   switchLocale(): void {
     switchLocale();
