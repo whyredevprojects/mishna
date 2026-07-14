@@ -58,7 +58,7 @@ jobs:
 
       # Deploy only the affected apps to Cloudflare — push to main only, after build.
       - name: Deploy to Cloudflare
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push'
         run: npx nx affected -t deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
