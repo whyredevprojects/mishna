@@ -56,6 +56,11 @@ export function heBundleUnavailableThisSession(): boolean {
 
 /** Record that the Hebrew bundle isn't served here for this tab session. */
 export function markHeBundleUnavailable(): void {
+  console.warn(
+    '[locale] Hebrew bundle not served at this /he path — falling back to English for this session. ' +
+      'Dev: see apps/client/CLAUDE.md "Testing the language toggle locally". ' +
+      'Prod: check the /he deploy + public/_redirects.',
+  );
   try {
     sessionStorage.setItem(HE_UNAVAILABLE_KEY, '1');
   } catch {

@@ -5,6 +5,11 @@
 # apps/client/src/app/app.routes.ts.
 # IMPORTANT: any NEW client route must be added here (both English at / — handled
 # by Pages' built-in SPA fallback — and Hebrew here under /he/).
+# A path missing from this file is no longer merely cosmetic: Cloudflare Pages will
+# serve the ENGLISH shell at that /he/... URL, which now demotes a Hebrew-preferring
+# user to English and hides the language toggle for the rest of the tab session (see
+# main.ts's `inHe && !IS_HEBREW` guard). So every new client route under /he/ MUST be
+# enumerated here.
 /he /he/ 301
 /he/join /he/index.html 200
 /he/forgot-password /he/index.html 200

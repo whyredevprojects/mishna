@@ -39,19 +39,16 @@ const pref = readPreferredLocale();
 const inHe = /^\/he(\/|$)/.test(location.pathname);
 if (inHe && !IS_HEBREW) {
   // English shell served for a /he path → the Hebrew build isn't physically
-  // here (dev serve, or a broken /he deploy). Return to English for this
-  // session and suppress further /he redirects, WITHOUT discarding the
-  // durable preferredLocale (prod, where /he exists, still honors it).
+  // here (dev serve, a broken /he deploy, or a stale service worker serving the
+  // old English shell). Return to English for this session and suppress further
+  // /he redirects, WITHOUT discarding the durable preferredLocale (prod, where
+  // /he exists, still honors it).
   markHeBundleUnavailable();
   location.replace(localeUrl('en'));
 } else if (pref === 'he' && !inHe && !heBundleUnavailableThisSession()) {
   location.replace(localeUrl('he'));
 } else if (pref === 'en' && inHe) {
   location.replace(localeUrl('en'));
-} else if (location.pathname === '/he') {
-  // Self-correct a stale-SW-served English shell landing at the slash-less `/he`:
-  // the Hebrew build lives at `/he/`, so redirect there.
-  location.replace('/he/' + location.search + location.hash);
 } else {
   bootstrapApplication(App, appConfig).catch((err) => console.error(err));
 }

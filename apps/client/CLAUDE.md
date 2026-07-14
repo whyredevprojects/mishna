@@ -55,7 +55,9 @@ keys are `/he/…`-absolute.
   `_redirects` before static assets, so we can't use a blanket `/he/* → /he/index.html`
   rewrite (it would swallow the hashed assets). Instead we **enumerate route-shaped paths**
   under `/he/`. **Any new client route must be added there** (English uses Pages' built-in
-  SPA fallback).
+  SPA fallback). A missing `/he/` path isn't just cosmetic: Pages serves the English shell
+  there, which demotes a Hebrew-preferring user to English and hides the toggle for the tab
+  session (`main.ts`'s `inHe && !IS_HEBREW` guard).
 - **Locale-aware code** (`util/locale.ts`): `CURRENT_LOCALE`/`IS_HEBREW` derive from
   `$localize.locale`; `localizePath(p)` prefixes `/he` in the Hebrew build (used for OAuth
   `callbackURL` + password-reset `redirectTo` so auth returns into the right build).
@@ -91,18 +93,28 @@ the deploy-time merge, then static-serve the merged output:
 ```
 nx build client
 nx build client --configuration=production-he
+rm -rf dist/apps/client/browser/he
 cp -r dist/apps/client-he/browser/he dist/apps/client/browser/he
 # then static-serve dist/apps/client/browser (e.g. `python3 -m http.server` from that dir)
 ```
 
-This mirrors production exactly (English at `/`, Hebrew merged in under `/he/`).
+This mirrors production exactly (English at `/`, Hebrew merged in under `/he/`). The
+`rm -rf` before the `cp -r` matches the `deploy` target in `project.json` and keeps a
+second run idempotent — without it the copy nests into `he/he`.
+
+`nx serve client --configuration=he` **does** serve the Hebrew bundle (at `/he/`) for
+visual/RTL checks, but it can't round-trip the `/ ↔ /he/` toggle on a single origin —
+that's specifically what the merged build above is for.
 
 Note the dev behavior: in a plain `nx serve client`, clicking **עברית** will briefly
 navigate to `/he/` then normalize **back to English** — the Hebrew bundle isn't served
 in dev, so `main.ts` detects the English shell at a `/he` path, returns to `/`, and
 sets a session flag (`sessionStorage.heBundleUnavailable`) that hides the toggle and
 suppresses further `/he` redirects for the rest of the tab. This is expected (no
-bounce/loop); use the merged-build method above to actually see Hebrew.
+bounce/loop); use the merged-build method above to actually see Hebrew. Relatedly, with
+`preferredLocale=he` persisted in localStorage, each **new** tab replays a single
+`/ → /he/ → /` redirect hop before the session flag settles it — also expected, not a
+bounce/loop.
 
 ## PWA / offline
 
