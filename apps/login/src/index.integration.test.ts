@@ -21,9 +21,10 @@ describe('Integration', () => {
     expect(response.status).toBe(404);
   });
 
-  // Tests run with no RESEND_API_KEY, so the on-sign-up verification email send fails.
-  // This asserts that a failed verification send does not block sign-up (the send is
-  // wrapped in try/catch in createAuth, and verification isn't required to sign in).
+  // Tests run with RESEND_API_KEY blanked (vitest.config.mts), so the on-sign-up
+  // verification email send fails. This asserts that a failed verification send does
+  // not block sign-up (the send is wrapped in try/catch in createAuth, and
+  // verification isn't required to sign in).
   it('sign-up with email and password succeeds (even when the verification email fails)', async () => {
     const response = await SELF.fetch('http://example.com/api/auth/sign-up/email', {
       method: 'POST',
@@ -33,6 +34,29 @@ describe('Integration', () => {
     expect(response.status).toBe(200);
     const body = await response.json() as { user?: { email: string } };
     expect(body.user?.email).toBe('test@example.com');
+  });
+
+  // Regression guard for the sign-in path (the whole email/password round-trip):
+  // sign up, then sign in with the same credentials and expect a session back.
+  it('sign-in with email and password returns a session', async () => {
+    const email = 'signin@example.com';
+    const password = 'password123';
+    const signUp = await SELF.fetch('http://example.com/api/auth/sign-up/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password, name: 'Sign In' }),
+    });
+    expect(signUp.status).toBe(200);
+
+    const signIn = await SELF.fetch('http://example.com/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    expect(signIn.status).toBe(200);
+    const body = (await signIn.json()) as { user?: { email: string } };
+    expect(body.user?.email).toBe(email);
+    expect(signIn.headers.get('set-cookie') ?? '').not.toBe('');
   });
 
   it("customSession flags role 'admin' as isAdmin, even outside ADMIN_USER_IDS", async () => {

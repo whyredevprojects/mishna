@@ -16,7 +16,10 @@ export default {
       // any unexpected auth/config error into a clean, logged 500.
       return await auth.handler(request);
     } catch (err) {
-      console.error('auth handler error', err);
+      // Log the stack, not just the error object — this fires when createAuth or the
+      // handler throws out to the worker (better-auth's own internal errors are logged
+      // via onAPIError.onError in auth.ts instead, since they don't rethrow here).
+      console.error('auth handler error\n', err instanceof Error ? err.stack : err);
       return new Response(JSON.stringify({ error: 'Internal server error' }), {
         status: 500,
         headers: { 'content-type': 'application/json' },

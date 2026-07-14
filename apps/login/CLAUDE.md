@@ -163,9 +163,18 @@ the server worker, which forwards `/api/auth/*` here via the `AUTH` service bind
   `npm run sync:domains` (see the root CLAUDE.md "Changing the domain") — don't hand-edit
   it. `.dev.vars` overrides it to `http://localhost:8787` for dev.
 - `trustedOrigins` (no trailing slash — matched against the Origin header) is the dev
-  origin `http://localhost:4200` (static in `authOptions`) **plus** `BETTER_AUTH_URL`,
-  appended in `createAuth(env)` — the production app origin is derived from that one var
-  rather than duplicated, so it follows `config/domains.json` automatically.
+  loopback wildcards `http://localhost:*` / `http://127.0.0.1:*` (static in `authOptions`,
+  so any dev port and either loopback host work without an `INVALID_ORIGIN`) **plus** two
+  env-sourced app origins appended in `createAuth(env)`: `BETTER_AUTH_URL` (the cookie/
+  callback host — localhost in dev, the app host in prod) and `APP_ORIGIN` (the canonical
+  app host, `https://app.<apex>`). Both come from `config/domains.json` via
+  `npm run sync:domains`, so they follow a rebrand automatically. `APP_ORIGIN` is trusted
+  **in all envs, independently of `BETTER_AUTH_URL`**, and — unlike `BETTER_AUTH_URL` — is
+  deliberately not overridden in `.dev.vars`: in dev the browser is on localhost, but the
+  request reaches this worker through the server worker's `AUTH` service binding, and
+  wrangler's dev binding presents *this worker's route host* (`APP_ORIGIN`) as the request
+  `Origin` — so the app host must stay trusted even though the dev `BETTER_AUTH_URL` is
+  localhost, or email/password sign-in/up fails with `INVALID_ORIGIN`.
 - `wrangler secret put BETTER_AUTH_SECRET`.
 - `wrangler secret put ADMIN_USER_IDS` (comma-separated user ids). For local dev,
   put it in `.dev.vars`. Must match `apps/server`'s `ADMIN_USER_IDS`.
