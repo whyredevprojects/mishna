@@ -42,6 +42,20 @@ export function createAuth(env: Env) {
     database: env.DB,
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
+    // Surface auth failures. better-auth swallows a non-APIError throw (a D1/SQL
+    // error, a Resend/module failure, a stream error): it returns a bare 500 and
+    // only logs via its own logger when isAPIError(e) (see api/index.mjs router),
+    // and with onAPIError.throw defaulting to false the error never reaches the
+    // worker's try/catch either — so the request just 500s with no diagnostic.
+    // Log the full error + stack for every failure (throw stays false so clients
+    // still get better-auth's clean response).
+    onAPIError: {
+      onError: (error, ctx) => {
+        const detail =
+          error instanceof Error ? (error.stack ?? error.message) : String(error);
+        console.error('[better-auth] API error', ctx?.path ?? '', '\n', detail);
+      },
+    },
     // Trusted origins = the static dev loopback wildcards (authOptions) plus the two
     // env-sourced app origins. BETTER_AUTH_URL is the cookie/callback host (localhost
     // in dev, the app host in prod). APP_ORIGIN is the *canonical* app host in ALL
