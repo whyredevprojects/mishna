@@ -6,12 +6,12 @@ layout: base.njk
 <section class="hero">
   <div class="hero-inner">
     <p class="eyebrow">{{ t.eyebrow }}</p>
-    <h1 class="hero-headline">{{ t.heroHeadline }}</h1>
-    <p class="hero-sub">{{ t.heroSub }}</p>
+    <div class="about">
+      {{ content | safe }}
+    </div>
     <div class="cta">
       <a class="btn btn-cta" href="{{ appHref }}/join">{{ t.ctaJoin }}</a>
       <p class="cta-note">{{ t.ctaNote }}</p>
-      <p><a class="about-link" href="{{ '/about/' | locale_url }}">{{ t.aboutLink }}</a></p>
     </div>
   </div>
 </section>

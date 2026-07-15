@@ -227,28 +227,6 @@ body {
   font-size: 0.95rem;
 }
 
-/* i18n additions */
-.hero-headline {
-  font-size: clamp(2rem, 5vw, 3rem);
-  line-height: 1.15;
-  margin: 0.2rem 0 1rem;
-  color: var(--brown-deep);
-}
-.hero-sub {
-  font-size: 1.2rem;
-  margin: 0 auto 1rem;
-  max-width: 42rem;
-  color: var(--ink);
-}
-.about-link {
-  color: var(--teal);
-  font-weight: 600;
-  text-decoration: none;
-}
-.about-link:hover {
-  text-decoration: underline;
-}
-
 /* Language switcher */
 .lang-switch {
   display: inline-flex;
