@@ -19,6 +19,9 @@ export interface CompletionTarget {
   groupId: string;
 }
 
+/** Which locale's `about.md` the editor reads/commits (the www site is bilingual). */
+export type AboutLocale = 'en' | 'he';
+
 /** Admin data + user management. All endpoints are gated by `requireAdmin`. */
 @Injectable({ providedIn: 'root' })
 export class AdminService {
@@ -119,14 +122,18 @@ export class AdminService {
     });
   }
 
-  /** The www site's editable about Markdown (empty string if not committed yet). */
-  getAbout(): Observable<{ markdown: string }> {
-    return this.http.get<{ markdown: string }>('/api/admin/about');
+  /** The www site's editable about Markdown for a locale (empty string if uncommitted). */
+  getAbout(locale: AboutLocale): Observable<{ markdown: string }> {
+    return this.http.get<{ markdown: string }>('/api/admin/about', {
+      params: new HttpParams().set('locale', locale),
+    });
   }
 
-  /** Commits new about Markdown (triggers the www rebuild on the server side). */
-  saveAbout(markdown: string): Observable<unknown> {
-    return this.http.post('/api/admin/about', { markdown });
+  /** Commits new about Markdown for a locale (triggers the www rebuild server-side). */
+  saveAbout(locale: AboutLocale, markdown: string): Observable<unknown> {
+    return this.http.post('/api/admin/about', { markdown }, {
+      params: new HttpParams().set('locale', locale),
+    });
   }
 
   /** Uploads an editor image to R2; returns its public URL. Sent as a raw body. */

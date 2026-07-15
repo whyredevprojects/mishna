@@ -14,7 +14,7 @@ import { queryKeys } from './query-keys';
 import { AuthService } from '../services/auth.service';
 import { CycleService } from '../services/cycle.service';
 import { AssignmentService } from '../services/assignment.service';
-import { AdminService } from '../services/admin.service';
+import { AboutLocale, AdminService } from '../services/admin.service';
 import { GroupService } from '../services/group.service';
 import { PageParams } from '../models/api.types';
 
@@ -110,11 +110,12 @@ export function adminUserQueryOptions(admin: AdminService, id: string) {
   });
 }
 
-/** GET /api/admin/about — the www site's editable Markdown. Always refetch (live edit). */
-export function adminAboutQueryOptions(admin: AdminService) {
+/** GET /api/admin/about?locale= — the www site's editable Markdown for a locale. Always
+ * refetch (live edit); keyed per locale so each caches independently. */
+export function adminAboutQueryOptions(admin: AdminService, locale: AboutLocale) {
   return queryOptions({
-    queryKey: queryKeys.adminAbout,
-    queryFn: () => firstValueFrom(admin.getAbout()),
+    queryKey: queryKeys.adminAbout(locale),
+    queryFn: () => firstValueFrom(admin.getAbout(locale)),
     staleTime: 0,
   });
 }

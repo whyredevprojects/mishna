@@ -18,6 +18,12 @@
 /** Thrown when a required env var / secret is absent. The route surfaces it as a 500. */
 export class AboutConfigError extends Error {}
 
+/**
+ * The www site is bilingual (`/en`, `/he`), each locale its own `about.md`. The editor
+ * commits to one at a time; the client picks which via the locale it sends.
+ */
+export type AboutLocale = 'en' | 'he';
+
 interface GithubConfig {
   owner: string;
   repo: string;
@@ -26,20 +32,27 @@ interface GithubConfig {
   token: string;
 }
 
-/** Reads the GitHub config from env, throwing `AboutConfigError` if anything is missing. */
-function githubConfig(env: Env): GithubConfig {
+/**
+ * Reads the GitHub config from env for the given locale, throwing `AboutConfigError` if
+ * anything is missing. The `about.md` path is resolved per locale: Hebrew commits to
+ * `ABOUT_MD_PATH_HE`, English (the default) to `ABOUT_MD_PATH`.
+ */
+function githubConfig(env: Env, locale: AboutLocale): GithubConfig {
+  const pathVar: keyof Env = locale === 'he' ? 'ABOUT_MD_PATH_HE' : 'ABOUT_MD_PATH';
   const cfg: GithubConfig = {
     owner: env.GITHUB_OWNER,
     repo: env.GITHUB_REPO,
     branch: env.GITHUB_BRANCH,
-    path: env.ABOUT_MD_PATH,
+    path: env[pathVar] as string,
     token: env.GITHUB_TOKEN,
   };
   const missing = (Object.keys(cfg) as (keyof GithubConfig)[]).filter(
     (k) => !cfg[k],
   );
   if (missing.length > 0) {
-    const names = missing.map((k) => keyToEnvName[k]).join(', ');
+    const names = missing
+      .map((k) => (k === 'path' ? pathVar : keyToEnvName[k]))
+      .join(', ');
     throw new AboutConfigError(
       `About editor is not configured: missing ${names}. ` +
         'Set the GitHub coordinates in apps/server/wrangler.toml [vars] and the ' +
@@ -103,8 +116,8 @@ async function currentSha(cfg: GithubConfig): Promise<string | null> {
 }
 
 /** Reads the current Markdown. Returns `''` if the file doesn't exist yet. */
-export async function readAbout(env: Env): Promise<string> {
-  const cfg = githubConfig(env);
+export async function readAbout(env: Env, locale: AboutLocale): Promise<string> {
+  const cfg = githubConfig(env, locale);
   const res = await fetch(
     `${contentsUrl(cfg)}?ref=${encodeURIComponent(cfg.branch)}`,
     { headers: ghHeaders(cfg.token) },
@@ -157,8 +170,12 @@ export function isolateHtmlBlocks(markdown: string): string {
  * to update an existing file; omitted to create one), so the first save also works.
  * The commit to `main` triggers CI, which rebuilds and deploys the `www` site.
  */
-export async function writeAbout(env: Env, markdown: string): Promise<void> {
-  const cfg = githubConfig(env);
+export async function writeAbout(
+  env: Env,
+  locale: AboutLocale,
+  markdown: string,
+): Promise<void> {
+  const cfg = githubConfig(env, locale);
   const sha = await currentSha(cfg);
   const res = await fetch(contentsUrl(cfg), {
     method: 'PUT',

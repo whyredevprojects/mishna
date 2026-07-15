@@ -115,15 +115,17 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
 | `POST /api/admin/users/:id/send-verification` | Re-send the better-auth verification email for a *pending* user: looks up the address via the `get-user` admin proxy, then calls better-auth's public `send-verification-email` (forwarding the caller's Origin). `409` if already verified, `404` if no email, `502` on send failure (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
-| `GET /api/admin/about` | The `www` site's editable Markdown (`about.md`) read via the GitHub Contents API; `''` if not committed yet. `500` if the editor isn't configured, `502` on a GitHub failure (**admin**). |
-| `POST /api/admin/about` `{ markdown }` | Commit new `about.md` via the GitHub Contents API (gets the current `sha`, then PUTs; handles first-create). The commit to `main` triggers CI → the `www` rebuild. `400` if `markdown` isn't a string (**admin**). |
+| `GET /api/admin/about?locale=en\|he` | The `www` site's editable Markdown (`about.md`) for the locale, read via the GitHub Contents API; `''` if not committed yet. `locale` defaults to `en`; an unknown value is `400`. `500` if the editor isn't configured, `502` on a GitHub failure (**admin**). |
+| `POST /api/admin/about?locale=en\|he` `{ markdown }` | Commit new `about.md` for the locale via the GitHub Contents API (gets the current `sha`, then PUTs; handles first-create). The commit to `main` triggers CI → the `www` rebuild. `400` if `locale` is unknown or `markdown` isn't a string (**admin**). |
 | `POST /api/admin/about/image` (raw image body, `x-filename` header) | Upload an editor image to the `ABOUT_BUCKET` R2 bucket under `about/<uuid>-<name>`; returns `{ url }` built from `R2_PUBLIC_BASE_URL`. Images never enter the repo. `500` if the bucket/base URL aren't configured (**admin**). |
 
 The about-editor logic lives in `about.ts` (GitHub read/commit + base64 + filename
 sanitizer); repo coordinates come from `wrangler.toml` `[vars]` (`GITHUB_OWNER`/`REPO`/
-`BRANCH`, `ABOUT_MD_PATH`) and the `GITHUB_TOKEN` secret. `ABOUT_MD_PATH` points at the
-English About page of the i18n'd www site — `apps/www/src/en/about.md` (moved from the
-old `src/content/about.md`). The **domain-bearing** vars
+`BRANCH`, `ABOUT_MD_PATH` + `ABOUT_MD_PATH_HE`) and the `GITHUB_TOKEN` secret. The www
+site is bilingual (`/en`, `/he`); the editor commits to one `about.md` at a time, chosen
+by the `?locale=` the client sends — `ABOUT_MD_PATH` is the English page
+(`apps/www/src/en/about.md`, moved from the old `src/content/about.md`) and the default,
+`ABOUT_MD_PATH_HE` the Hebrew page (`apps/www/src/he/about.md`). The **domain-bearing** vars
 here (`APP_ORIGIN`, `RESEND_FROM_EMAIL`, `R2_PUBLIC_BASE_URL`) and the worker `routes`
 are generated from the repo-wide `config/domains.json` (`npm run sync:domains`; see the
 root CLAUDE.md "Changing the domain") — don't hand-edit those values. The R2 bucket binding

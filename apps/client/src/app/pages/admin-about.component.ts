@@ -6,6 +6,7 @@ import {
   OnDestroy,
   effect,
   inject,
+  signal,
   viewChild,
   ChangeDetectionStrategy
 } from '@angular/core';
@@ -21,7 +22,7 @@ import Editor from '@toast-ui/editor';
 // project.json — NOT as a side-effect `import` here. A bare CSS import inside a
 // lazily-loaded standalone component is emitted by the esbuild builder but never
 // injected at runtime, so the editor would render completely unstyled in prod.
-import { AdminService } from '../services/admin.service';
+import { AboutLocale, AdminService } from '../services/admin.service';
 import { ToastService } from '../services/toast.service';
 import { queryKeys } from '../queries/query-keys';
 import { adminAboutQueryOptions } from '../queries/queries';
@@ -50,6 +51,12 @@ import { adminAboutQueryOptions } from '../queries/queries';
         margin: 0;
         max-width: 40rem;
       }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: var(--wa-space-m, 0.75rem);
+        flex-wrap: wrap;
+      }
       .editor-host {
         margin-block-start: var(--wa-space-m, 0.75rem);
       }
@@ -65,19 +72,35 @@ import { adminAboutQueryOptions } from '../queries/queries';
         <div>
           <h3 style="margin: 0">About page</h3>
           <p class="muted">
-            Edits the public site's intro copy. Saving commits it and the site
-            rebuilds automatically.
+            Edits the public site's intro copy for the selected language. Saving
+            commits it and the site rebuilds automatically.
           </p>
         </div>
-        <wa-button
-          variant="brand"
-          [attr.loading]="saveMutation.isPending() ? '' : null"
-          [attr.disabled]="query.isError() || query.isPending() ? '' : null"
-          (click)="save()"
-        >
-          <wa-icon slot="start" name="floppy-disk"></wa-icon>
-          Save
-        </wa-button>
+        <div class="actions">
+          <wa-button-group label="Language">
+            <wa-button
+              [attr.variant]="locale() === 'en' ? 'brand' : 'neutral'"
+              (click)="switchLocale('en')"
+            >
+              English
+            </wa-button>
+            <wa-button
+              [attr.variant]="locale() === 'he' ? 'brand' : 'neutral'"
+              (click)="switchLocale('he')"
+            >
+              עברית
+            </wa-button>
+          </wa-button-group>
+          <wa-button
+            variant="brand"
+            [attr.loading]="saveMutation.isPending() ? '' : null"
+            [attr.disabled]="query.isError() || query.isPending() ? '' : null"
+            (click)="save()"
+          >
+            <wa-icon slot="start" name="floppy-disk"></wa-icon>
+            Save
+          </wa-button>
+        </div>
       </div>
 
       @if (query.isPending()) {
@@ -110,16 +133,26 @@ export class AdminAboutComponent implements AfterViewInit, OnDestroy {
     viewChild.required<ElementRef<HTMLDivElement>>('editorHost');
 
   private editor?: Editor;
-  /** Guards against re-seeding the editor (which would clobber unsaved edits). */
-  private seeded = false;
+  /**
+   * The locale whose Markdown the editor currently holds. Guards against re-seeding the
+   * same locale (which would clobber unsaved edits) while still re-seeding on a switch.
+   */
+  private seededLocale?: AboutLocale;
 
-  protected readonly query = injectQuery(() => adminAboutQueryOptions(this.admin));
+  /** Which language's about.md is being edited. Drives the query + save target. */
+  protected readonly locale = signal<AboutLocale>('en');
+
+  protected readonly query = injectQuery(() =>
+    adminAboutQueryOptions(this.admin, this.locale()),
+  );
 
   protected readonly saveMutation = injectMutation(() => ({
     mutationFn: (markdown: string) =>
-      firstValueFrom(this.admin.saveAbout(markdown)),
+      firstValueFrom(this.admin.saveAbout(this.locale(), markdown)),
     onSuccess: () => {
-      this.queryClient.invalidateQueries({ queryKey: queryKeys.adminAbout });
+      this.queryClient.invalidateQueries({
+        queryKey: queryKeys.adminAbout(this.locale()),
+      });
       this.toast.success('About page saved — the site will rebuild shortly.');
     },
     onError: (err: HttpErrorResponse) => {
@@ -131,13 +164,15 @@ export class AdminAboutComponent implements AfterViewInit, OnDestroy {
   }));
 
   constructor() {
-    // Seed the editor once both it and the fetched Markdown are ready. The query may
-    // resolve before or after ngAfterViewInit, so handle either order here.
+    // Seed the editor once both it and the fetched Markdown are ready, and re-seed
+    // whenever the locale switches (the query is keyed per locale, so its data swaps).
+    // The query may resolve before or after ngAfterViewInit, so handle either order.
     effect(() => {
       const data = this.query.data();
-      if (data && this.editor && !this.seeded) {
+      const locale = this.locale();
+      if (data && this.editor && this.seededLocale !== locale) {
         this.editor.setMarkdown(data.markdown ?? '');
-        this.seeded = true;
+        this.seededLocale = locale;
       }
     });
   }
@@ -157,13 +192,21 @@ export class AdminAboutComponent implements AfterViewInit, OnDestroy {
       },
     });
     if (this.query.data()) {
-      this.seeded = true;
+      this.seededLocale = this.locale();
     }
   }
 
   ngOnDestroy(): void {
     this.editor?.destroy();
     this.editor = undefined;
+  }
+
+  /**
+   * Switch the edited language. Discards any unsaved edits in the current locale (save is
+   * explicit); the effect re-seeds the editor once the new locale's Markdown loads.
+   */
+  protected switchLocale(locale: AboutLocale): void {
+    this.locale.set(locale);
   }
 
   protected save(): void {

@@ -25,7 +25,13 @@ import {
   structure,
 } from './domain';
 import { D1GroupRepository } from './repository';
-import { AboutConfigError, readAbout, safeFilename, writeAbout } from './about';
+import {
+  AboutConfigError,
+  AboutLocale,
+  readAbout,
+  safeFilename,
+  writeAbout,
+} from './about';
 import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
 import { prepareOne, processJobs } from './email/sender';
@@ -1124,6 +1130,17 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
 // come from wrangler.toml [vars]; GITHUB_TOKEN + the ABOUT_BUCKET R2 binding are
 // provisioned separately. Missing config fails loudly (500) rather than silently.
 
+/**
+ * Resolves the `?locale=` query param to a supported About locale, defaulting to `'en'`.
+ * Returns `null` for an unknown value so the route can answer `400`.
+ */
+function aboutLocale(c: Context<AppEnv>): AboutLocale | null {
+  const raw = c.req.query('locale');
+  if (raw === undefined || raw === 'en') return 'en';
+  if (raw === 'he') return 'he';
+  return null;
+}
+
 /** Maps an about.ts failure to a response: 500 for missing config, 502 for GitHub. */
 function aboutError(
   c: Context<AppEnv>,
@@ -1142,24 +1159,34 @@ function aboutError(
   );
 }
 
-// Current Markdown of the about page (empty string if not committed yet).
+// Current Markdown of the about page for `?locale=en|he` (empty string if not committed
+// yet). Defaults to English; an unknown locale is a 400.
 app.get('/api/admin/about', requireAdmin, async (c) => {
+  const locale = aboutLocale(c);
+  if (!locale) {
+    return c.json({ error: 'unknown locale' }, 400);
+  }
   try {
-    const markdown = await readAbout(c.env);
+    const markdown = await readAbout(c.env, locale);
     return c.json({ markdown });
   } catch (err) {
     return aboutError(c, err);
   }
 });
 
-// Commit new Markdown for the about page (triggers the www rebuild on push to main).
+// Commit new Markdown for the about page of `?locale=en|he` (triggers the www rebuild on
+// push to main). Defaults to English; an unknown locale is a 400.
 app.post('/api/admin/about', requireAdmin, async (c) => {
+  const locale = aboutLocale(c);
+  if (!locale) {
+    return c.json({ error: 'unknown locale' }, 400);
+  }
   const body = (await c.req.json().catch(() => ({}))) as { markdown?: unknown };
   if (typeof body.markdown !== 'string') {
     return c.json({ error: 'markdown is required' }, 400);
   }
   try {
-    await writeAbout(c.env, body.markdown);
+    await writeAbout(c.env, locale, body.markdown);
     return c.json({ ok: true });
   } catch (err) {
     return aboutError(c, err);

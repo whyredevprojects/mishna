@@ -51,6 +51,31 @@ describe('about-page editor endpoints', () => {
     );
   });
 
+  it('rejects an unknown locale with 400 (before the config check)', async () => {
+    const get = await SELF.fetch('https://server/api/admin/about?locale=fr', {
+      headers: as('admin'),
+    });
+    expect(get.status).toBe(400);
+
+    const post = await SELF.fetch('https://server/api/admin/about?locale=fr', {
+      method: 'POST',
+      headers: { ...as('admin'), 'content-type': 'application/json' },
+      body: JSON.stringify({ markdown: '# hello' }),
+    });
+    expect(post.status).toBe(400);
+  });
+
+  // A valid `?locale=he` is accepted and routed to the Hebrew about.md config; it fails
+  // loudly for the same missing GITHUB_TOKEN as English, proving the locale is threaded
+  // through rather than rejected.
+  it('accepts locale=he and reads the Hebrew about config', async () => {
+    const get = await SELF.fetch('https://server/api/admin/about?locale=he', {
+      headers: as('admin'),
+    });
+    expect(get.status).toBe(500);
+    expect((await get.json<{ error: string }>()).error).toMatch(/GITHUB_TOKEN/);
+  });
+
   it('rejects a save with a non-string body as 400', async () => {
     const res = await SELF.fetch('https://server/api/admin/about', {
       method: 'POST',

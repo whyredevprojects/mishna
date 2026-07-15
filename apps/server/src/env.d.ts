@@ -19,8 +19,10 @@ interface Env {
   GITHUB_REPO: string;
   /** Branch the about.md commit targets, e.g. "main" (wrangler.toml [vars]). */
   GITHUB_BRANCH: string;
-  /** Monorepo-relative path to the about Markdown the www site renders (wrangler.toml [vars]). */
+  /** Monorepo-relative path to the English about Markdown the www site renders (wrangler.toml [vars]). */
   ABOUT_MD_PATH: string;
+  /** Monorepo-relative path to the Hebrew about Markdown the www site renders (wrangler.toml [vars]). */
+  ABOUT_MD_PATH_HE: string;
   /** Public base URL of the R2 bucket serving about images (wrangler.toml [vars]). */
   R2_PUBLIC_BASE_URL: string;
   /** R2 bucket for about-editor images. Optional until the bucket is provisioned. */

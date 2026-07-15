@@ -236,7 +236,7 @@ The login worker's captcha plugin verifies it server-side (see `apps/login`).
 | `AssignmentService` | `GET /api/assignments/today` (current/next-unlearned bucket), `GET /api/assignments?bucket=` (an explicit pager bucket), `GET /api/me/chaluka` (whole-cycle portion + learned subset), `GET /api/completions`, `POST`/`DELETE /api/completions`. |
 | `GroupService` | `GET /api/join-options` (signup choices + lot estimates), `POST /api/join`, `POST /api/leave`. |
 | `SettingsService` | `GET`/`PUT /api/me/preferences` (timezone + reminder schedule). |
-| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/lots` (static lot catalog for the group-detail editor), `POST /api/admin/groups/:groupId/members/:userId/lots` (set a member's lots), `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `POST /api/admin/users/:id/send-verification` (resend the verification email to a pending user), `DELETE /api/admin/users/:id`, `GET`/`POST /api/admin/about` (read/commit the `apps/www` site's about Markdown), `POST /api/admin/about/image` (upload an editor image to R2, returns its public URL). |
+| `AdminService` | `GET /api/admin/stats`, `GET /api/admin/groups`, `GET /api/admin/groups/:id`, `GET /api/admin/lots` (static lot catalog for the group-detail editor), `POST /api/admin/groups/:groupId/members/:userId/lots` (set a member's lots), `GET /api/admin/users` (paged: `limit`/`offset`/`search`/`sort`), `GET /api/admin/users/:id`, `GET /api/admin/assignments` (paged, by `week`), `POST /api/admin/users/:id/remove-assignments`, `POST`/`DELETE /api/admin/users/:id/completions` (admin learn/unlearn), `POST /api/admin/users/:id/send-weekly`, `POST /api/admin/users/:id/send-reminder`, `POST /api/admin/users/:id/send-verification` (resend the verification email to a pending user), `DELETE /api/admin/users/:id`, `GET`/`POST /api/admin/about?locale=en\|he` (read/commit the `apps/www` site's about Markdown per locale), `POST /api/admin/about/image` (upload an editor image to R2, returns its public URL). |
 
 ## Data caching (TanStack Query)
 
@@ -307,11 +307,15 @@ environments because the API is always same-origin:
   mid-cycle would require re-allocation (a new block). Deferred until requested.
 - **About-page editor** (`admin-about.component.ts`): wraps the
   [Toast UI](https://ui.toast.com/toast-ui-editor) Markdown editor (`@toast-ui/editor`, a
-  vanilla-JS lib) to edit the `apps/www` marketing site's intro copy. The editor is
-  created in `ngAfterViewInit` against a `viewChild` host and `destroy()`ed in
-  `ngOnDestroy`; the fetched Markdown is seeded once via an `effect` (whichever resolves
-  last — editor or query). Save reads `getMarkdown()` → `AdminService.saveAbout` (commits
-  via the server's GitHub Contents proxy). Pasted/dropped images go through
+  vanilla-JS lib) to edit the `apps/www` marketing site's intro copy. An English/עברית
+  `wa-button-group` toggle (a `locale` signal) picks which locale's `about.md` is edited;
+  the query is keyed per locale (`adminAbout(locale)`), so each caches separately. The
+  editor is created in `ngAfterViewInit` against a `viewChild` host and `destroy()`ed in
+  `ngOnDestroy`; the fetched Markdown is seeded via an `effect` that re-seeds whenever the
+  locale switches (tracked by `seededLocale`, not a one-shot boolean) — switching discards
+  unsaved edits in the current locale (save is explicit). Save reads `getMarkdown()` →
+  `AdminService.saveAbout(locale, …)` (commits via the server's GitHub Contents proxy to
+  that locale's file). Pasted/dropped images go through
   `addImageBlobHook` → client-side downscale (~1600px webp) → `AdminService.uploadAboutImage`
   (raw body to the R2-backed Worker endpoint) → inserted as a plain `![](url)`. The
   package's `exports` map omits a `types` condition, so a minimal ambient declaration
