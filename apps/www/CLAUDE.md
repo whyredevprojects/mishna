@@ -1,8 +1,8 @@
 # apps/www
 
 Public marketing site for Chevras Mishnayos Baal Peh — an [Eleventy (11ty)](https://www.11ty.dev)
-static site deployed to Cloudflare Pages. This is the **apex** front door
-(`getchevrasmishnayos.com`); the Angular app lives at `app.getchevrasmishnayos.com`,
+static site deployed as a Cloudflare **Worker** (static-assets Worker). This is the **apex**
+front door (`getchevrasmishnayos.com`); the Angular app lives at `app.getchevrasmishnayos.com`,
 which this site links to for **Log in** / **Sign up**.
 
 ## Internationalization (/en, /he)
@@ -19,11 +19,11 @@ directories, `src/en/` and `src/he/`, each carrying a directory data file
 - `src/en/about.md` → `/en/about/` (the admin-editable English About; see below).
 - `src/he/about.njk` → `/he/about/` (a Hebrew About placeholder).
 
-The **root `/`** is not an Eleventy page. `functions/index.ts` is a Cloudflare Pages
-Function that negotiates `Accept-Language` (and a `lang` cookie) and 302-redirects to
-`/en/` or `/he/`. Because Wrangler discovers Pages Functions at `process.cwd()/functions`
-with no override flag, the `deploy` target runs with **`cwd: apps/www`** (see
-`project.json`).
+The **root `/`** is not an Eleventy page. `worker.js` — the static-assets Worker's `main`
+handler (see `wrangler.toml` / the Deploy section) — negotiates `Accept-Language` (and a
+`lang` cookie) and 302-redirects to `/en/` or `/he/`. Every other path maps to a built
+static asset, so the Worker only runs for `/`; everything else it delegates to the
+`ASSETS` binding.
 
 ## The admin-editable region
 
@@ -59,8 +59,9 @@ from R2 metadata at build instead.
 | Path | Role |
 |------|------|
 | `eleventy.config.js` | Dirs (`src` → `_site`), i18n plugin, CSS passthrough, Markdown/HTML engines. |
-| `project.json` | Nx targets: `build` (cached, `outputs: _site`), `serve`, `deploy` (Pages; runs with `cwd: apps/www` so Wrangler finds `functions/`). |
-| `functions/index.ts` | Cloudflare Pages Function owning `/` — Accept-Language/cookie negotiation → 302 to `/en/` or `/he/`. |
+| `project.json` | Nx targets: `build` (cached, `outputs: _site`), `serve`, `deploy` / `deploy-staging` (Worker). |
+| `wrangler.toml` | Static-assets Worker config: `main = ./worker.js`, `[assets] directory = _site` + `binding = ASSETS`, prod name `www-worker`, `[env.staging]` name `staging-www`. |
+| `worker.js` | The Worker `main` handler owning `/` — Accept-Language/cookie negotiation → 302 to `/en/` or `/he/`; delegates all other paths to the `ASSETS` binding. |
 | `src/en/about.md` | The admin-editable English About copy (pure Markdown). |
 | `src/en/about.11tydata.json` | Applies the `about.njk` layout to `about.md`. |
 | `src/en/en.json`, `src/he/he.json` | Directory data files: `lang` + `dir` per locale. |
@@ -84,12 +85,23 @@ from R2 metadata at build instead.
 `apps/www/node_modules`. The Nx targets call `npx @11ty/eleventy` so the binary resolves
 regardless; keep any `addPassthroughCopy`/plugin paths relative to this project root.
 
-## Deploy (TODO to wire fully)
+## Deploy
 
-`nx build www` runs in CI on push to main; `nx affected -t deploy` deploys `_site` to a
-Cloudflare Pages project (`deploy` target uses `--project-name=chevramishnayos-www`).
-**TODO at deploy time:** create that Pages project, point apex
-`getchevrasmishnayos.com` at it, and move the Angular app to
-`app.getchevrasmishnayos.com` (client Pages custom domain + the server/login Worker
-`routes` + `BETTER_AUTH_URL`/`APP_ORIGIN`/trusted origins). The Angular client is
-host-agnostic (relative `/api/*`).
+Deployed as a **static-assets Cloudflare Worker** via `@naxodev/nx-cloudflare:deploy` (the same
+executor as `apps/server` / `apps/login`), which runs `wrangler deploy` from this project root
+and auto-discovers `wrangler.toml` here. wrangler serves the built `_site` directly from the
+`[assets]` block; the tiny `main = ./worker.js` handler runs only for `/` (root language
+negotiation) and serves everything else through the `ASSETS` binding. Both deploy targets
+`dependsOn: ["build"]`.
+
+- **Production** — `nx run www:deploy` → `wrangler deploy` → the `www-worker` Worker. CI runs it
+  via `nx affected -t deploy` on push to `main`.
+- **Staging** — `nx run www:deploy-staging` → `wrangler deploy --env staging` → the `staging-www`
+  Worker (`[env.staging]` name override; `[assets]` is inherited). CI runs it on push to the
+  `staging` branch.
+
+**Follow-ups (Cloudflare-dashboard, not in repo):** attach the apex `getchevrasmishnayos.com`
+custom domain to `www-worker` (both Workers serve at `workers.dev` until then), decommission the
+old `chevramishnayos-www` Pages project, and move the Angular app to `app.getchevrasmishnayos.com`
+(client custom domain + the server/login Worker `routes` + `BETTER_AUTH_URL`/`APP_ORIGIN`/trusted
+origins). The Angular client is host-agnostic (relative `/api/*`).

@@ -54,7 +54,7 @@
     <script type="module" src="/js/lightbox.js"></script>
     <script>
       // Persist an explicit language choice so the root "/" negotiator
-      // (functions/index.ts) honors it over Accept-Language next visit.
+      // (worker.js) honors it over Accept-Language next visit.
       document.querySelectorAll('.lang-switch a').forEach(function (a) {
         a.addEventListener('click', function () {
           document.cookie =

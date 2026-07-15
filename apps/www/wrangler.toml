@@ -1,0 +1,21 @@
+name = "www-worker"
+compatibility_date = "2025-01-01"
+account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
+
+# Static-assets Worker: serve the Eleventy build output as static assets, with a small
+# Worker function (`worker.js`) for the one thing static files can't do — apex root `/`
+# Accept-Language negotiation → 302 to /en/ or /he/. `directory` is relative to this
+# config's dir (apps/www); the `build` target writes the site to apps/www/_site. The
+# Worker only runs for requests that don't map to a static asset (i.e. `/`); it serves
+# everything else via the ASSETS binding. `main`, `[assets]`, and its `binding` are all
+# inheritable keys, so [env.staging] below reuses them automatically.
+main = "./worker.js"
+
+[assets]
+directory = "./_site"
+binding = "ASSETS"
+
+# Staging: the same static-assets Worker deployed under a separate name, via
+# `wrangler deploy --env staging` (the www `deploy-staging` Nx target).
+[env.staging]
+name = "staging-www"

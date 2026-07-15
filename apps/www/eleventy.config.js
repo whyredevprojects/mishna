@@ -11,7 +11,8 @@
  * and /he/… URLs. Layouts live in _includes: base.njk (shell + head + language switcher
  * + hreflang) is the parent of landing.njk and about.njk. UI strings are in
  * _data/strings.json (referenced as strings[lang]); the app URLs are centralized in
- * _data/site.json. The root "/" is handled by functions/index.ts (Accept-Language 302).
+ * _data/site.json. The root "/" is handled by the static-assets Worker's main handler
+ * (worker.js) — an Accept-Language 302 to /en/ or /he/ (see wrangler.toml).
  *
  * Markdown template processing is disabled (markdownTemplateEngine: false) so admin
  * content is never run through Nunjucks — stray `{{ }}`/`{% %}` in the copy stays literal.
