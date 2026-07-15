@@ -20,7 +20,8 @@
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
       "options": {
-        "command": "wrangler pages deploy apps/www/_site --project-name=chevramishnayos-www --branch=main"
+        "cwd": "apps/www",
+        "command": "wrangler pages deploy _site --project-name=chevramishnayos-www --branch=main"
       }
     }
   }

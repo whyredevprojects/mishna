@@ -121,7 +121,9 @@ state-changing admin POSTs that arrive without a trusted Origin).
 
 The about-editor logic lives in `about.ts` (GitHub read/commit + base64 + filename
 sanitizer); repo coordinates come from `wrangler.toml` `[vars]` (`GITHUB_OWNER`/`REPO`/
-`BRANCH`, `ABOUT_MD_PATH`) and the `GITHUB_TOKEN` secret. The **domain-bearing** vars
+`BRANCH`, `ABOUT_MD_PATH`) and the `GITHUB_TOKEN` secret. `ABOUT_MD_PATH` points at the
+English About page of the i18n'd www site — `apps/www/src/en/about.md` (moved from the
+old `src/content/about.md`). The **domain-bearing** vars
 here (`APP_ORIGIN`, `RESEND_FROM_EMAIL`, `R2_PUBLIC_BASE_URL`) and the worker `routes`
 are generated from the repo-wide `config/domains.json` (`npm run sync:domains`; see the
 root CLAUDE.md "Changing the domain") — don't hand-edit those values. The R2 bucket binding

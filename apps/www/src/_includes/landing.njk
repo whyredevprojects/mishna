@@ -1,0 +1,36 @@
+---
+layout: base.njk
+---
+{%- set t = strings[lang] -%}
+<section class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">{{ t.eyebrow }}</p>
+    <h1 class="hero-headline">{{ t.heroHeadline }}</h1>
+    <p class="hero-sub">{{ t.heroSub }}</p>
+    <div class="cta">
+      <a class="btn btn-cta" href="{{ site.appUrl }}/join">{{ t.ctaJoin }}</a>
+      <p class="cta-note">{{ t.ctaNote }}</p>
+      <p><a class="about-link" href="{{ '/about/' | locale_url }}">{{ t.aboutLink }}</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="how">
+  <div class="how-inner">
+    <article class="step">
+      <span class="step-num">1</span>
+      <h3>{{ t.step1Title }}</h3>
+      <p>{{ t.step1Body }}</p>
+    </article>
+    <article class="step">
+      <span class="step-num">2</span>
+      <h3>{{ t.step2Title }}</h3>
+      <p>{{ t.step2Body }}</p>
+    </article>
+    <article class="step">
+      <span class="step-num">3</span>
+      <h3>{{ t.step3Title }}</h3>
+      <p>{{ t.step3Body }}</p>
+    </article>
+  </div>
+</section>

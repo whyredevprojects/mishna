@@ -2,12 +2,16 @@
  * Eleventy config for the public marketing site (apps/www) — the apex
  * getchevrasmishnayos.com front door. The Angular app lives at app.getchevrasmishnayos.com.
  *
- * The admin-editable "general info" copy lives in src/content/about.md as **pure
+ * The admin-editable "general info" copy lives in src/en/about.md as **pure
  * Markdown with no front matter**, so the in-app Toast UI editor (which commits the raw
  * Markdown via the GitHub Contents API) can never break it. A directory data file
- * (src/content/content.11tydata.json) gives that file the site layout + the "/" permalink,
- * so about.md *is* the homepage body. The header (Log in / Sign up) and the join CTA are
- * fixed chrome in _includes/layout.njk; the app URLs are centralized in _data/site.json.
+ * (src/en/about.11tydata.json) gives that file the about layout, so it renders at
+ * /en/about/. The site is i18n'd via the bundled EleventyI18nPlugin: src/en/ and src/he/
+ * each carry a directory data file (en.json / he.json) with lang + dir, yielding /en/…
+ * and /he/… URLs. Layouts live in _includes: base.njk (shell + head + language switcher
+ * + hreflang) is the parent of landing.njk and about.njk. UI strings are in
+ * _data/strings.json (referenced as strings[lang]); the app URLs are centralized in
+ * _data/site.json. The root "/" is handled by functions/index.ts (Accept-Language 302).
  *
  * Markdown template processing is disabled (markdownTemplateEngine: false) so admin
  * content is never run through Nunjucks — stray `{{ }}`/`{% %}` in the copy stays literal.
@@ -15,7 +19,16 @@
  * Monorepo hoisting note: dependencies resolve from the *root* node_modules (not
  * apps/www/node_modules). Keep passthrough-copy paths relative to this project root.
  */
+const { EleventyI18nPlugin } = require('@11ty/eleventy');
+
 module.exports = function (eleventyConfig) {
+  // Distinct-URL i18n: /en/… and /he/… from the src/en and src/he directories.
+  // Gives page.lang, the locale_url filter, and locale_links (switcher + hreflang).
+  eleventyConfig.addPlugin(EleventyI18nPlugin, {
+    defaultLanguage: 'en',
+    errorMode: 'allow-fallback',
+  });
+
   eleventyConfig.addPassthroughCopy({ 'src/css': 'css' });
   eleventyConfig.addPassthroughCopy({ 'src/js': 'js' });
 

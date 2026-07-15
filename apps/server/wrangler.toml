@@ -85,13 +85,15 @@ RESEND_REPLY_TO_EMAIL = "Chevras Mishnayos Baal Peh <support@mishna2go.com>"
 # About-page editor: repo coordinates for committing the www site's about.md via the
 # GitHub Contents API. Frozen from this repo's `git remote origin` — a Worker can't
 # read git at runtime, and this is deliberately not a configurable separate repo.
+# The www site is i18n'd (/en, /he); about.md is the English About page, now under
+# apps/www/src/en/ (moved from src/content/) — keep ABOUT_MD_PATH in sync if it moves.
 # GITHUB_TOKEN is a secret:
 #   wrangler secret put GITHUB_TOKEN
 #   # TODO: create a fine-grained PAT with contents:write on whyredevprojects/mishna.
 GITHUB_OWNER = "whyredevprojects"
 GITHUB_REPO = "mishna"
 GITHUB_BRANCH = "main"
-ABOUT_MD_PATH = "apps/www/src/content/about.md"
+ABOUT_MD_PATH = "apps/www/src/en/about.md"
 # Public base URL of the R2 bucket serving editor images (no trailing slash).
 # TODO: set after creating the R2 bucket + enabling public access (e.g.
 # https://images.getchevrasmishnayos.com).

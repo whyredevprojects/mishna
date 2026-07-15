@@ -1,0 +1,49 @@
+{%- set t = strings[lang] -%}
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ t.title }}</title>
+    <meta name="description" content="{{ t.metaDescription }}" />
+    <meta property="og:title" content="{{ t.ogTitle }}" />
+    <meta property="og:description" content="{{ t.metaDescription }}" />
+    <meta name="theme-color" content="#8a5a2b" />
+    <link rel="canonical" href="{{ site.siteUrl }}{{ page.url }}" />
+    <link rel="alternate" hreflang="{{ lang }}" href="{{ site.siteUrl }}{{ page.url }}" />
+    {%- for alt in page.url | locale_links %}
+    <link rel="alternate" hreflang="{{ alt.lang }}" href="{{ site.siteUrl }}{{ alt.url }}" />
+    {%- endfor %}
+    <link rel="alternate" hreflang="x-default" href="{{ site.siteUrl }}{{ page.url | locale_url('en') }}" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/photoswipe/photoswipe.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="{{ '/' | locale_url }}">
+        <span class="brand-he">חברת משניות בעל פה</span>
+        <span class="brand-en">{{ site.name }}</span>
+      </a>
+      <nav class="header-actions">
+        <div class="lang-switch">
+          {%- for alt in page.url | locale_links %}
+          <a href="{{ alt.url }}" lang="{{ alt.lang }}" hreflang="{{ alt.lang }}">{{ alt.label }}</a>
+          {%- endfor %}
+        </div>
+        <a class="btn btn-ghost" href="{{ site.appUrl }}/">{{ t.navLogin }}</a>
+        <a class="btn btn-primary" href="{{ site.appUrl }}/join">{{ t.navJoin }}</a>
+      </nav>
+    </header>
+
+    <main>
+      {{ content | safe }}
+    </main>
+
+    <footer class="site-footer">
+      <p>{{ t.brandName }} · {{ t.footerTagline }}</p>
+      <a class="btn btn-primary" href="{{ site.appUrl }}/join">{{ t.navJoin }}</a>
+    </footer>
+
+    <script type="module" src="/js/lightbox.js"></script>
+  </body>
+</html>

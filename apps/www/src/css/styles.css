@@ -226,3 +226,50 @@ body {
   margin: 0;
   font-size: 0.95rem;
 }
+
+/* i18n additions */
+.hero-headline {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.15;
+  margin: 0.2rem 0 1rem;
+  color: var(--brown-deep);
+}
+.hero-sub {
+  font-size: 1.2rem;
+  margin: 0 auto 1rem;
+  max-width: 42rem;
+  color: var(--ink);
+}
+.about-link {
+  color: var(--teal);
+  font-weight: 600;
+  text-decoration: none;
+}
+.about-link:hover {
+  text-decoration: underline;
+}
+
+/* Language switcher */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-end: 0.6rem;
+}
+.lang-switch a {
+  color: var(--brown-deep);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+}
+.lang-switch a:hover {
+  background: rgba(138, 90, 43, 0.08);
+}
+
+/* RTL: header/footer flip automatically via flex; text direction from <html dir>.
+   The how-it-works step badge uses a directional gradient — mirror it for RTL. */
+[dir='rtl'] .step-num {
+  background: linear-gradient(225deg, var(--brown), var(--gold));
+}

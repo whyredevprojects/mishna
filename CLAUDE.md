@@ -62,8 +62,9 @@ Determinism: ids come from an injected `IdGenerator`, randomness (lot picks) fro
 repoint or rebrand, edit it and run `npm run sync:domains` — a small generator
 (`tools/sync-domains.mjs`) propagates the derived values into the files that can't
 read that JSON at build time (`apps/{login,server}/wrangler.toml` routes + vars,
-`apps/mobile/lib/core/config.dart`, `apps/www/src/_data/site.json`, and the Angular
-Turnstile key). The Angular client needs nothing (relative `/api/*` URLs), and
+`apps/mobile/lib/core/config.dart`, `apps/www/src/_data/site.json` — which carries both
+`appUrl` (the app host) and `siteUrl` (the apex origin, used for the www site's
+hreflang/canonical tags) — and the Angular Turnstile key). The Angular client needs nothing (relative `/api/*` URLs), and
 `apps/login` derives its trusted origin from `BETTER_AUTH_URL` at runtime. CI runs
 `node tools/sync-domains.mjs --check`, which fails if anything has drifted from the
 config.

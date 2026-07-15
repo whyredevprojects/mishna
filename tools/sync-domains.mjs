@@ -26,6 +26,7 @@ const check = process.argv.includes('--check');
 const cfg = JSON.parse(readFileSync(join(repoRoot, 'config/domains.json'), 'utf8'));
 const appOrigin = `https://${cfg.appHost}`;
 const imagesOrigin = `https://${cfg.imagesHost}`;
+const siteOrigin = `https://${cfg.apex}`;
 
 /**
  * One field-anchored replacement. `regex` must contain exactly two capture
@@ -76,6 +77,7 @@ const targets = [
   ]),
   apply('apps/www/src/_data/site.json', [
     edit('appUrl', /("appUrl": ")[^"]*(")/, appOrigin),
+    edit('siteUrl', /("siteUrl": ")[^"]*(")/, siteOrigin),
   ]),
   apply('apps/client/src/environments/environment.ts', [
     edit('turnstileSiteKey', /(turnstileSiteKey: ')[^']*(')/, cfg.turnstileSiteKey),

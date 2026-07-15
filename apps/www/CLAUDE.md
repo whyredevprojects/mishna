@@ -5,20 +5,40 @@ static site deployed to Cloudflare Pages. This is the **apex** front door
 (`getchevrasmishnayos.com`); the Angular app lives at `app.getchevrasmishnayos.com`,
 which this site links to for **Log in** / **Sign up**.
 
+## Internationalization (/en, /he)
+
+The site is served in two locales via the bundled **EleventyI18nPlugin**
+(`defaultLanguage: 'en'`, `errorMode: 'allow-fallback'`). Content lives in per-locale
+directories, `src/en/` and `src/he/`, each carrying a directory data file
+(`en.json` / `he.json`) that sets `lang` + `dir`. Default 11ty permalinks then give
+`/en/…` and `/he/…` for free. UI strings are centralized in **`src/_data/strings.json`**
+(`{ en: {…}, he: {…} }`), referenced in templates as `strings[lang]`.
+
+- `src/en/index.njk` / `src/he/index.njk` → the `/en/` and `/he/` landing pages
+  (`landing.njk`).
+- `src/en/about.md` → `/en/about/` (the admin-editable English About; see below).
+- `src/he/about.njk` → `/he/about/` (a Hebrew About placeholder).
+
+The **root `/`** is not an Eleventy page. `functions/index.ts` is a Cloudflare Pages
+Function that negotiates `Accept-Language` (and a `lang` cookie) and 302-redirects to
+`/en/` or `/he/`. Because Wrangler discovers Pages Functions at `process.cwd()/functions`
+with no override flag, the `deploy` target runs with **`cwd: apps/www`** (see
+`project.json`).
+
 ## The admin-editable region
 
-The hero copy ("general info about the program") is **`src/content/about.md`** — **pure
-Markdown, no front matter**. It is edited from inside the app at `/admin/about` (Toast UI
-editor), which commits the raw Markdown to this file via the GitHub Contents API
-(`apps/server` `POST /api/admin/about`). A commit to `main` triggers CI, which rebuilds
-and redeploys this site. **Do not add front matter to `about.md`** — the editor would
-overwrite it and the admin could break the page.
+The English About copy ("general info about the program") is **`src/en/about.md`** —
+**pure Markdown, no front matter**. It is edited from inside the app at `/admin/about`
+(Toast UI editor), which commits the raw Markdown to this file via the GitHub Contents API
+(`apps/server` `POST /api/admin/about`, path from its `ABOUT_MD_PATH` var). A commit to
+`main` triggers CI, which rebuilds and redeploys this site. **Do not add front matter to
+`about.md`** — the editor would overwrite it and the admin could break the page.
 
-A directory data file (`src/content/content.11tydata.json`) gives `about.md` the site
-layout and the `/` permalink, so `about.md` *is* the homepage body. The page chrome — the
-header (Log in / Sign up) and the join CTA — is fixed in `_includes/layout.njk`. Markdown
-template processing is disabled (`markdownTemplateEngine: false` in `eleventy.config.js`)
-so stray `{{ }}`/`{% %}` in admin copy stays literal.
+A template data file (`src/en/about.11tydata.json`) gives `about.md` the `about.njk`
+layout, so it renders at `/en/about/`. The page chrome — the header (Log in / Sign up +
+language switcher) and the join CTA — is fixed in `_includes/base.njk`. Markdown template
+processing is disabled (`markdownTemplateEngine: false` in `eleventy.config.js`) so stray
+`{{ }}`/`{% %}` in admin copy stays literal.
 
 Editor images are uploaded to **Cloudflare R2** (not committed here); `about.md` only ever
 references them as absolute `![alt](https://.../about/...)` URLs, so image-only swaps need
@@ -38,13 +58,20 @@ from R2 metadata at build instead.
 
 | Path | Role |
 |------|------|
-| `eleventy.config.js` | Dirs (`src` → `_site`), CSS passthrough, Markdown/HTML engines. |
-| `project.json` | Nx targets: `build` (cached, `outputs: _site`), `serve`, `deploy` (Pages). |
-| `src/content/about.md` | The admin-editable hero copy (pure Markdown). |
-| `src/content/content.11tydata.json` | Applies the layout + `/` permalink to `about.md`. |
-| `src/_includes/layout.njk` | Page shell: header, hero (renders `about.md`), CTA, how-it-works, footer. Loads PhotoSwipe CSS + `src/js/lightbox.js`. |
+| `eleventy.config.js` | Dirs (`src` → `_site`), i18n plugin, CSS passthrough, Markdown/HTML engines. |
+| `project.json` | Nx targets: `build` (cached, `outputs: _site`), `serve`, `deploy` (Pages; runs with `cwd: apps/www` so Wrangler finds `functions/`). |
+| `functions/index.ts` | Cloudflare Pages Function owning `/` — Accept-Language/cookie negotiation → 302 to `/en/` or `/he/`. |
+| `src/en/about.md` | The admin-editable English About copy (pure Markdown). |
+| `src/en/about.11tydata.json` | Applies the `about.njk` layout to `about.md`. |
+| `src/en/en.json`, `src/he/he.json` | Directory data files: `lang` + `dir` per locale. |
+| `src/en/index.njk`, `src/he/index.njk` | The `/en/` and `/he/` landing pages. |
+| `src/he/about.njk` | Hebrew About placeholder → `/he/about/`. |
+| `src/_includes/base.njk` | Shared shell: `<html lang dir>`, head + hreflang/canonical, header w/ language switcher, footer, scripts. Loads PhotoSwipe CSS + `src/js/lightbox.js`. |
+| `src/_includes/landing.njk` | Landing body (hero + how-it-works), over `base.njk`. |
+| `src/_includes/about.njk` | About body (renders the `.about` content), over `base.njk`. |
 | `src/js/lightbox.js` | Initializes PhotoSwipe over the `.about` content images (click-to-zoom). |
-| `src/_data/site.json` | Site name/tagline/description + `appUrl` (the app's host, used by all links). `appUrl` is generated from the repo-wide `config/domains.json` (`npm run sync:domains`; see root CLAUDE.md "Changing the domain") — don't hand-edit it. |
+| `src/_data/strings.json` | UI strings per locale (`{ en, he }`), referenced as `strings[lang]`. |
+| `src/_data/site.json` | Site name/tagline/description + `appUrl` (app host) + `siteUrl` (apex origin, for hreflang/canonical). Both generated from the repo-wide `config/domains.json` (`npm run sync:domains`; see root CLAUDE.md "Changing the domain") — don't hand-edit them. |
 | `src/css/styles.css` | Warm, colorful brand styling (brown + gold + teal). |
 
 ## Build / serve
