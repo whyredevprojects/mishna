@@ -1,11 +1,12 @@
 {%- set t = strings[lang] -%}
+{%- set appHref = site.appUrl + ('/he' if lang == 'he' else '') -%}
 <!doctype html>
 <html lang="{{ lang }}" dir="{{ dir }}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ t.title }}</title>
-    <meta name="description" content="{{ t.metaDescription }}" />
+    <title>{{ title or t.title }}</title>
+    <meta name="description" content="{{ description or t.metaDescription }}" />
     <meta property="og:title" content="{{ t.ogTitle }}" />
     <meta property="og:description" content="{{ t.metaDescription }}" />
     <meta name="theme-color" content="#8a5a2b" />
@@ -15,6 +16,12 @@
     <link rel="alternate" hreflang="{{ alt.lang }}" href="{{ site.siteUrl }}{{ alt.url }}" />
     {%- endfor %}
     <link rel="alternate" hreflang="x-default" href="{{ site.siteUrl }}{{ page.url | locale_url('en') }}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;600;700&display=swap"
+    />
     <link rel="stylesheet" href="/css/styles.css" />
     <link rel="stylesheet" href="/photoswipe/photoswipe.css" />
   </head>
@@ -30,8 +37,8 @@
           <a href="{{ alt.url }}" lang="{{ alt.lang }}" hreflang="{{ alt.lang }}">{{ alt.label }}</a>
           {%- endfor %}
         </div>
-        <a class="btn btn-ghost" href="{{ site.appUrl }}/">{{ t.navLogin }}</a>
-        <a class="btn btn-primary" href="{{ site.appUrl }}/join">{{ t.navJoin }}</a>
+        <a class="btn btn-ghost" href="{{ appHref }}/">{{ t.navLogin }}</a>
+        <a class="btn btn-primary" href="{{ appHref }}/join">{{ t.navJoin }}</a>
       </nav>
     </header>
 
@@ -41,9 +48,19 @@
 
     <footer class="site-footer">
       <p>{{ t.brandName }} · {{ t.footerTagline }}</p>
-      <a class="btn btn-primary" href="{{ site.appUrl }}/join">{{ t.navJoin }}</a>
+      <a class="btn btn-primary" href="{{ appHref }}/join">{{ t.navJoin }}</a>
     </footer>
 
     <script type="module" src="/js/lightbox.js"></script>
+    <script>
+      // Persist an explicit language choice so the root "/" negotiator
+      // (functions/index.ts) honors it over Accept-Language next visit.
+      document.querySelectorAll('.lang-switch a').forEach(function (a) {
+        a.addEventListener('click', function () {
+          document.cookie =
+            'lang=' + a.getAttribute('hreflang') + '; Path=/; Max-Age=31536000; SameSite=Lax';
+        });
+      });
+    </script>
   </body>
 </html>

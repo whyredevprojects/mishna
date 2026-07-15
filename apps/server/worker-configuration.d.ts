@@ -11,7 +11,7 @@ interface __BaseEnv_Env {
 	GITHUB_OWNER: "whyredevprojects";
 	GITHUB_REPO: "mishna";
 	GITHUB_BRANCH: "main";
-	ABOUT_MD_PATH: "apps/www/src/content/about.md";
+	ABOUT_MD_PATH: "apps/www/src/en/about.md";
 	R2_PUBLIC_BASE_URL: "https://images.mishna2go.com";
 	RESEND_API_KEY: string;
 	ALLOCATOR: DurableObjectNamespace<import("./src/index").AllocatorDO>;
