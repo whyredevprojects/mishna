@@ -17,11 +17,13 @@
       "options": { "command": "npx @11ty/eleventy --serve", "cwd": "apps/www" }
     },
     "deploy": {
-      "executor": "nx:run-commands",
+      "executor": "@naxodev/nx-cloudflare:deploy",
+      "dependsOn": ["build"]
+    },
+    "deploy-staging": {
+      "executor": "@naxodev/nx-cloudflare:deploy",
       "dependsOn": ["build"],
-      "options": {
-        "command": "wrangler pages deploy apps/www/_site --project-name=chevramishnayos-www --branch=main"
-      }
+      "options": { "env": "staging" }
     }
   }
 }

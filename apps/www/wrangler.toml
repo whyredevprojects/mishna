@@ -1,0 +1,15 @@
+name = "www-worker"
+compatibility_date = "2025-01-01"
+account_id = "d2f4398a68a7ef6bc0d65e571ce9d0ea"
+
+# Assets-only Worker: serve the Eleventy build output as static assets. `directory` is
+# relative to this config's dir (apps/www); the `build` target writes the site to
+# apps/www/_site. No `main`/`binding` — a Worker function is added on a separate branch.
+# `[assets]` is an inheritable key, so [env.staging] below reuses it automatically.
+[assets]
+directory = "./_site"
+
+# Staging: the same static-assets Worker deployed under a separate name, via
+# `wrangler deploy --env staging` (the www `deploy-staging` Nx target).
+[env.staging]
+name = "staging-www"
