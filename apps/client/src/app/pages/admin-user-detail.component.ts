@@ -17,9 +17,12 @@ import { firstValueFrom } from 'rxjs';
 import { AdminService } from '../services/admin.service';
 import { AuthService } from '../services/auth.service';
 import { ToastService } from '../services/toast.service';
-import { AdminUserDetail } from '../models/api.types';
+import { AdminEmailPrefsPatch, AdminUserDetail } from '../models/api.types';
 import { queryKeys } from '../queries/query-keys';
 import { adminUserQueryOptions } from '../queries/queries';
+
+/** The two scheduled emails — both a send-now target and an on/off pref. */
+type EmailKind = 'weekly' | 'reminder';
 
 /** One user's info, with admin actions: remove assignments and delete account. */
 @Component({
@@ -79,6 +82,11 @@ import { adminUserQueryOptions } from '../queries/queries';
             <dd>
               {{ u.joined ? 'Joined — ' + u.commitment + '/week' : 'Not joined' }}
             </dd>
+            <dt>Scheduled emails</dt>
+            <dd>
+              Weekly {{ u.weeklyEnabled ? 'on' : 'off' }} · reminder
+              {{ u.reminderEnabled ? 'on' : 'off' }}
+            </dd>
             <dt>Groups</dt>
             <dd>
               @if (u.groups.length) {
@@ -108,6 +116,51 @@ import { adminUserQueryOptions } from '../queries/queries';
             <wa-icon slot="start" name="bell"></wa-icon>
             Send reminder email
           </wa-button>
+          <!--
+            Turn each *scheduled* email off/on (the user's own email prefs, so they
+            see and can undo it in Settings). The send buttons above deliberately
+            ignore these flags — they're manual one-offs, not the schedule.
+          -->
+          @if (u.weeklyEnabled) {
+            <wa-button
+              variant="warning"
+              appearance="outlined"
+              [attr.loading]="togglingEmail() === 'weekly' ? '' : null"
+              (click)="toggleEmail('weekly', u)"
+            >
+              <wa-icon slot="start" name="envelope-open"></wa-icon>
+              Disable weekly email
+            </wa-button>
+          } @else {
+            <wa-button
+              appearance="outlined"
+              [attr.loading]="togglingEmail() === 'weekly' ? '' : null"
+              (click)="toggleEmail('weekly', u)"
+            >
+              <wa-icon slot="start" name="envelope"></wa-icon>
+              Enable weekly email
+            </wa-button>
+          }
+          @if (u.reminderEnabled) {
+            <wa-button
+              variant="warning"
+              appearance="outlined"
+              [attr.loading]="togglingEmail() === 'reminder' ? '' : null"
+              (click)="toggleEmail('reminder', u)"
+            >
+              <wa-icon slot="start" name="bell-slash"></wa-icon>
+              Disable reminder emails
+            </wa-button>
+          } @else {
+            <wa-button
+              appearance="outlined"
+              [attr.loading]="togglingEmail() === 'reminder' ? '' : null"
+              (click)="toggleEmail('reminder', u)"
+            >
+              <wa-icon slot="start" name="bell"></wa-icon>
+              Enable reminder emails
+            </wa-button>
+          }
           @if (!u.emailVerified) {
             <wa-button
               appearance="outlined"
@@ -292,11 +345,29 @@ export class AdminUserDetailComponent {
     },
   }));
 
+  /** Which scheduled email the in-flight toggle is for (so only its button spins). */
+  protected readonly togglingEmail = signal<EmailKind | null>(null);
+
+  protected readonly emailPrefsMutation = injectMutation(() => ({
+    mutationFn: (patch: AdminEmailPrefsPatch) =>
+      firstValueFrom(this.admin.setEmailPrefs(this.id, patch)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({
+        queryKey: queryKeys.adminUser(this.id),
+      });
+      this.queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers });
+      this.toast.success('Email settings updated.');
+    },
+    onError: () => this.toast.error('Could not change the email settings.'),
+    onSettled: () => this.togglingEmail.set(null),
+  }));
+
   protected readonly working = computed(
     () =>
       this.removeMutation.isPending() ||
       this.deleteMutation.isPending() ||
-      this.roleMutation.isPending(),
+      this.roleMutation.isPending() ||
+      this.emailPrefsMutation.isPending(),
   );
 
   protected isSelf(): boolean {
@@ -307,7 +378,7 @@ export class AdminUserDetailComponent {
     return u.groups.reduce((sum, g) => sum + g.blockSize, 0);
   }
 
-  protected send(kind: 'weekly' | 'reminder'): void {
+  protected send(kind: EmailKind): void {
     this.sending.set(true);
     const req =
       kind === 'weekly'
@@ -357,6 +428,16 @@ export class AdminUserDetailComponent {
 
   protected setRole(): void {
     this.roleMutation.mutate();
+  }
+
+  /** Flip one scheduled email; the other flag is omitted, so the server leaves it. */
+  protected toggleEmail(kind: EmailKind, u: AdminUserDetail): void {
+    this.togglingEmail.set(kind);
+    this.emailPrefsMutation.mutate(
+      kind === 'weekly'
+        ? { weeklyEnabled: !u.weeklyEnabled }
+        : { reminderEnabled: !u.reminderEnabled },
+    );
   }
 
   protected deleteUser(): void {

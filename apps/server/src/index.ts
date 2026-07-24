@@ -686,8 +686,15 @@ interface AuthUser {
   createdAt?: string;
 }
 
+/** The two email on/off flags, as the admin rows and the admin write route carry them. */
+type EmailToggles = Pick<EmailPrefs, 'weeklyEnabled' | 'reminderEnabled'>;
+
 /** Shape a better-auth admin user into the merged admin-list/detail row. */
-function adminUserRow(u: AuthUser, commitment: number | null) {
+function adminUserRow(
+  u: AuthUser,
+  commitment: number | null,
+  toggles: EmailToggles,
+) {
   return {
     id: u.id,
     name: u.name ?? null,
@@ -697,6 +704,8 @@ function adminUserRow(u: AuthUser, commitment: number | null) {
     createdAt: u.createdAt ?? null,
     joined: commitment !== null,
     commitment,
+    weeklyEnabled: toggles.weeklyEnabled,
+    reminderEnabled: toggles.reminderEnabled,
   };
 }
 
@@ -734,8 +743,26 @@ app.get('/api/admin/users', requireAdmin, async (c) => {
   ).all<{ user_id: string; commitment: number }>();
   const commitmentByUser = new Map(results.map((r) => [r.user_id, r.commitment]));
 
+  // Email opt-out is a pair of per-user prefs flags; a missing row means the defaults.
+  const { results: prefRows } = await c.env.DB.prepare(
+    'SELECT user_id, weekly_enabled, reminder_enabled FROM user_email_prefs',
+  ).all<{ user_id: string; weekly_enabled: number; reminder_enabled: number }>();
+  const togglesByUser = new Map<string, EmailToggles>(
+    prefRows.map((r) => [
+      r.user_id,
+      {
+        weeklyEnabled: r.weekly_enabled === 1,
+        reminderEnabled: r.reminder_enabled === 1,
+      },
+    ]),
+  );
+
   const merged = users.map((u) =>
-    adminUserRow(u, commitmentByUser.get(u.id) ?? null),
+    adminUserRow(
+      u,
+      commitmentByUser.get(u.id) ?? null,
+      togglesByUser.get(u.id) ?? DEFAULT_EMAIL_PREFS,
+    ),
   );
   return c.json({ users: merged, total: total ?? merged.length, limit, offset });
 });
@@ -761,6 +788,8 @@ app.get('/api/admin/users/:id', requireAdmin, async (c) => {
     .bind(id)
     .first<{ commitment: number }>();
 
+  const prefs = rowToPrefs(await loadPrefs(c.env, id));
+
   const repo = new D1GroupRepository(c.env.DB, structure, chalakim, idGen);
   const groups = await repo.loadGroupsForUser(id);
   const groupSummaries = groups.map((g) => ({
@@ -769,7 +798,7 @@ app.get('/api/admin/users/:id', requireAdmin, async (c) => {
   }));
 
   return c.json({
-    ...adminUserRow(user, row?.commitment ?? null),
+    ...adminUserRow(user, row?.commitment ?? null, prefs),
     groups: groupSummaries,
   });
 });
@@ -990,6 +1019,61 @@ app.post('/api/admin/users/:id/set-role', requireAdmin, async (c) => {
     return c.json({ error: 'failed to set role', status: res.status, detail }, 502);
   }
   return c.json({ role });
+});
+
+// Turn a user's *scheduled* emails on or off on their behalf — either flag, or both in
+// one call; an omitted flag is left alone. This writes the very row PUT/GET
+// /api/me/preferences owns, so the user sees the change in Settings and can undo it
+// there, and selectDue skips them on the next bulk run. Only the named columns are
+// touched on conflict, so their timezone and send weekdays survive. (Admin "send now"
+// deliberately ignores these flags: it's a manual one-off, not the schedule.)
+app.post('/api/admin/users/:id/set-email-prefs', requireAdmin, async (c) => {
+  const id = c.req.param('id');
+  const { weeklyEnabled, reminderEnabled } = (await c.req
+    .json()
+    .catch(() => ({}))) as {
+    weeklyEnabled?: unknown;
+    reminderEnabled?: unknown;
+  };
+  if (
+    (weeklyEnabled !== undefined && typeof weeklyEnabled !== 'boolean') ||
+    (reminderEnabled !== undefined && typeof reminderEnabled !== 'boolean')
+  ) {
+    return c.json({ error: 'weeklyEnabled/reminderEnabled must be booleans' }, 400);
+  }
+  if (weeklyEnabled === undefined && reminderEnabled === undefined) {
+    return c.json({ error: 'weeklyEnabled or reminderEnabled is required' }, 400);
+  }
+  // Column names come from this fixed pair, never from the body.
+  const columns: string[] = [];
+  if (weeklyEnabled !== undefined) columns.push('weekly_enabled');
+  if (reminderEnabled !== undefined) columns.push('reminder_enabled');
+  const setClause = columns.map((col) => `${col} = excluded.${col}`).join(',\n       ');
+
+  await c.env.DB.prepare(
+    `INSERT INTO user_email_prefs
+       (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       ${setClause},
+       updated_at = excluded.updated_at`,
+  )
+    .bind(
+      id,
+      DEFAULT_EMAIL_PREFS.timezone,
+      DEFAULT_EMAIL_PREFS.weeklyEmailDow,
+      DEFAULT_EMAIL_PREFS.reminderEmailDow,
+      (weeklyEnabled ?? DEFAULT_EMAIL_PREFS.weeklyEnabled) ? 1 : 0,
+      (reminderEnabled ?? DEFAULT_EMAIL_PREFS.reminderEnabled) ? 1 : 0,
+      Date.now(),
+    )
+    .run();
+
+  const prefs = rowToPrefs(await loadPrefs(c.env, id));
+  return c.json({
+    weeklyEnabled: prefs.weeklyEnabled,
+    reminderEnabled: prefs.reminderEnabled,
+  });
 });
 
 // Admin "send now": send an extra weekly or reminder email for a user, bypassing the

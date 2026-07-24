@@ -36,6 +36,7 @@ describe('server API integration', () => {
     await env.DB.exec('DELETE FROM participants');
     await env.DB.exec('DELETE FROM completions');
     await env.DB.exec('DELETE FROM email_log');
+    await env.DB.exec('DELETE FROM user_email_prefs');
   });
 
   it('rejects unauthenticated requests with 401', async () => {
@@ -238,6 +239,137 @@ describe('server API integration', () => {
       },
     );
     expect(noOrigin.status).toBe(502);
+  });
+
+  it('gates set-email-prefs behind admin and validates the flags', async () => {
+    const denied = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-email-prefs',
+      {
+        method: 'POST',
+        headers: { ...as('alice'), 'content-type': 'application/json' },
+        body: JSON.stringify({ reminderEnabled: false }),
+      },
+    );
+    expect(denied.status).toBe(403);
+
+    const bad = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-email-prefs',
+      {
+        method: 'POST',
+        headers: { ...as('admin'), 'content-type': 'application/json' },
+        body: JSON.stringify({ reminderEnabled: 'nope' }),
+      },
+    );
+    expect(bad.status).toBe(400);
+
+    // Neither flag named — nothing to do, so it's a bad request rather than a no-op.
+    const empty = await SELF.fetch(
+      'https://server/api/admin/users/alice/set-email-prefs',
+      {
+        method: 'POST',
+        headers: { ...as('admin'), 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      },
+    );
+    expect(empty.status).toBe(400);
+  });
+
+  it('admin can turn each of a user\'s scheduled emails off and back on', async () => {
+    async function setEmailPrefs(body: Record<string, boolean>) {
+      return SELF.fetch(
+        'https://server/api/admin/users/alice/set-email-prefs',
+        {
+          method: 'POST',
+          headers: { ...as('admin'), 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      );
+    }
+    async function togglesFor(id: string) {
+      const detail = await SELF.fetch(`https://server/api/admin/users/${id}`, {
+        headers: as('admin'),
+      });
+      const list = await SELF.fetch('https://server/api/admin/users', {
+        headers: as('admin'),
+      });
+      const { users } = (await list.json()) as {
+        users: { id: string; weeklyEnabled: boolean; reminderEnabled: boolean }[];
+      };
+      const { weeklyEnabled, reminderEnabled } = (await detail.json()) as {
+        weeklyEnabled: boolean;
+        reminderEnabled: boolean;
+      };
+      const row = users.find((u) => u.id === id);
+      return {
+        detail: { weeklyEnabled, reminderEnabled },
+        list: {
+          weeklyEnabled: row?.weeklyEnabled,
+          reminderEnabled: row?.reminderEnabled,
+        },
+      };
+    }
+    const both = (weeklyEnabled: boolean, reminderEnabled: boolean) => ({
+      detail: { weeklyEnabled, reminderEnabled },
+      list: { weeklyEnabled, reminderEnabled },
+    });
+
+    // No prefs row yet → the shared defaults (both on).
+    expect(await togglesFor('alice')).toEqual(both(true, true));
+
+    // Each flag moves independently: an omitted one is left alone.
+    const remindersOff = await setEmailPrefs({ reminderEnabled: false });
+    expect(remindersOff.status).toBe(200);
+    expect(await remindersOff.json()).toEqual({
+      weeklyEnabled: true,
+      reminderEnabled: false,
+    });
+    expect(await togglesFor('alice')).toEqual(both(true, false));
+
+    const weeklyOff = await setEmailPrefs({ weeklyEnabled: false });
+    expect(weeklyOff.status).toBe(200);
+    expect(await togglesFor('alice')).toEqual(both(false, false));
+
+    // And both can be flipped in one call.
+    const allOn = await setEmailPrefs({
+      weeklyEnabled: true,
+      reminderEnabled: true,
+    });
+    expect(allOn.status).toBe(200);
+    expect(await togglesFor('alice')).toEqual(both(true, true));
+  });
+
+  it('leaves the rest of the user\'s email prefs alone when admin disables an email', async () => {
+    // The user first saves non-default prefs of their own.
+    const saved = await SELF.fetch('https://server/api/me/preferences', {
+      method: 'PUT',
+      headers: { ...as('alice'), 'content-type': 'application/json' },
+      body: JSON.stringify({
+        timezone: 'Asia/Jerusalem',
+        weeklyEmailDow: 2,
+        reminderEmailDow: 5,
+        weeklyEnabled: true,
+        reminderEnabled: true,
+      }),
+    });
+    expect(saved.status).toBe(200);
+
+    await SELF.fetch('https://server/api/admin/users/alice/set-email-prefs', {
+      method: 'POST',
+      headers: { ...as('admin'), 'content-type': 'application/json' },
+      body: JSON.stringify({ reminderEnabled: false }),
+    });
+
+    // Same row the user owns: they see the change in Settings, everything else intact.
+    const mine = await SELF.fetch('https://server/api/me/preferences', {
+      headers: as('alice'),
+    });
+    expect(await mine.json()).toEqual({
+      timezone: 'Asia/Jerusalem',
+      weeklyEmailDow: 2,
+      reminderEmailDow: 5,
+      weeklyEnabled: true,
+      reminderEnabled: false,
+    });
   });
 
   it('gates send-verification behind admin, skips verified users, and forwards Origin', async () => {

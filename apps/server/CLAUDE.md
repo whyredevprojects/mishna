@@ -49,7 +49,14 @@ in memory, no cross-DB JOIN).
   missing row means defaults (`America/New_York`, weekly=Sun, reminder=Thu, both on);
   `GET /api/me/preferences` synthesizes them and the email path
   (`@mishna/email-data`'s `loadCandidates`, fed to `@mishna/email-domain`'s `selectDue`)
-  treats a missing row the same way.
+  treats a missing row the same way. An admin can flip `weekly_enabled` /
+  `reminder_enabled` on a user's behalf (`POST /api/admin/users/:id/set-email-prefs`) —
+  it writes this same row, so the user sees and can undo it in Settings, and only the
+  columns the body names (plus `updated_at`) are touched, leaving their
+  timezone/weekdays — and the flag they didn't name — intact. Both values ride along as
+  `weeklyEnabled`/`reminderEnabled` on the `GET /api/admin/users` and
+  `/api/admin/users/:id` rows. Admin "send now" deliberately overrides the flags (it's a
+  manual one-off, not the schedule).
 - `email_log(user_id, kind, week_start, sent_at)` — one row per email actually sent
   (`0004`), so each (user, kind, week) goes out at most once even though the cron fires
   hourly. Written by the email path (`email/sender.ts` after a successful send), consulted
@@ -105,11 +112,12 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `GET /api/admin/groups/:id` | One group: `progress`, `memberCount`, `members: [{ id, name, email, emailVerified, blockSize, lots }]` (identity from `AUTH_DB`; `lots` = the member's lot numbers in this group, ascending) (**admin**). |
 | `GET /api/admin/lots` | The static lot catalog: `[{ lot, mesechta, indexInMesechta, label, start, end, size }]` (120 entries; `label` is `mesechta:indexInMesechta`, e.g. `Peah:1`). Powers the group-detail edit UI (**admin**). |
 | `POST /api/admin/groups/:groupId/members/:userId/lots` `{ lots: number[] }` | Admin override: set the member's lots in that group. Validates each lot is a real lot number (1-120; empty clears their lots); routes through the `AllocatorDO` (serialized with join/leave). Double-assignment is allowed — a lot another member holds becomes shared. `400` on a bad lot, `404` if the group/member is unknown (**admin**). |
-| `GET /api/admin/users?limit&offset&search&sort` | One page of users (`limit` 1-50, default 50). `search` matches email (or name when it has no `@`); `sort` is `field:asc\|desc`. Pagination/search/sort delegate to better-auth `list-users`; merged with `participants`. Rows carry `emailVerified` + `createdAt`. Returns `{ users, total, limit, offset }` (**admin**). |
-| `GET /api/admin/users/:id` | One user: identity (+ `emailVerified`, `createdAt`) + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
+| `GET /api/admin/users?limit&offset&search&sort` | One page of users (`limit` 1-50, default 50). `search` matches email (or name when it has no `@`); `sort` is `field:asc\|desc`. Pagination/search/sort delegate to better-auth `list-users`; merged with `participants`. Rows carry `emailVerified`, `createdAt` + `weeklyEnabled`/`reminderEnabled` (one full-table `user_email_prefs` read, defaults for missing rows). Returns `{ users, total, limit, offset }` (**admin**). |
+| `GET /api/admin/users/:id` | One user: identity (+ `emailVerified`, `createdAt`, `weeklyEnabled`, `reminderEnabled`) + `{ joined, commitment, groups: [{ id, blockSize }] }` (**admin**). |
 | `GET /api/admin/assignments?week&limit&offset` | One page of participants with the chosen week's mishnayot, each `{ ref…, groupId, done }`, plus `emailSent` (weekly). `week` defaults to the current week. Resolves blocks/completions/identities for the page subset via the batched email-path readers (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
 | `POST /api/admin/users/:id/set-role` `{ role: 'admin'\|'user' }` | Promote/revoke admin by proxying better-auth `set-role` (writes the `role` column); apps/login's `customSession` treats `role==='admin'` as `isAdmin` on the next session, alongside `ADMIN_USER_IDS` (**admin**). |
+| `POST /api/admin/users/:id/set-email-prefs` `{ weeklyEnabled?, reminderEnabled? }` | Turn either (or both) of the user's **scheduled** emails on/off by upserting their `user_email_prefs` row. Only the named flags + `updated_at` are written on conflict, so an omitted flag and their timezone/weekdays survive. The same row Settings edits, so the user can undo it; `selectDue` skips them on the next bulk run. Returns the resulting `{ weeklyEnabled, reminderEnabled }`. `400` if a flag isn't a boolean or neither is given (**admin**). |
 | `POST/DELETE /api/admin/users/:id/completions` `{ ref, groupId }` | Mark/unmark a mishna learned on the user's behalf (the Assignments learn/unlearn toggle). Mirrors the self `/api/completions` routes, keyed on `:id` (**admin**). |
 | `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails. Verified-only, like the bulk path (**admin**). |
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |

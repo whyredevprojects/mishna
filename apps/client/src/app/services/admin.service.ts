@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   AdminAssignmentsPage,
+  AdminEmailPrefsPatch,
   AdminGroupDetail,
   AdminGroups,
   AdminLot,
@@ -93,6 +94,11 @@ export class AdminService {
   /** Promotes the user to admin (`'admin'`) or revokes it (`'user'`). */
   setRole(id: string, role: 'admin' | 'user'): Observable<unknown> {
     return this.http.post(`/api/admin/users/${id}/set-role`, { role });
+  }
+
+  /** Turns the user's scheduled emails on or off; an omitted flag is left as-is. */
+  setEmailPrefs(id: string, patch: AdminEmailPrefsPatch): Observable<unknown> {
+    return this.http.post(`/api/admin/users/${id}/set-email-prefs`, patch);
   }
 
   /** Queues an extra weekly mishnayos email for the user (bypasses dedup). */

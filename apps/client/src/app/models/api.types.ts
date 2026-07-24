@@ -113,7 +113,16 @@ export interface AdminUser {
   createdAt: string | null;
   joined: boolean;
   commitment: Commitment | null;
+  /** Whether the scheduled weekly email is on for this user (admin- or self-set). */
+  weeklyEnabled: boolean;
+  /** Whether the scheduled reminder email is on for this user (admin- or self-set). */
+  reminderEnabled: boolean;
 }
+
+/** The email on/off flags an admin can change on a user's behalf; omit one to leave it. */
+export type AdminEmailPrefsPatch = Partial<
+  Pick<AdminUser, 'weeklyEnabled' | 'reminderEnabled'>
+>;
 
 /** Paging params shared by the admin list endpoints (`limit` is capped at 50). */
 export interface PageParams {

@@ -93,6 +93,13 @@ const PAGE_SIZE = 50;
                 } @else {
                   <wa-tag size="small">Not joined</wa-tag>
                 }
+                @if (!row.weeklyEnabled && !row.reminderEnabled) {
+                  <wa-tag size="small" variant="warning">Emails off</wa-tag>
+                } @else if (!row.weeklyEnabled) {
+                  <wa-tag size="small" variant="warning">Weekly off</wa-tag>
+                } @else if (!row.reminderEnabled) {
+                  <wa-tag size="small" variant="warning">Reminders off</wa-tag>
+                }
               }
             }
           </ng-template>
