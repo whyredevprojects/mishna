@@ -6,3 +6,10 @@ RESEND_API_KEY=KEY
 # Fine-grained GitHub PAT with Contents: read & write on whyredevprojects/mishna.
 # Used by the admin about-page editor to commit apps/www/src/content/about.md.
 GITHUB_TOKEN=ghp_xxx
+
+# HMAC key(s) signing the one-click unsubscribe links in the weekly/reminder emails.
+# Comma-separated for rotation: new tokens are signed with the FIRST, verification
+# accepts any of them. Any long random string works locally
+# (`openssl rand -base64 32`). For production/staging:
+#   wrangler secret put UNSUBSCRIBE_SECRET
+UNSUBSCRIBE_SECRET=local-dev-unsubscribe-secret

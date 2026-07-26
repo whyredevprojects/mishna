@@ -13,14 +13,26 @@ export interface BuiltEmail {
   html: string;
 }
 
-/** The weekly quota email: every mishna due this coming week, with its text. */
+/**
+ * The weekly quota email: every mishna due this coming week, with its text.
+ * `unsubscribeUrl` is the recipient's signed one-click link — it renders as the
+ * footer's visible "Unsubscribe" link (the matching RFC 8058 headers are set in
+ * `sender.ts`).
+ */
 export async function weeklyEmail(
   items: ResolvedMishna[],
   appOrigin: string,
+  unsubscribeUrl?: string,
 ): Promise<BuiltEmail> {
   return {
     subject: WEEKLY_TITLE,
-    html: await render(<WeeklyEmail items={items} appOrigin={appOrigin} />),
+    html: await render(
+      <WeeklyEmail
+        items={items}
+        appOrigin={appOrigin}
+        unsubscribeUrl={unsubscribeUrl}
+      />,
+    ),
   };
 }
 
@@ -28,9 +40,16 @@ export async function weeklyEmail(
 export async function reminderEmail(
   pending: ResolvedMishna[],
   appOrigin: string,
+  unsubscribeUrl?: string,
 ): Promise<BuiltEmail> {
   return {
     subject: REMINDER_TITLE,
-    html: await render(<ReminderEmail pending={pending} appOrigin={appOrigin} />),
+    html: await render(
+      <ReminderEmail
+        pending={pending}
+        appOrigin={appOrigin}
+        unsubscribeUrl={unsubscribeUrl}
+      />,
+    ),
   };
 }

@@ -1048,6 +1048,15 @@
         <target> שלחו לי את אימייל התזכורת השבועי </target>
       </segment>
     </unit>
+    <unit id="settings.unsubscribeHint">
+      <notes>
+        <note category="location">apps/client/src/app/pages/settings.component.ts:168,170</note>
+      </notes>
+      <segment>
+        <source> The unsubscribe link in those emails turns both of these off — you can switch them back on here any time. </source>
+        <target> קישור ביטול ההרשמה שבמיילים האלה מכבה את שתי האפשרויות — תמיד אפשר להפעיל אותן כאן מחדש. </target>
+      </segment>
+    </unit>
     <unit id="settings.save">
       <notes>
         <note category="location">apps/client/src/app/pages/settings.component.ts:163,164</note>

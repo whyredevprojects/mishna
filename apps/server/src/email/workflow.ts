@@ -9,6 +9,7 @@ import { D1EmailRepository } from '@mishna/email-data';
 import { assignmentEngine } from '../domain';
 import { httpTextResolver } from './quota';
 import { OutgoingEmail, SenderDeps, processJobs } from './sender';
+import { mintUnsubscribeToken, unsubscribeUrl } from './unsubscribe';
 
 interface Params {
   /** The cron's scheduledTime (epoch ms). Drives the 08:00-local send decision. */
@@ -36,6 +37,15 @@ export function senderDeps(env: Env): SenderDeps {
     replyTo: env.RESEND_REPLY_TO_EMAIL,
     appOrigin: env.APP_ORIGIN,
     record: (userId, kind, weekStart) => repo.recordSent(userId, kind, weekStart),
+    // The RFC 8058 one-click unsubscribe link, signed with UNSUBSCRIBE_SECRET.
+    // No `lang` is appended: the emails themselves are English-chrome only, so the
+    // landing page picks the language from the browser's Accept-Language instead
+    // (and the user can still force it with ?lang=he).
+    unsubscribeUrlFor: async (userId: string) =>
+      unsubscribeUrl(
+        env.APP_ORIGIN,
+        await mintUnsubscribeToken(env.UNSUBSCRIBE_SECRET, userId, 'all'),
+      ),
     send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
       const { error } = await resend.batch.send(emails, { idempotencyKey });
       if (error) {

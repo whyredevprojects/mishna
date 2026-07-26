@@ -205,6 +205,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onChanged: (v) =>
                     setState(() => _prefs = prefs.copyWith(reminderEnabled: v)),
               ),
+              // Both switches write the same flags the emails' one-click
+              // unsubscribe turns off (server GET/POST /api/unsubscribe), so this
+              // screen is also how a user re-subscribes. Mirrors the hint in the
+              // web client's settings page.
+              Text(
+                'The unsubscribe link in those emails turns both of these off — '
+                'you can switch them back on here any time.',
+                style: theme.textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: _saving ? null : _savePrefs,

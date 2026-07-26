@@ -36,6 +36,16 @@ import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
 import { prepareOne, processJobs } from './email/sender';
 import {
+  UnsubscribeScope,
+  confirmPageHtml,
+  donePageHtml,
+  errorPageHtml,
+  pickLang,
+  plainDone,
+  plainError,
+  verifyUnsubscribeToken,
+} from './email/unsubscribe';
+import {
   GroupBlock,
   alreadySentSet,
   loadCompletedFor,
@@ -379,6 +389,109 @@ app.get('/api/join-options', (c) => {
   return c.json({
     options: computeJoinOptions(structure, chalakim, calendar, new Date()),
   });
+});
+
+// -- unsubscribe (RFC 8058 one-click) ---------------------------------------
+// Public and deliberately **unauthenticated**: a mail client posts this from its own
+// infrastructure with no cookies. Authorization is the HMAC-signed token in `?t=`
+// (see email/unsubscribe.ts), which names the user and the scope.
+//
+// The split matters: GET is strictly read-only and only renders a confirmation form,
+// because mail scanners and link-preview bots fetch every URL in a message — a
+// mutating GET would silently unsubscribe people who never clicked. POST mutates.
+// Neither ever redirects (RFC 8058 forbids a redirect on the one-click POST).
+
+/**
+ * Turn the scope's emails off for the user. Writes the very same
+ * `weekly_enabled` / `reminder_enabled` columns both settings screens edit and
+ * `selectDue` honors (no parallel opt-out flag), plus the audit columns.
+ *
+ * The INSERT column list names both flags on purpose: most users have **no**
+ * `user_email_prefs` row (it's only written when someone saves preferences), and if
+ * the flags were set only in the `ON CONFLICT DO UPDATE` branch the table's
+ * `DEFAULT 1` would win on the insert branch — the unsubscribe would silently no-op
+ * for exactly the users most likely to use it.
+ */
+async function applyUnsubscribe(
+  env: Env,
+  userId: string,
+  scope: UnsubscribeScope,
+  via: 'one-click' | 'link',
+): Promise<void> {
+  const weekly = scope === 'reminder' ? 1 : 0;
+  const reminder = scope === 'weekly' ? 1 : 0;
+  // On conflict, touch only the flags this scope covers (their timezone, weekdays
+  // and the untouched flag survive). Column names come from this fixed set.
+  const columns: string[] = [];
+  if (scope !== 'reminder') columns.push('weekly_enabled');
+  if (scope !== 'weekly') columns.push('reminder_enabled');
+  const setClause = columns.map((col) => `${col} = excluded.${col}`).join(',\n       ');
+
+  await env.DB.prepare(
+    `INSERT INTO user_email_prefs
+       (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled,
+        reminder_enabled, updated_at, unsubscribed_at, unsubscribed_via)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       ${setClause},
+       updated_at = excluded.updated_at,
+       unsubscribed_at = excluded.unsubscribed_at,
+       unsubscribed_via = excluded.unsubscribed_via`,
+  )
+    .bind(
+      userId,
+      DEFAULT_EMAIL_PREFS.timezone,
+      DEFAULT_EMAIL_PREFS.weeklyEmailDow,
+      DEFAULT_EMAIL_PREFS.reminderEmailDow,
+      weekly,
+      reminder,
+      Date.now(),
+      Date.now(),
+      via,
+    )
+    .run();
+}
+
+/** Does the caller want a page, or is this a machine (the one-click POST)? */
+function wantsHtml(c: Context<AppEnv>): boolean {
+  return (c.req.header('accept') ?? '').includes('text/html');
+}
+
+// Read-only. Always 200 with a friendly page — never leaks whether the token or the
+// user it names is real.
+app.get('/api/unsubscribe', (c) => {
+  const lang = pickLang(c.req.query('lang'), c.req.header('accept-language'));
+  return c.html(
+    confirmPageHtml(lang, c.req.query('t') ?? '', c.env.APP_ORIGIN),
+    200,
+  );
+});
+
+// The mutating half: the RFC 8058 one-click target and the confirmation form's
+// action. The `List-Unsubscribe=One-Click` form body is accepted but not required
+// (clients vary in what they post). Idempotent: a second POST is another 200.
+app.post('/api/unsubscribe', async (c) => {
+  const lang = pickLang(c.req.query('lang'), c.req.header('accept-language'));
+  const claims = await verifyUnsubscribeToken(
+    c.env.UNSUBSCRIBE_SECRET,
+    c.req.query('t'),
+  );
+  if (!claims) {
+    return wantsHtml(c)
+      ? c.html(errorPageHtml(lang, c.env.APP_ORIGIN), 400)
+      : c.text(plainError(lang), 400);
+  }
+  // An unknown user is a no-op success: the row is harmless and the caller must not
+  // learn whether the id exists.
+  await applyUnsubscribe(
+    c.env,
+    claims.userId,
+    claims.scope,
+    wantsHtml(c) ? 'link' : 'one-click',
+  );
+  return wantsHtml(c)
+    ? c.html(donePageHtml(lang, c.env.APP_ORIGIN), 200)
+    : c.text(plainDone(lang), 200);
 });
 
 // The caller's identity (for the settings page), whether they're an admin, and

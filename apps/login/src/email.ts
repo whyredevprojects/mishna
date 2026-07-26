@@ -8,6 +8,11 @@ import { Resend } from 'resend';
 //
 // English, inline-styled HTML (email clients strip <style>/external CSS). better-auth
 // hands us a ready-to-click `url` (verify-email / reset-password endpoint + token).
+//
+// These deliberately carry **no** List-Unsubscribe / one-click unsubscribe headers,
+// unlike apps/server's scheduled weekly/reminder mail. These are transactional: a
+// user cannot meaningfully "unsubscribe" from the verification or password-reset
+// email they just asked for, and offering it would break account recovery.
 
 function escapeHtml(s: string): string {
   return s

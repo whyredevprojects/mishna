@@ -15,7 +15,7 @@ allocation writes so concurrent joins can't corrupt a group.
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `email/` | The email module. The bulk **decision logic** (`planSends` — who is due at 08:00 local → `PreparedEmail[]`) and its **D1 reads** now live in the `@mishna/email-domain` + `@mishna/email-data` libs; this app owns the side-effecting half: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics; builds a `D1EmailRepository` and calls the lib's `planSends`), `sender.ts` (`processJobs` — render → Resend batch w/ idempotency key → `deps.record`, plus `prepareOne` for admin; re-exports `PreparedEmail` from the lib), `data.ts` (the admin/send-now readers only — `loadGroupBlocksFor`/`loadIdentitiesFor`/`alreadySentSet`/`loadCompletedFor` + single-user `loadRecipient`/`loadBlocks`/`loadCompleted`; reuses `@mishna/email-data`'s `chunked`/`placeholders` and `@mishna/email-domain`'s `DEFAULT_EMAIL_PREFS`), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
+| `email/` | The email module. The bulk **decision logic** (`planSends` — who is due at 08:00 local → `PreparedEmail[]`) and its **D1 reads** now live in the `@mishna/email-domain` + `@mishna/email-data` libs; this app owns the side-effecting half: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics; builds a `D1EmailRepository` and calls the lib's `planSends`), `sender.ts` (`processJobs` — render → Resend batch w/ idempotency key → `deps.record`, plus `prepareOne` for admin; re-exports `PreparedEmail` from the lib), `data.ts` (the admin/send-now readers only — `loadGroupBlocksFor`/`loadIdentitiesFor`/`alreadySentSet`/`loadCompletedFor` + single-user `loadRecipient`/`loadBlocks`/`loadCompleted`; reuses `@mishna/email-data`'s `chunked`/`placeholders` and `@mishna/email-domain`'s `DEFAULT_EMAIL_PREFS`), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `unsubscribe.ts` (the signed one-click-unsubscribe token + URL + the self-contained bilingual landing page the `/api/unsubscribe` routes render), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
@@ -45,7 +45,9 @@ in memory, no cross-DB JOIN).
   cycle-scoped (groups are recreated each cycle). `completed_at` (epoch ms) seeds a future
   offline last-write-wins sync.
 - `user_email_prefs(user_id, timezone, weekly_email_dow, reminder_email_dow,
-  weekly_enabled, reminder_enabled, updated_at)` — per-user email settings (`0003`). A
+  weekly_enabled, reminder_enabled, updated_at, unsubscribed_at, unsubscribed_via)` —
+  per-user email settings (`0003`; the last two are `0006`'s one-click-unsubscribe audit
+  trail — see Email below). A
   missing row means defaults (`America/New_York`, weekly=Sun, reminder=Thu, both on);
   `GET /api/me/preferences` synthesizes them and the email path
   (`@mishna/email-data`'s `loadCandidates`, fed to `@mishna/email-domain`'s `selectDue`)
@@ -96,6 +98,8 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `GET /api/corpus` | The static `MishnahDataset` (public; lets the client skip bundling it). |
 | `GET /api/cycle` | `{ cycleStart, cycleEnd, daysElapsed, daysRemaining, totalDays }` for the current cycle (public; powers the landing-page progress bar without shipping `@hebcal/core` to the client). |
 | `GET /api/join-options` | `{ options: JoinOption[] }` — the signup commitment choices as of today (`computeJoinOptions`), each weekly pace annotated with its approximate lot count, collapsing to a single "1 lot" option near the cycle end (public; keeps the lot math out of the clients, esp. Flutter). |
+| `GET /api/unsubscribe?t=&lang=` | **Strictly read-only.** Renders a small self-contained bilingual HTML page with a confirm `<form method="post">`. Always `200`, even for a garbage token — it must never leak whether a token/user is real, and mail scanners GET every link in a message, so this must not mutate anything (public, no auth — the signed token is the authorization). |
+| `POST /api/unsubscribe?t=&lang=` | The RFC 8058 one-click target *and* the form's action. Verifies the token, then turns the scope's emails off (`weekly_enabled`/`reminder_enabled`). Accepts, but doesn't require, the `List-Unsubscribe=One-Click` form body. `200 text/plain` for a machine POST, the HTML success page when `Accept: text/html`; `400` on a bad/malformed token; unknown user and a repeat POST are both an idempotent `200`. **Never redirects** (RFC 8058 forbids it) (public). |
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
 | `GET /api/me/chaluka` | `{ commitment, joinedAt, assigned: MishnaRef[], completed: MishnaRef[], groupIds: string[] }` — the caller's whole-cycle portion (every mishna in their blocks, corpus order) + the learned subset, for the "My Chaluka" progress/stats view (auth). `groupIds` is parallel to `assigned` (group for `assigned[i]` is `groupIds[i]`): the group each completion is recorded under, so the Assignments page can check mishnayot off (per-ref because lots spill across groups at an overflow boundary). |
 | `GET /api/me/preferences` | The caller's email prefs, defaults if no row (auth). |
@@ -205,6 +209,32 @@ skipped by the cron and yields no `PreparedEmail` for send-now. Google sign-ins 
 verified automatically by better-auth; password sign-ups stay unverified until a
 verification flow is added (`apps/login`). The admin views surface the flag so it's visible.
 
+**Unsubscribe (RFC 8058 one-click).** Every scheduled email carries
+`List-Unsubscribe: <https://…/api/unsubscribe?t=…>`, `List-Unsubscribe-Post:
+List-Unsubscribe=One-Click` and a `List-Id`, plus a **visible** "Unsubscribe" footer
+link (Gmail wants both). The link's `t` is a stateless HMAC-signed token
+(`email/unsubscribe.ts`): `base64url("v1.<userId>.<scope>.<issuedAt>") "."
+base64url(HMAC-SHA256)`, signed with `UNSUBSCRIBE_SECRET` (a **comma-separated list** —
+sign with the first, verify against all, which is the rotation story). **No expiry is
+enforced** — `issuedAt` is audit-only, because an expired link on year-old mail earns a
+spam report. Verification is `crypto.subtle.verify`, never a string compare, and every
+malformed input returns `null` rather than throwing. `scope` is always `all` today (the
+product decision is that unsubscribing kills *both* scheduled emails); it's in the format
+so granular links can ship later without invalidating old ones. The URL is injected into
+the sender as `SenderDeps.unsubscribeUrlFor` (like `send`/`record`), so `processJobs`
+stays offline-testable and the admin "send now" path — which goes through the same
+`senderDeps()` — gets the headers too.
+
+State is **self-managed in D1**, not Resend Audiences: the POST writes the same
+`user_email_prefs.weekly_enabled`/`reminder_enabled` columns both settings screens edit
+and `selectDue` honors, so a user can undo it in Settings on either client, plus the
+`0006` audit columns (`unsubscribed_at`, `unsubscribed_via`). The upsert names both flags
+in the **INSERT column list**, not only in the `ON CONFLICT DO UPDATE` branch — most
+users have no prefs row at all, and letting the table's `DEFAULT 1` win on the insert
+branch would silently no-op the unsubscribe for exactly them (covered by a test).
+`apps/login`'s verification/password-reset mail deliberately gets **none** of this: it's
+transactional.
+
 **Editing templates.** The emails are React Email components in `src/email/templates/`
 (`weekly-email.tsx`, `reminder-email.tsx`, shared `components/`, theme in `styles.ts`),
 rendered to HTML at send time by `templates/index.tsx`'s `weeklyEmail`/`reminderEmail`.
@@ -254,6 +284,7 @@ npm run db:migrate:remote    # production D1 — run as part of deploy
 Both wrap `wrangler d1 migrations apply mishna-app …` and only run the pending files.
 The existing `0001`/`0002` use `IF NOT EXISTS` so adopting migrations was safe on the
 already-provisioned databases; new migrations can be plain DDL (they only ever run once).
+`0006_unsubscribe.sql` adds the unsubscribe audit columns to `user_email_prefs`.
 `0005_lot_reset.sql` is a one-time **data** reset (not DDL): the switch to lot-based
 allocation changed the `groups.state` JSON shape, so it clears
 `groups`/`group_members`/`participants`/`completions` and everyone re-joins.
@@ -264,6 +295,8 @@ allocation changed the `groups.state` JSON shape, so it clears
 wrangler d1 create mishna-app          # paste the id into wrangler.toml database_id
 npm run db:migrate:remote              # apply migrations to the new remote DB
 wrangler types                         # regenerate worker-configuration.d.ts after binding changes
+wrangler secret put UNSUBSCRIBE_SECRET # HMAC key for the one-click unsubscribe links
+                                       # (comma-separated list; rotate by prepending)
 ```
 
 For **local dev**, seed both apps' local D1 before `npm run dev`:
@@ -297,6 +330,10 @@ it themselves.
   admin → leave.
 - `email/email.integration.test.ts` — `planSends` (who's due) and `processJobs` (build →
   send → log) directly, with an injected `send` so it runs offline.
+- `unsubscribe.integration.test.ts` — the one-click unsubscribe: the token (round-trip,
+  rotation, malformed/forged input), GET is read-only, POST flips both flags (including
+  for a user with **no** prefs row), 400s on a bad token, is idempotent, never 3xx, and
+  Settings can re-enable it. `UNSUBSCRIBE_SECRET` is bound in `vitest.config.mts`.
 - `preferences.integration.test.ts` — email prefs + admin send-now. The send path has no
   `RESEND_API_KEY` in tests, so `senderDeps()` throws and send-now surfaces as a `502`
   (the real build/send is covered offline in the email test above).

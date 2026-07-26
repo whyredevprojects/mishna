@@ -9,12 +9,22 @@ export const REMINDER_TITLE = 'Reminder: your mishnayos for this week';
 interface ReminderEmailProps {
   pending: ResolvedMishna[];
   appOrigin: string;
+  /** The recipient's signed one-click unsubscribe URL (footer link). */
+  unsubscribeUrl?: string;
 }
 
 /** The reminder email: only the mishnayot still not marked learned this week. */
-export function ReminderEmail({ pending, appOrigin }: ReminderEmailProps) {
+export function ReminderEmail({
+  pending,
+  appOrigin,
+  unsubscribeUrl,
+}: ReminderEmailProps) {
   return (
-    <EmailShell title={REMINDER_TITLE} appOrigin={appOrigin}>
+    <EmailShell
+      title={REMINDER_TITLE}
+      appOrigin={appOrigin}
+      unsubscribeUrl={unsubscribeUrl}
+    >
       {pending.length > 0 ? (
         <Text style={styles.intro}>
           You still have {pending.length} mishnayos to finish this week:

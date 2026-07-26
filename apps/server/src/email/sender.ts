@@ -13,6 +13,12 @@ export interface OutgoingEmail {
   to: string;
   subject: string;
   html: string;
+  /**
+   * Custom RFC 5322 headers. Resend's batch API takes these per element
+   * (`CreateBatchEmailOptions.headers`), so they ride along with the batch send.
+   * Used for the RFC 8058 one-click unsubscribe headers (see `buildEmail`).
+   */
+  headers?: Record<string, string>;
 }
 
 /** Side-effecting dependencies, injected so the consumer is testable offline. */
@@ -30,6 +36,11 @@ export interface SenderDeps {
    * `D1EmailRepository.recordSent` of `@mishna/email-data` in production.
    */
   record: (userId: string, kind: EmailKind, weekStart: string) => Promise<void>;
+  /**
+   * The user's signed one-click unsubscribe URL. Injected (like `send`/`record`) so
+   * `processJobs` stays offline-testable and the HMAC secret never reaches this module.
+   */
+  unsubscribeUrlFor: (userId: string) => Promise<string>;
   from: string;
   replyTo: string;
   appOrigin: string;
@@ -79,22 +90,49 @@ async function batchIdempotencyKey(jobs: PreparedEmail[]): Promise<string> {
   return `reminder-batch-${hex.slice(0, 32)}`;
 }
 
+/**
+ * A human-readable RFC 2919 list id for the scheduled mail. Gmail's bulk-sender
+ * rules want *either* a stable `List-Id` per subscription type or a distinct `From:`
+ * per type; the reminder already comes from the same sender as the weekly, so the
+ * list id is the belt to that braces.
+ */
+function listId(appOrigin: string): string {
+  let host = 'mishna2go.com';
+  try {
+    host = new URL(appOrigin).host;
+  } catch {
+    // Keep the fallback — a malformed APP_ORIGIN must not break a send.
+  }
+  return `Mishna study emails <study.${host}>`;
+}
+
 /** Render the email for one prepared job. */
 async function buildEmail(
   job: PreparedEmail,
   resolved: Awaited<ReturnType<TextResolver>>,
   deps: SenderDeps,
 ): Promise<OutgoingEmail> {
+  // One URL per email: it goes in the RFC 8058 header *and* in the visible footer
+  // link (Gmail requires the in-body link in addition to the header).
+  const unsubscribeUrl = await deps.unsubscribeUrlFor(job.userId);
   const built =
     job.kind === 'weekly'
-      ? await weeklyEmail(resolved, deps.appOrigin)
-      : await reminderEmail(resolved, deps.appOrigin);
+      ? await weeklyEmail(resolved, deps.appOrigin, unsubscribeUrl)
+      : await reminderEmail(resolved, deps.appOrigin, unsubscribeUrl);
   return {
     from: deps.from,
     replyTo: deps.replyTo,
     to: job.to,
     subject: built.subject,
     html: built.html,
+    headers: {
+      // RFC 8058: the URL must accept a POST that unsubscribes without further
+      // interaction. `List-Unsubscribe-Post` is what tells Gmail/Yahoo the
+      // one-click button is safe to show.
+      'List-Unsubscribe': `<${unsubscribeUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'List-Id': listId(deps.appOrigin),
+    },
   };
 }
 

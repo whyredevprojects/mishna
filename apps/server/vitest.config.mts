@@ -18,6 +18,13 @@ export default defineConfig(() => ({
     cloudflareTest({
       wrangler: { configPath: './wrangler.toml' },
       miniflare: {
+        // Secrets aren't in wrangler.toml, so the ones the tests need are bound
+        // here. (RESEND_API_KEY is deliberately absent — that's what makes the
+        // admin send-now route's 502 path testable.) This value is a test fixture,
+        // not a real key: production signs with `wrangler secret put`.
+        bindings: {
+          UNSUBSCRIBE_SECRET: 'test-unsubscribe-secret',
+        },
         // The login worker isn't running in tests, so stub the AUTH service
         // binding. get-session treats the forwarded cookie value as the user id
         // (so tests pick who they are with a `Cookie:` header; no cookie -> no

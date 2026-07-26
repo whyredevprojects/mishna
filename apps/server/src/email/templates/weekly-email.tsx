@@ -9,12 +9,18 @@ export const WEEKLY_TITLE = 'Your mishnayos for the coming week';
 interface WeeklyEmailProps {
   items: ResolvedMishna[];
   appOrigin: string;
+  /** The recipient's signed one-click unsubscribe URL (footer link). */
+  unsubscribeUrl?: string;
 }
 
 /** The weekly quota email: every mishna due this coming week, with its text. */
-export function WeeklyEmail({ items, appOrigin }: WeeklyEmailProps) {
+export function WeeklyEmail({ items, appOrigin, unsubscribeUrl }: WeeklyEmailProps) {
   return (
-    <EmailShell title={WEEKLY_TITLE} appOrigin={appOrigin}>
+    <EmailShell
+      title={WEEKLY_TITLE}
+      appOrigin={appOrigin}
+      unsubscribeUrl={unsubscribeUrl}
+    >
       {items.length > 0 ? (
         <Text style={styles.intro}>
           Here are your mishnayos for the coming week ({items.length}):

@@ -11,6 +11,12 @@
 interface Env {
   /** Resend API key. Set with `wrangler secret put RESEND_API_KEY`. */
   RESEND_API_KEY: string;
+  /**
+   * HMAC key(s) signing the one-click unsubscribe tokens, comma-separated (sign with
+   * the first, verify against all — that's the rotation story). Set with
+   * `wrangler secret put UNSUBSCRIBE_SECRET`.
+   */
+  UNSUBSCRIBE_SECRET: string;
   /** GitHub PAT (contents:write on whyredevprojects/mishna). Set with `wrangler secret put GITHUB_TOKEN`. */
   GITHUB_TOKEN: string;
   /** GitHub repo owner for the about commit (wrangler.toml [vars]). */
@@ -33,6 +39,8 @@ declare namespace Cloudflare {
   interface Env {
     /** Resend API key. Set with `wrangler secret put RESEND_API_KEY`. */
     RESEND_API_KEY: string;
+    /** HMAC key(s) for the one-click unsubscribe tokens (comma-separated). */
+    UNSUBSCRIBE_SECRET: string;
     /** GitHub PAT (contents:write on whyredevprojects/mishna). Set with `wrangler secret put GITHUB_TOKEN`. */
     GITHUB_TOKEN: string;
     /** GitHub repo owner for the about commit (wrangler.toml [vars]). */

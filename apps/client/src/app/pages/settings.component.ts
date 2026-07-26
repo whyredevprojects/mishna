@@ -59,6 +59,11 @@ const DAY_NAMES = [
       .actions {
         margin-top: var(--wa-space-m, 0.75rem);
       }
+      .pref-hint {
+        margin: 0;
+        color: var(--wa-color-text-quiet, #6b6358);
+        font-size: var(--wa-font-size-s, 0.875rem);
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -153,6 +158,16 @@ const DAY_NAMES = [
               >
                 Send me the weekly reminder email
               </wa-checkbox>
+
+              <!--
+                Both flags are the ones the emails' one-click unsubscribe writes
+                (apps/server GET/POST /api/unsubscribe), so this screen is also how a
+                user re-subscribes. Keep in sync with apps/mobile's settings screen.
+              -->
+              <p class="pref-hint" i18n="@@settings.unsubscribeHint">
+                The unsubscribe link in those emails turns both of these off — you
+                can switch them back on here any time.
+              </p>
 
               <div class="actions">
                 <wa-button

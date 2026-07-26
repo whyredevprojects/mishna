@@ -13,6 +13,11 @@ import { D1EmailRepository } from '@mishna/email-data';
 import { applyMigrations } from '../apply-migrations';
 import { loadBlocks } from './data';
 import { OutgoingEmail, PreparedEmail, processJobs } from './sender';
+import {
+  mintUnsubscribeToken,
+  unsubscribeUrl,
+  verifyUnsubscribeToken,
+} from './unsubscribe';
 
 const structure = createMishnaStructure();
 const chalakim = createMishnaChalakim();
@@ -142,12 +147,21 @@ async function seedSharedGroup(userIds: string[]): Promise<Group> {
   return group;
 }
 
+const TEST_SECRET = 'test-unsubscribe-secret';
+
+/** The production wiring of `unsubscribeUrlFor`, over a fixed test secret. */
+const unsubscribeUrlFor = (userId: string) =>
+  mintUnsubscribeToken(TEST_SECRET, userId, 'all').then((t) =>
+    unsubscribeUrl('https://app.test', t),
+  );
+
 /** A `SenderDeps` whose `send` records the emails + idempotency key it was given. */
 function recordingDeps(sink: { emails: OutgoingEmail[][]; keys: string[] }) {
   return {
     resolveText: vi.fn(async (refs: MishnaRef[]) =>
       refs.map((ref) => ({ ref, tractateHebrew: 'ברכות', hebrew: 'טקסט' })),
     ),
+    unsubscribeUrlFor,
     send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
       sink.emails.push(emails);
       sink.keys.push(idempotencyKey);
@@ -331,6 +345,45 @@ describe('email path', () => {
       expect(log).toMatchObject({ kind: 'weekly', week_start: '2026-06-03' });
     });
 
+    it('sets the RFC 8058 unsubscribe headers + footer link on both kinds', async () => {
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      const base = {
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+      };
+      await processJobs(
+        [
+          { ...base, userId: 'alice', kind: 'weekly' },
+          { ...base, userId: 'bob', kind: 'reminder', to: 'bob@example.com' },
+        ],
+        recordingDeps(sink),
+      );
+
+      const [weekly, reminder] = sink.emails[0];
+      for (const [i, email] of [weekly, reminder].entries()) {
+        const headers = email.headers ?? {};
+        expect(headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+        expect(headers['List-Id']).toBe('Mishna study emails <study.app.test>');
+        // RFC 5322 angle-bracket form, pointing at this worker's endpoint.
+        const wrapped = headers['List-Unsubscribe'] ?? '';
+        expect(wrapped).toMatch(/^<https:\/\/app\.test\/api\/unsubscribe\?t=.+>$/);
+        const url = new URL(wrapped.slice(1, -1));
+        // The token round-trips to the right user (and only that user).
+        const claims = await verifyUnsubscribeToken(
+          TEST_SECRET,
+          url.searchParams.get('t'),
+        );
+        expect(claims).toMatchObject({
+          userId: i === 0 ? 'alice' : 'bob',
+          scope: 'all',
+        });
+        // Gmail wants a visible in-body link too, not just the header.
+        expect(email.html).toContain(url.toString().replace(/&/g, '&amp;'));
+        expect(email.html).toContain('Unsubscribe');
+      }
+    });
+
     it('passes a deterministic idempotency key, stable across retries', async () => {
       const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
       const job: PreparedEmail = {
@@ -376,6 +429,7 @@ describe('email path', () => {
             throw new Error('Resend batch failed: boom');
           },
           record: () => Promise.resolve(),
+          unsubscribeUrlFor,
           from: 'test@example.com',
           replyTo: 'support@example.com',
           appOrigin: 'https://app.test',

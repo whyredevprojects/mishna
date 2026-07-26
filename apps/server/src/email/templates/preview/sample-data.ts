@@ -6,6 +6,12 @@ import { ResolvedMishna } from '../../quota';
 
 export const SAMPLE_ORIGIN = 'https://app.getchevrasmishnayos.com';
 
+/**
+ * A dummy signed-looking unsubscribe URL so the preview renders the footer link.
+ * The real one is minted per recipient at send time (`email/unsubscribe.ts`).
+ */
+export const SAMPLE_UNSUBSCRIBE_URL = `${SAMPLE_ORIGIN}/api/unsubscribe?t=preview.token`;
+
 /** A couple of tractates so the preview shows the group-by-tractate headings. */
 export const SAMPLE_ITEMS: ResolvedMishna[] = [
   {

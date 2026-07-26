@@ -65,6 +65,19 @@ export const hr: CSSProperties = {
   margin: '28px 0 16px',
 };
 
+/** The footer line: sender name + the visible unsubscribe link. */
+export const footer: CSSProperties = {
+  color: '#888888',
+  fontSize: 13,
+  lineHeight: 1.6,
+  margin: '0',
+};
+
+export const footerLink: CSSProperties = {
+  color: colors.accent,
+  textDecoration: 'underline',
+};
+
 export const button: CSSProperties = {
   display: 'inline-block',
   background: colors.accent,
