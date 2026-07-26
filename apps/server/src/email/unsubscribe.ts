@@ -10,14 +10,21 @@
  *
  * Format:
  *
- *   payload = "v1.<userId>.<scope>.<issuedAtEpochSeconds>"
+ *   payload = "v1.<userId>.<scope>"
  *   token   = base64url(payload) "." base64url(HMAC-SHA256(secret, payload))
  *
  * Notes on the deliberate choices here:
  *
- * - **No expiry.** `issuedAt` is audit-only. A year-old email is still a legitimate
+ * - **No timestamp, and therefore no expiry.** A year-old email is still a legitimate
  *   place to unsubscribe from; an expired link there earns a spam report, which is
- *   the exact outcome this feature exists to prevent.
+ *   the exact outcome this feature exists to prevent. Since nothing is ever enforced
+ *   against it, minting one would only cost determinism — and that cost is real: the
+ *   token rides in the `List-Unsubscribe` header *and* the HTML footer, so a clock in
+ *   the payload makes the rendered email differ on every render, while `sender.ts`'s
+ *   Resend `Idempotency-Key` is derived from the job (user/kind/week). Resend answers
+ *   `409 invalid_idempotent_request` when a key comes back with a different body, so a
+ *   retried batch would fail the whole workflow instead of collapsing. The token is a
+ *   pure function of (secret, userId, scope) on purpose.
  * - **`scope` is carried but currently always `all`.** The product decision is that
  *   unsubscribing turns off *both* scheduled emails. Keeping the field means granular
  *   links can ship later without a token-format change (old links keep verifying).
@@ -36,10 +43,13 @@ export type UnsubscribeScope = 'all' | 'weekly' | 'reminder';
 export interface UnsubscribeClaims {
   userId: string;
   scope: UnsubscribeScope;
-  /** Epoch **seconds** the token was minted. Audit only — never enforced. */
-  issuedAt: number;
 }
 
+// The payload's version tag: the lever for changing the format later (verify can then
+// accept both while old mail ages out). It stays `v1` here because the four-field
+// `v1.<userId>.<scope>.<issuedAt>` shape it briefly had never shipped — no token of
+// that form exists outside an unpushed branch, so there is nothing to stay
+// compatible with.
 const VERSION = 'v1';
 const SCOPES: readonly string[] = ['all', 'weekly', 'reminder'];
 
@@ -91,7 +101,9 @@ function importKey(secret: string): Promise<CryptoKey> {
 }
 
 /**
- * Mint a token for a user. Signed with the **first** configured secret.
+ * Mint a token for a user. Signed with the **first** configured secret, and
+ * **deterministic** — the same (secret, userId, scope) always yields the same token,
+ * which is what keeps a re-rendered email byte-identical (see the header note).
  * Throws only when `UNSUBSCRIBE_SECRET` is missing entirely — a misconfiguration
  * the send path should fail loudly on rather than mail unusable links.
  */
@@ -99,7 +111,6 @@ export async function mintUnsubscribeToken(
   secret: string | undefined,
   userId: string,
   scope: UnsubscribeScope = 'all',
-  issuedAtMs: number = Date.now(),
 ): Promise<string> {
   const secrets = signingSecrets(secret);
   if (secrets.length === 0) {
@@ -107,7 +118,7 @@ export async function mintUnsubscribeToken(
       'UNSUBSCRIBE_SECRET is not set — cannot sign unsubscribe links (wrangler secret put UNSUBSCRIBE_SECRET)',
     );
   }
-  const payload = `${VERSION}.${userId}.${scope}.${Math.floor(issuedAtMs / 1000)}`;
+  const payload = `${VERSION}.${userId}.${scope}`;
   const bytes = new TextEncoder().encode(payload);
   const signature = new Uint8Array(
     await crypto.subtle.sign('HMAC', await importKey(secrets[0]), bytes),
@@ -121,14 +132,12 @@ export async function mintUnsubscribeToken(
  */
 function parseClaims(payload: string): UnsubscribeClaims | null {
   const parts = payload.split('.');
-  if (parts.length < 4 || parts[0] !== VERSION) return null;
-  const issuedAt = Number(parts[parts.length - 1]);
-  const scope = parts[parts.length - 2];
-  const userId = parts.slice(1, -2).join('.');
-  if (!Number.isInteger(issuedAt) || issuedAt < 0) return null;
+  if (parts.length < 3 || parts[0] !== VERSION) return null;
+  const scope = parts[parts.length - 1];
+  const userId = parts.slice(1, -1).join('.');
   if (!SCOPES.includes(scope)) return null;
   if (userId === '') return null;
-  return { userId, scope: scope as UnsubscribeScope, issuedAt };
+  return { userId, scope: scope as UnsubscribeScope };
 }
 
 /**
@@ -182,20 +191,49 @@ export function unsubscribeUrl(
 
 export type UnsubscribeLang = 'en' | 'he';
 
-/** `?lang`, else the browser's `Accept-Language`, else English. */
+/**
+ * `?lang`, else the best-ranked `Accept-Language` tag, else English.
+ *
+ * The header is a *ranked* list, not a set: `en-US,en;q=0.9,he;q=0.5` means "English,
+ * or Hebrew if you must" — testing whether `he` appears anywhere would serve that user
+ * Hebrew. So rank by q (defaulting to 1, dropping `q=0` = explicitly unacceptable) and
+ * look only at the winner. Ties keep header order, since `Array#sort` is stable.
+ * `iw` is the legacy ISO code for Hebrew and some clients still send it.
+ */
 export function pickLang(
   queryLang: string | undefined,
   acceptLanguage: string | undefined,
 ): UnsubscribeLang {
   if (queryLang === 'he' || queryLang === 'en') return queryLang;
-  return /(^|[,\s])he\b/i.test(acceptLanguage ?? '') ? 'he' : 'en';
+  const ranked = (acceptLanguage ?? '')
+    .split(',')
+    .map((entry) => {
+      const [tag, ...params] = entry.trim().split(';');
+      const q = params
+        .map((p) => /^q=([\d.]+)$/i.exec(p.trim())?.[1])
+        .find((v) => v !== undefined);
+      const quality = q === undefined ? 1 : Number(q);
+      return {
+        primary: tag.trim().toLowerCase().split('-')[0],
+        q: Number.isFinite(quality) ? quality : 0,
+      };
+    })
+    .filter((t) => t.primary !== '' && t.q > 0)
+    .sort((a, b) => b.q - a.q);
+  const best = ranked[0]?.primary;
+  return best === 'he' || best === 'iw' ? 'he' : 'en';
 }
 
+// The product's name, in both languages — *not* the domain (mishna2go.com). This is
+// the name on the `From:` line the recipient just saw (config/domains.json's email
+// display name, the www site's site.json, the app shell's title), and a page branded
+// anything else is the "I don't recognize this — mark as spam" moment this whole
+// feature exists to avoid.
 const COPY = {
   en: {
     dir: 'ltr',
-    brand: 'Mishna2Go',
-    confirmTitle: 'Unsubscribe from Mishna2Go emails',
+    brand: 'Chevras Mishnayos Baal Peh',
+    confirmTitle: 'Unsubscribe from Chevras Mishnayos Baal Peh emails',
     confirmBody:
       'Confirm below to stop receiving the weekly mishnayos email and the weekly reminder.',
     confirmButton: 'Unsubscribe',
@@ -206,13 +244,14 @@ const COPY = {
     errorTitle: "This unsubscribe link isn't valid",
     errorBody:
       'It may have been shortened or truncated by your email app. You can turn these emails off any time in Settings.',
-    plainDone: 'You have been unsubscribed from Mishna2Go emails.',
+    plainDone:
+      'You have been unsubscribed from Chevras Mishnayos Baal Peh emails.',
     plainError: 'Invalid or malformed unsubscribe token.',
   },
   he: {
     dir: 'rtl',
-    brand: 'משנה2גו',
-    confirmTitle: 'ביטול הרשמה למיילים של משנה2גו',
+    brand: 'חברת משניות בעל פה',
+    confirmTitle: 'ביטול הרשמה למיילים של חברת משניות בעל פה',
     confirmBody:
       'אשרו כאן כדי להפסיק לקבל את המייל השבועי עם המשניות ואת מייל התזכורת.',
     confirmButton: 'בטלו את ההרשמה',
@@ -223,7 +262,7 @@ const COPY = {
     errorTitle: 'קישור ביטול ההרשמה אינו תקין',
     errorBody:
       'ייתכן שהקישור נקטע על ידי תוכנת הדואר. תמיד אפשר לכבות את המיילים האלה בהגדרות.',
-    plainDone: 'ההרשמה למיילים של משנה2גו בוטלה.',
+    plainDone: 'ההרשמה למיילים של חברת משניות בעל פה בוטלה.',
     plainError: 'אסימון ביטול הרשמה שגוי או פגום.',
   },
 } as const;
@@ -254,6 +293,13 @@ function page(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="robots" content="noindex" />
+    <!--
+      The URL carries the (never-expiring) unsubscribe token in ?t=, and this page
+      links to the app's own /settings — same-origin, so the default
+      strict-origin-when-cross-origin policy would send the *full* URL as Referer.
+      Belt to the Referrer-Policy header the routes set.
+    -->
+    <meta name="referrer" content="no-referrer" />
     <title>${escapeHtml(title)}</title>
   </head>
   <body style="margin:0;background:#f5f3ee;font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;">

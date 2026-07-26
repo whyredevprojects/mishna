@@ -74,6 +74,11 @@ export async function prepareOne(
  * order doesn't matter). A retry of the *same* batch yields the same key; a different
  * set of jobs yields a different one. SHA-256 so distinct batches can't collide into
  * one key (which would make Resend drop genuinely-new mail).
+ *
+ * The other half of the contract is `buildEmail`: Resend answers a reused key that
+ * arrives with a *different* payload with `409 invalid_idempotent_request`, so the
+ * rendered email must be a pure function of the same job fields this key covers —
+ * no clocks, no randomness (see the note on the unsubscribe token's format).
  */
 async function batchIdempotencyKey(jobs: PreparedEmail[]): Promise<string> {
   const canonical = jobs
@@ -95,15 +100,15 @@ async function batchIdempotencyKey(jobs: PreparedEmail[]): Promise<string> {
  * rules want *either* a stable `List-Id` per subscription type or a distinct `From:`
  * per type; the reminder already comes from the same sender as the weekly, so the
  * list id is the belt to that braces.
+ *
+ * No hardcoded host fallback: the domain lives in `config/domains.json` and reaches
+ * this worker as `APP_ORIGIN` (`npm run sync:domains`), so a literal here would be an
+ * un-synced second source of truth. An unparseable `APP_ORIGIN` is a deploy bug that
+ * has already broken every link in the email — better to throw than to mail a batch
+ * stamped with someone else's list id.
  */
 function listId(appOrigin: string): string {
-  let host = 'mishna2go.com';
-  try {
-    host = new URL(appOrigin).host;
-  } catch {
-    // Keep the fallback — a malformed APP_ORIGIN must not break a send.
-  }
-  return `Mishna study emails <study.${host}>`;
+  return `Mishna study emails <study.${new URL(appOrigin).host}>`;
 }
 
 /** Render the email for one prepared job. */
@@ -113,7 +118,9 @@ async function buildEmail(
   deps: SenderDeps,
 ): Promise<OutgoingEmail> {
   // One URL per email: it goes in the RFC 8058 header *and* in the visible footer
-  // link (Gmail requires the in-body link in addition to the header).
+  // link (Gmail requires the in-body link in addition to the header). The token is
+  // deterministic per user, so re-rendering this job produces the identical email —
+  // which is what the batch idempotency key promises Resend.
   const unsubscribeUrl = await deps.unsubscribeUrlFor(job.userId);
   const built =
     job.kind === 'weekly'

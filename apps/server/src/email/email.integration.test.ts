@@ -13,6 +13,7 @@ import { D1EmailRepository } from '@mishna/email-data';
 import { applyMigrations } from '../apply-migrations';
 import { loadBlocks } from './data';
 import { OutgoingEmail, PreparedEmail, processJobs } from './sender';
+import { senderDeps } from './workflow';
 import {
   mintUnsubscribeToken,
   unsubscribeUrl,
@@ -401,6 +402,35 @@ describe('email path', () => {
       expect(sink.keys[0]).toMatch(/^reminder-batch-/);
       expect(sink.keys[1]).toBe(sink.keys[0]);
       expect(sink.keys[2]).not.toBe(sink.keys[0]);
+      // The key is only half the deal: Resend answers a reused key carrying a
+      // *different* payload with 409 invalid_idempotent_request, which would fail the
+      // retried step and take the rest of the hour's batches down with it. So the
+      // re-render must be byte-identical — no clock, no randomness, anywhere in the
+      // body or headers (the unsubscribe token used to mint a timestamp here).
+      expect(sink.emails[1]).toEqual(sink.emails[0]);
+    });
+
+    it('fails closed when UNSUBSCRIBE_SECRET is missing', async () => {
+      // A deploy without the secret must throw (and retry loudly), not mail a footer
+      // link and a List-Unsubscribe header that can never verify.
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      const job: PreparedEmail = {
+        userId: 'alice',
+        kind: 'weekly',
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+      };
+      await expect(
+        processJobs([job], {
+          ...recordingDeps(sink),
+          unsubscribeUrlFor: (userId: string) =>
+            mintUnsubscribeToken(undefined, userId, 'all').then((t) =>
+              unsubscribeUrl('https://app.test', t),
+            ),
+        }),
+      ).rejects.toThrow(/UNSUBSCRIBE_SECRET/);
+      expect(sink.emails).toEqual([]);
     });
 
     it('does nothing for an empty batch', async () => {
@@ -439,6 +469,38 @@ describe('email path', () => {
         n: number;
       }>();
       expect(log?.n).toBe(0);
+    });
+  });
+
+  describe('senderDeps (the production wiring)', () => {
+    // Everything above injects its own deps, so a missing wire in senderDeps itself
+    // would only ever be caught by the type checker. Resend's constructor throws
+    // without an api key (the tests deliberately have none — that's what makes
+    // send-now's 502 testable), so stub one in; nothing here actually sends.
+    const wired = (overrides: Partial<Env> = {}) =>
+      senderDeps({
+        ...env,
+        RESEND_API_KEY: 'test-not-a-real-key',
+        ...overrides,
+      } as Env);
+
+    it('mints the signed unsubscribe URL for the right user', async () => {
+      const url = new URL(await wired().unsubscribeUrlFor('alice'));
+      expect(`${url.origin}${url.pathname}`).toBe(
+        `${env.APP_ORIGIN}/api/unsubscribe`,
+      );
+      expect(
+        await verifyUnsubscribeToken(
+          env.UNSUBSCRIBE_SECRET,
+          url.searchParams.get('t'),
+        ),
+      ).toEqual({ userId: 'alice', scope: 'all' });
+    });
+
+    it('throws instead of building a link with no secret to sign it', async () => {
+      await expect(
+        wired({ UNSUBSCRIBE_SECRET: '' }).unsubscribeUrlFor('alice'),
+      ).rejects.toThrow(/UNSUBSCRIBE_SECRET/);
     });
   });
 });

@@ -60,7 +60,12 @@ export function EmailShell({
           */}
           <Hr style={styles.hr} />
           <Text style={styles.footer}>
-            Mishna2Go
+            {/*
+              The product name, not the domain — it must match the `From:` display
+              name (config/domains.json) and the unsubscribe landing page, or the
+              footer reads like someone else's mail.
+            */}
+            Chevras Mishnayos Baal Peh
             {unsubscribeUrl ? (
               <>
                 {' · '}

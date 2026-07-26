@@ -401,6 +401,36 @@ app.get('/api/join-options', (c) => {
 // mutating GET would silently unsubscribe people who never clicked. POST mutates.
 // Neither ever redirects (RFC 8058 forbids a redirect on the one-click POST).
 
+/** The flag columns an unsubscribe scope turns off. */
+type FlagColumn = 'weekly_enabled' | 'reminder_enabled';
+
+/**
+ * How a user's scheduled emails were last turned off (`0006`'s audit trail): the RFC
+ * 8058 machine POST, the confirm page's form, the user's own Settings save, or an
+ * admin toggling it for them. See `unsubscribeAudit` for when each is written.
+ */
+type UnsubscribeVia = 'one-click' | 'link' | 'settings' | 'admin';
+
+/**
+ * Which flags a scope covers. A `switch` rather than a pair of `!==` tests so that
+ * adding a scope to `UnsubscribeScope` without deciding what it turns off is a
+ * compile error here, instead of silently behaving like `all`.
+ */
+function scopeColumns(scope: UnsubscribeScope): FlagColumn[] {
+  switch (scope) {
+    case 'all':
+      return ['weekly_enabled', 'reminder_enabled'];
+    case 'weekly':
+      return ['weekly_enabled'];
+    case 'reminder':
+      return ['reminder_enabled'];
+    default: {
+      const unhandled: never = scope;
+      throw new Error(`unhandled unsubscribe scope: ${String(unhandled)}`);
+    }
+  }
+}
+
 /**
  * Turn the scope's emails off for the user. Writes the very same
  * `weekly_enabled` / `reminder_enabled` columns both settings screens edit and
@@ -416,16 +446,23 @@ async function applyUnsubscribe(
   env: Env,
   userId: string,
   scope: UnsubscribeScope,
-  via: 'one-click' | 'link',
+  via: Extract<UnsubscribeVia, 'one-click' | 'link'>,
 ): Promise<void> {
-  const weekly = scope === 'reminder' ? 1 : 0;
-  const reminder = scope === 'weekly' ? 1 : 0;
+  const columns = scopeColumns(scope);
+  const off = (col: FlagColumn) => (columns.includes(col) ? 0 : 1);
+  // One clock read for both timestamps — they record the same single event.
+  const now = Date.now();
   // On conflict, touch only the flags this scope covers (their timezone, weekdays
-  // and the untouched flag survive). Column names come from this fixed set.
-  const columns: string[] = [];
-  if (scope !== 'reminder') columns.push('weekly_enabled');
-  if (scope !== 'weekly') columns.push('reminder_enabled');
-  const setClause = columns.map((col) => `${col} = excluded.${col}`).join(',\n       ');
+  // and the untouched flag survive). Column names come from this fixed set, and the
+  // always-present tail keeps the SET clause valid whatever the scope covers.
+  const setClause = [
+    ...columns.map((col) => `${col} = excluded.${col}`),
+    'updated_at = excluded.updated_at',
+    // An unsubscribe always records itself, even a partial (future) one — the
+    // re-subscribe path is what clears these again (see `unsubscribeAudit`).
+    'unsubscribed_at = excluded.unsubscribed_at',
+    'unsubscribed_via = excluded.unsubscribed_via',
+  ].join(',\n       ');
 
   await env.DB.prepare(
     `INSERT INTO user_email_prefs
@@ -433,20 +470,17 @@ async function applyUnsubscribe(
         reminder_enabled, updated_at, unsubscribed_at, unsubscribed_via)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id) DO UPDATE SET
-       ${setClause},
-       updated_at = excluded.updated_at,
-       unsubscribed_at = excluded.unsubscribed_at,
-       unsubscribed_via = excluded.unsubscribed_via`,
+       ${setClause}`,
   )
     .bind(
       userId,
       DEFAULT_EMAIL_PREFS.timezone,
       DEFAULT_EMAIL_PREFS.weeklyEmailDow,
       DEFAULT_EMAIL_PREFS.reminderEmailDow,
-      weekly,
-      reminder,
-      Date.now(),
-      Date.now(),
+      off('weekly_enabled'),
+      off('reminder_enabled'),
+      now,
+      now,
       via,
     )
     .run();
@@ -457,6 +491,23 @@ function wantsHtml(c: Context<AppEnv>): boolean {
   return (c.req.header('accept') ?? '').includes('text/html');
 }
 
+/**
+ * Response headers for both unsubscribe routes. The URL carries a **never-expiring**
+ * bearer token in `?t=`, so:
+ * - `Referrer-Policy: no-referrer` — the pages link to `${APP_ORIGIN}/settings`, which
+ *   is same-origin, and the default `strict-origin-when-cross-origin` would hand the
+ *   full URL (token and all) to that navigation as `Referer`.
+ * - `Cache-Control: no-store` — keeps the token out of shared/back-forward caches on
+ *   a shared machine, and out of any intermediary.
+ * - `X-Content-Type-Options: nosniff` — the usual belt on an HTML response built from
+ *   attacker-supplied query params.
+ */
+const UNSUBSCRIBE_HEADERS = {
+  'Cache-Control': 'no-store',
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff',
+} as const;
+
 // Read-only. Always 200 with a friendly page — never leaks whether the token or the
 // user it names is real.
 app.get('/api/unsubscribe', (c) => {
@@ -464,6 +515,7 @@ app.get('/api/unsubscribe', (c) => {
   return c.html(
     confirmPageHtml(lang, c.req.query('t') ?? '', c.env.APP_ORIGIN),
     200,
+    UNSUBSCRIBE_HEADERS,
   );
 });
 
@@ -478,8 +530,8 @@ app.post('/api/unsubscribe', async (c) => {
   );
   if (!claims) {
     return wantsHtml(c)
-      ? c.html(errorPageHtml(lang, c.env.APP_ORIGIN), 400)
-      : c.text(plainError(lang), 400);
+      ? c.html(errorPageHtml(lang, c.env.APP_ORIGIN), 400, UNSUBSCRIBE_HEADERS)
+      : c.text(plainError(lang), 400, UNSUBSCRIBE_HEADERS);
   }
   // An unknown user is a no-op success: the row is harmless and the caller must not
   // learn whether the id exists.
@@ -490,8 +542,8 @@ app.post('/api/unsubscribe', async (c) => {
     wantsHtml(c) ? 'link' : 'one-click',
   );
   return wantsHtml(c)
-    ? c.html(donePageHtml(lang, c.env.APP_ORIGIN), 200)
-    : c.text(plainDone(lang), 200);
+    ? c.html(donePageHtml(lang, c.env.APP_ORIGIN), 200, UNSUBSCRIBE_HEADERS)
+    : c.text(plainDone(lang), 200, UNSUBSCRIBE_HEADERS);
 });
 
 // The caller's identity (for the settings page), whether they're an admin, and
@@ -614,6 +666,41 @@ app.get('/api/me/preferences', requireAuth, async (c) => {
   return c.json(rowToPrefs(await loadPrefs(c.env, c.get('userId'))));
 });
 
+/**
+ * `0006`'s audit columns for a prefs write, given the flags the row will *end up*
+ * with — or `null` for "don't touch them".
+ *
+ * Both scheduled emails back on means the user is subscribed again, so the columns
+ * are cleared; otherwise the row would read "unsubscribed via one-click" forever
+ * while both emails are on, and any later suppression logic keyed on
+ * `unsubscribed_at` would wrongly skip a re-subscribed user. Both off is itself an
+ * unsubscribe and is recorded with the channel it came through (this is what writes
+ * `'settings'` / `'admin'`; `applyUnsubscribe` writes the mail-side ones). One on and
+ * one off is neither, so the previous record stands.
+ */
+function unsubscribeAudit(
+  weeklyEnabled: boolean,
+  reminderEnabled: boolean,
+  via: UnsubscribeVia,
+  now: number,
+): { at: number | null; via: UnsubscribeVia | null } | null {
+  if (weeklyEnabled && reminderEnabled) return { at: null, via: null };
+  if (!weeklyEnabled && !reminderEnabled) return { at: now, via };
+  return null;
+}
+
+/** The `ON CONFLICT` assignments for the audit columns (empty = leave them alone). */
+function auditSetClause(
+  audit: ReturnType<typeof unsubscribeAudit>,
+): string[] {
+  return audit
+    ? [
+        'unsubscribed_at = excluded.unsubscribed_at',
+        'unsubscribed_via = excluded.unsubscribed_via',
+      ]
+    : [];
+}
+
 // Upsert the caller's email preferences.
 app.put('/api/me/preferences', requireAuth, async (c) => {
   const body = await c.req.json().catch(() => ({}));
@@ -627,17 +714,26 @@ app.put('/api/me/preferences', requireAuth, async (c) => {
   }
   const weekly = weeklyEnabled !== false ? 1 : 0;
   const reminder = reminderEnabled !== false ? 1 : 0;
+  const now = Date.now();
+  // Saving Settings is also how a user re-subscribes after a one-click unsubscribe,
+  // so this write owns the audit columns too.
+  const audit = unsubscribeAudit(weekly === 1, reminder === 1, 'settings', now);
+  const setClause = [
+    'timezone = excluded.timezone',
+    'weekly_email_dow = excluded.weekly_email_dow',
+    'reminder_email_dow = excluded.reminder_email_dow',
+    'weekly_enabled = excluded.weekly_enabled',
+    'reminder_enabled = excluded.reminder_enabled',
+    'updated_at = excluded.updated_at',
+    ...auditSetClause(audit),
+  ].join(',\n       ');
   await c.env.DB.prepare(
     `INSERT INTO user_email_prefs
-       (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+       (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled,
+        reminder_enabled, updated_at, unsubscribed_at, unsubscribed_via)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id) DO UPDATE SET
-       timezone = excluded.timezone,
-       weekly_email_dow = excluded.weekly_email_dow,
-       reminder_email_dow = excluded.reminder_email_dow,
-       weekly_enabled = excluded.weekly_enabled,
-       reminder_enabled = excluded.reminder_enabled,
-       updated_at = excluded.updated_at`,
+       ${setClause}`,
   )
     .bind(
       c.get('userId'),
@@ -646,7 +742,10 @@ app.put('/api/me/preferences', requireAuth, async (c) => {
       reminderEmailDow,
       weekly,
       reminder,
-      Date.now(),
+      now,
+      // A brand-new row has no history to preserve, so a mixed state inserts NULLs.
+      audit?.at ?? null,
+      audit?.via ?? null,
     )
     .run();
   return c.json({
@@ -1138,8 +1237,10 @@ app.post('/api/admin/users/:id/set-role', requireAdmin, async (c) => {
 // one call; an omitted flag is left alone. This writes the very row PUT/GET
 // /api/me/preferences owns, so the user sees the change in Settings and can undo it
 // there, and selectDue skips them on the next bulk run. Only the named columns are
-// touched on conflict, so their timezone and send weekdays survive. (Admin "send now"
-// deliberately ignores these flags: it's a manual one-off, not the schedule.)
+// touched on conflict, so their timezone and send weekdays survive — plus `0006`'s
+// audit columns, which track the resulting subscribed/unsubscribed state either way.
+// (Admin "send now" deliberately ignores these flags: it's a manual one-off, not the
+// schedule.)
 app.post('/api/admin/users/:id/set-email-prefs', requireAdmin, async (c) => {
   const id = c.req.param('id');
   const { weeklyEnabled, reminderEnabled } = (await c.req
@@ -1161,24 +1262,39 @@ app.post('/api/admin/users/:id/set-email-prefs', requireAdmin, async (c) => {
   const columns: string[] = [];
   if (weeklyEnabled !== undefined) columns.push('weekly_enabled');
   if (reminderEnabled !== undefined) columns.push('reminder_enabled');
-  const setClause = columns.map((col) => `${col} = excluded.${col}`).join(',\n       ');
+
+  // The audit columns describe the row's *resulting* state, so a partial update has
+  // to know the flag it isn't naming. Read it first (defaults when there's no row —
+  // the same value the insert branch would write).
+  const current = rowToPrefs(await loadPrefs(c.env, id));
+  const weekly = weeklyEnabled ?? current.weeklyEnabled;
+  const reminder = reminderEnabled ?? current.reminderEnabled;
+  const now = Date.now();
+  const audit = unsubscribeAudit(weekly, reminder, 'admin', now);
+  const setClause = [
+    ...columns.map((col) => `${col} = excluded.${col}`),
+    'updated_at = excluded.updated_at',
+    ...auditSetClause(audit),
+  ].join(',\n       ');
 
   await c.env.DB.prepare(
     `INSERT INTO user_email_prefs
-       (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+       (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled,
+        reminder_enabled, updated_at, unsubscribed_at, unsubscribed_via)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id) DO UPDATE SET
-       ${setClause},
-       updated_at = excluded.updated_at`,
+       ${setClause}`,
   )
     .bind(
       id,
       DEFAULT_EMAIL_PREFS.timezone,
       DEFAULT_EMAIL_PREFS.weeklyEmailDow,
       DEFAULT_EMAIL_PREFS.reminderEmailDow,
-      (weeklyEnabled ?? DEFAULT_EMAIL_PREFS.weeklyEnabled) ? 1 : 0,
-      (reminderEnabled ?? DEFAULT_EMAIL_PREFS.reminderEnabled) ? 1 : 0,
-      Date.now(),
+      weekly ? 1 : 0,
+      reminder ? 1 : 0,
+      now,
+      audit?.at ?? null,
+      audit?.via ?? null,
     )
     .run();
 

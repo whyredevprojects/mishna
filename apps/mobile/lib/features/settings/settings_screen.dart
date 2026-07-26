@@ -209,6 +209,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // unsubscribe turns off (server GET/POST /api/unsubscribe), so this
               // screen is also how a user re-subscribes. Mirrors the hint in the
               // web client's settings page.
+              const SizedBox(height: 4),
               Text(
                 'The unsubscribe link in those emails turns both of these off — '
                 'you can switch them back on here any time.',

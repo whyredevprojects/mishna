@@ -103,7 +103,7 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
 | `GET /api/me/chaluka` | `{ commitment, joinedAt, assigned: MishnaRef[], completed: MishnaRef[], groupIds: string[] }` — the caller's whole-cycle portion (every mishna in their blocks, corpus order) + the learned subset, for the "My Chaluka" progress/stats view (auth). `groupIds` is parallel to `assigned` (group for `assigned[i]` is `groupIds[i]`): the group each completion is recorded under, so the Assignments page can check mishnayot off (per-ref because lots spill across groups at an overflow boundary). |
 | `GET /api/me/preferences` | The caller's email prefs, defaults if no row (auth). |
-| `PUT /api/me/preferences` `{ timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled }` | Validate (IANA tz via `Intl`, dow 0-6) + upsert (auth). |
+| `PUT /api/me/preferences` `{ timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled }` | Validate (IANA tz via `Intl`, dow 0-6) + upsert (auth). Also maintains `0006`'s audit columns: both flags on clears them (this is how a user re-subscribes after a one-click unsubscribe), both off records `unsubscribed_via = 'settings'`. |
 | `POST /api/join` `{ commitment: 1\|2\|3 }` | Validate, forward to `AllocatorDO.join` (auth). |
 | `POST /api/leave` | Forward to `AllocatorDO.leave` (auth). |
 | `GET /api/assignments/today` | The caller's **current** mishnayot — their *next still-unlearned* bucket — plus the `groupId` they belong to and the pager's navigation metadata `{ bucket, bucketCount, currentBucket }` (auth). Progress-based, not calendar-based: the slice advances as the user checks it off and empties once their whole portion is learned (`buildNextAssignment` → `AssignmentEngine.nextUnlearnedBucket` + `getBucketAssignment`). The `/today` route name is kept. |
@@ -121,7 +121,7 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `GET /api/admin/assignments?week&limit&offset` | One page of participants with the chosen week's mishnayot, each `{ ref…, groupId, done }`, plus `emailSent` (weekly). `week` defaults to the current week. Resolves blocks/completions/identities for the page subset via the batched email-path readers (**admin**). |
 | `POST /api/admin/users/:id/remove-assignments` | `AllocatorDO.leave(id)` — frees the user's ranges, keeps the auth account (**admin**). |
 | `POST /api/admin/users/:id/set-role` `{ role: 'admin'\|'user' }` | Promote/revoke admin by proxying better-auth `set-role` (writes the `role` column); apps/login's `customSession` treats `role==='admin'` as `isAdmin` on the next session, alongside `ADMIN_USER_IDS` (**admin**). |
-| `POST /api/admin/users/:id/set-email-prefs` `{ weeklyEnabled?, reminderEnabled? }` | Turn either (or both) of the user's **scheduled** emails on/off by upserting their `user_email_prefs` row. Only the named flags + `updated_at` are written on conflict, so an omitted flag and their timezone/weekdays survive. The same row Settings edits, so the user can undo it; `selectDue` skips them on the next bulk run. Returns the resulting `{ weeklyEnabled, reminderEnabled }`. `400` if a flag isn't a boolean or neither is given (**admin**). |
+| `POST /api/admin/users/:id/set-email-prefs` `{ weeklyEnabled?, reminderEnabled? }` | Turn either (or both) of the user's **scheduled** emails on/off by upserting their `user_email_prefs` row. Only the named flags + `updated_at` (+ the audit columns, from the row's resulting state — `'admin'` when the admin leaves both off) are written on conflict, so an omitted flag and their timezone/weekdays survive. The same row Settings edits, so the user can undo it; `selectDue` skips them on the next bulk run. Returns the resulting `{ weeklyEnabled, reminderEnabled }`. `400` if a flag isn't a boolean or neither is given (**admin**). |
 | `POST/DELETE /api/admin/users/:id/completions` `{ ref, groupId }` | Mark/unmark a mishna learned on the user's behalf (the Assignments learn/unlearn toggle). Mirrors the self `/api/completions` routes, keyed on `:id` (**admin**). |
 | `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails. Verified-only, like the bulk path (**admin**). |
 | `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
@@ -213,11 +213,18 @@ verification flow is added (`apps/login`). The admin views surface the flag so i
 `List-Unsubscribe: <https://…/api/unsubscribe?t=…>`, `List-Unsubscribe-Post:
 List-Unsubscribe=One-Click` and a `List-Id`, plus a **visible** "Unsubscribe" footer
 link (Gmail wants both). The link's `t` is a stateless HMAC-signed token
-(`email/unsubscribe.ts`): `base64url("v1.<userId>.<scope>.<issuedAt>") "."
+(`email/unsubscribe.ts`): `base64url("v1.<userId>.<scope>") "."
 base64url(HMAC-SHA256)`, signed with `UNSUBSCRIBE_SECRET` (a **comma-separated list** —
-sign with the first, verify against all, which is the rotation story). **No expiry is
-enforced** — `issuedAt` is audit-only, because an expired link on year-old mail earns a
-spam report. Verification is `crypto.subtle.verify`, never a string compare, and every
+sign with the first, verify against all, which is the rotation story). **No expiry, and
+no timestamp in the payload at all** — an expired link on year-old mail earns a spam
+report, so nothing would ever be enforced against one; and a clock in the payload would
+make the token (hence the header and the footer) differ on every render, while the batch
+`Idempotency-Key` covers only (user, kind, week) — Resend answers a reused key carrying a
+different payload with `409 invalid_idempotent_request`, which would fail the retried
+`step.do` and take the rest of that hour's batches with it. The token is a pure function
+of (secret, userId, scope); `processJobs` run twice over the same jobs produces
+byte-identical mail, and there's a test that says so.
+Verification is `crypto.subtle.verify`, never a string compare, and every
 malformed input returns `null` rather than throwing. `scope` is always `all` today (the
 product decision is that unsubscribing kills *both* scheduled emails); it's in the format
 so granular links can ship later without invalidating old ones. The URL is injected into
@@ -231,9 +238,21 @@ and `selectDue` honors, so a user can undo it in Settings on either client, plus
 `0006` audit columns (`unsubscribed_at`, `unsubscribed_via`). The upsert names both flags
 in the **INSERT column list**, not only in the `ON CONFLICT DO UPDATE` branch — most
 users have no prefs row at all, and letting the table's `DEFAULT 1` win on the insert
-branch would silently no-op the unsubscribe for exactly them (covered by a test).
+branch would silently no-op the unsubscribe for exactly them (covered by a test). The
+audit columns track the row's **resulting** state, so they're written by every path that
+touches the flags: both emails back on clears them (a re-subscribed user must not read
+"unsubscribed via one-click" forever, or later suppression logic keyed on
+`unsubscribed_at` would skip them), both off records the channel
+(`'one-click'`/`'link'` from the mail, `'settings'` from a Settings save, `'admin'` from
+the admin toggle), and one-on-one-off leaves the previous record standing.
 `apps/login`'s verification/password-reset mail deliberately gets **none** of this: it's
 transactional.
+
+Both routes answer with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and
+`X-Content-Type-Options: nosniff` (and the page repeats the referrer policy in a
+`<meta>`): the URL is a never-expiring bearer token, and the pages link to the
+same-origin `/settings`, where the default referrer policy would hand the full URL —
+`?t=` included — to that navigation.
 
 **Editing templates.** The emails are React Email components in `src/email/templates/`
 (`weekly-email.tsx`, `reminder-email.tsx`, shared `components/`, theme in `styles.ts`),
@@ -329,11 +348,17 @@ it themselves.
 - `index.integration.test.ts` — full flow via `SELF.fetch`: join → me → assignment →
   admin → leave.
 - `email/email.integration.test.ts` — `planSends` (who's due) and `processJobs` (build →
-  send → log) directly, with an injected `send` so it runs offline.
+  send → log) directly, with an injected `send` so it runs offline; plus the two
+  guarantees that only show up in the wiring — a re-render of the same batch is
+  byte-identical (the Resend 409 trap) and `senderDeps` really hands `processJobs` a
+  signed unsubscribe URL.
 - `unsubscribe.integration.test.ts` — the one-click unsubscribe: the token (round-trip,
-  rotation, malformed/forged input), GET is read-only, POST flips both flags (including
-  for a user with **no** prefs row), 400s on a bad token, is idempotent, never 3xx, and
-  Settings can re-enable it. `UNSUBSCRIBE_SECRET` is bound in `vitest.config.mts`.
+  rotation, determinism, malformed/forged input, throws with no secret), `pickLang`'s
+  q-value ranking, GET is read-only and its rendered form's `action` really
+  unsubscribes when posted, POST flips both flags (including for a user with **no**
+  prefs row), 400s on a bad token, is idempotent, never 3xx, sets the no-store/
+  no-referrer/nosniff headers, and the audit columns' full lifecycle across Settings and
+  the admin toggle. `UNSUBSCRIBE_SECRET` is bound in `vitest.config.mts`.
 - `preferences.integration.test.ts` — email prefs + admin send-now. The send path has no
   `RESEND_API_KEY` in tests, so `senderDeps()` throws and send-now surfaces as a `502`
   (the real build/send is covered offline in the email test above).
