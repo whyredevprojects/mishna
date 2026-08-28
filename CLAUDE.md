@@ -69,6 +69,13 @@ hreflang/canonical tags) — and the Angular Turnstile key). The Angular client 
 `node tools/sync-domains.mjs --check`, which fails if anything has drifted from the
 config.
 
+**The generator only rewrites the files it owns.** Code comments, the `CLAUDE.md`s, and
+dev-only fixtures (e.g. `apps/server/src/email/templates/preview/sample-data.ts`'s
+`SAMPLE_ORIGIN`, which is what `npm run email:dev` previews links against) name the
+domain in prose and are outside its reach — `--check` will not catch them. Grep for the
+old apex by hand when rebranding. (Deliberate exception: the mobile Android/iOS package
+ids `com.getchevrasmishnayos.*` must **not** change — a new app id breaks upgrades.)
+
 A genuinely **new** domain also needs these one-time external steps (no repo file
 can automate them):
 

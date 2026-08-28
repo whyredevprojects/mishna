@@ -9,7 +9,16 @@ GITHUB_TOKEN=ghp_xxx
 
 # HMAC key(s) signing the one-click unsubscribe links in the weekly/reminder emails.
 # Comma-separated for rotation: new tokens are signed with the FIRST, verification
-# accepts any of them. Any long random string works locally
-# (`openssl rand -base64 32`). For production/staging:
+# accepts any of them. Rotate by PREPENDING the new secret and deploying.
+#
+# The list is append-only: NEVER prune by default. These tokens have no expiry and
+# ride in mail people keep forever, so dropping a secret permanently breaks the
+# unsubscribe link in every message signed with it — a dead unsubscribe link is what
+# earns a spam report. Keeping one costs one extra crypto.subtle.verify per retired
+# secret. If one ever must go (compromise), the hard floor is 24 MONTHS after the last
+# send that used it.
+#
+# Any long random string works locally (`openssl rand -base64 32`).
+# For production/staging:
 #   wrangler secret put UNSUBSCRIBE_SECRET
 UNSUBSCRIBE_SECRET=local-dev-unsubscribe-secret

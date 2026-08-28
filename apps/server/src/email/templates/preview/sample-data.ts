@@ -4,7 +4,10 @@ import { ResolvedMishna } from '../../quota';
 // is a plain `.ts` with no default export, so the preview CLI does not list it as
 // a template — it only renders the *.tsx entries in this folder.
 
-export const SAMPLE_ORIGIN = 'https://app.getchevrasmishnayos.com';
+// The real app host (config/domains.json → APP_ORIGIN at runtime). The generator
+// (`npm run sync:domains`) doesn't reach preview fixtures, so this is hand-kept: a
+// stale value here previews links against a domain that no longer exists.
+export const SAMPLE_ORIGIN = 'https://app.mishna2go.com';
 
 /**
  * A dummy signed-looking unsubscribe URL so the preview renders the footer link.

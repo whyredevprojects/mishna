@@ -382,7 +382,48 @@ describe('email path', () => {
         // Gmail wants a visible in-body link too, not just the header.
         expect(email.html).toContain(url.toString().replace(/&/g, '&amp;'));
         expect(email.html).toContain('Unsubscribe');
+        // ...and it must survive into the text/plain part, un-escaped and unwrapped:
+        // html-to-text's default 80-column wrap would break this long base64url URL
+        // across lines (toPlainText hard-sets wordwrap: false), and the footer is two
+        // paragraphs so the URL lands on a line of its own instead of mid-sentence.
+        expect(email.text).toContain(url.toString());
+        expect(
+          email.text.split('\n').some((l) => l.trim() === `Unsubscribe ${url}`),
+        ).toBe(true);
+        // A text part with markup in it is a broken text part.
+        expect(email.text).not.toContain('<');
+        // The <Preview> preheader pads with zero-width spaces/non-joiners to 150
+        // chars; react-email's default plainTextSelectors skip it, and a text part
+        // opening with 150 invisible characters is exactly what spam filters flag.
+        expect(email.text).not.toMatch(/[\u200B\u200C]/);
       }
+    });
+
+    it('sends a plain-text alternative carrying the mishna content', async () => {
+      // Resend assembles multipart/alternative when it gets html + text. The text
+      // part is not a stub: it has to be the same email, readable.
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      await processJobs(
+        [
+          {
+            userId: 'alice',
+            kind: 'weekly',
+            weekStart: '2026-06-03',
+            to: 'alice@example.com',
+            refs: [REF],
+          },
+        ],
+        recordingDeps(sink),
+      );
+
+      const { text } = sink.emails[0][0];
+      // html-to-text upper-cases <h1>/<h2>, hence the shouty title + tractate.
+      expect(text).toContain('YOUR MISHNAYOS FOR THE COMING WEEK');
+      expect(text).toContain('Here are your mishnayos for the coming week');
+      expect(text).toContain('BERACHOS'); // the tractate heading
+      expect(text).toContain('Perek 1, Mishna 1'); // the ref label
+      expect(text).toContain('טקסט'); // the Hebrew body survives verbatim
+      expect(text).toContain('https://app.test/dashboard'); // the CTA's URL
     });
 
     it('passes a deterministic idempotency key, stable across retries', async () => {

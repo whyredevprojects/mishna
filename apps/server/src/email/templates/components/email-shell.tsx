@@ -66,15 +66,23 @@ export function EmailShell({
               footer reads like someone else's mail.
             */}
             Chevras Mishnayos Baal Peh
-            {unsubscribeUrl ? (
-              <>
-                {' · '}
-                <Link href={unsubscribeUrl} style={styles.footerLink}>
-                  Unsubscribe
-                </Link>
-              </>
-            ) : null}
           </Text>
+          {/*
+            The unsubscribe link is its own paragraph, not " · Unsubscribe" appended
+            to the brand line. This is for the *plain-text* part (`toPlainText` over
+            this HTML, in templates/index.tsx): html-to-text renders an anchor as
+            "text href", so a single-line footer would read
+            "Chevras Mishnayos Baal Peh · Unsubscribe https://…" with the URL buried
+            mid-sentence, where text-only clients (and users copy-pasting) mangle it.
+            Two paragraphs put it on a line of its own. Don't collapse these back.
+          */}
+          {unsubscribeUrl ? (
+            <Text style={styles.footerUnsubscribe}>
+              <Link href={unsubscribeUrl} style={styles.footerLink}>
+                Unsubscribe
+              </Link>
+            </Text>
+          ) : null}
         </Container>
       </Body>
     </Html>

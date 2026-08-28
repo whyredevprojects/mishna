@@ -215,6 +215,12 @@ export class AdminAssignmentsComponent {
       error: (err: HttpErrorResponse) => {
         this.mark(row.userId, false);
         const detail = typeof err.error?.detail === 'string' ? err.error.detail : null;
+        // 409 = the server refused because the user unsubscribed from the mail itself
+        // (apps/server `sendEmailNow`); its `detail` already says the whole thing.
+        if (err.status === 409 && detail) {
+          this.toast.error(detail);
+          return;
+        }
         this.toast.error(detail ? `Could not send: ${detail}` : 'Could not send the email.');
       },
     });

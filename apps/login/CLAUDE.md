@@ -114,6 +114,14 @@ hop in both dev and prod.
   The client drives it via `request-password-reset` (with a `redirectTo` of the
   SPA's `/reset-password`) → `reset-password` (token + new password).
 
+Both emails ship an HTML **and** a `text/plain` part (Resend sends a
+`multipart/alternative` when it gets both) — an HTML-only message is a spam-filter
+signal and unreadable in a text-only client, which here would mean a user who can't
+verify or reset. The text half is hand-written next to the HTML in `shell()` (this
+worker has no `@react-email/*` dependency and isn't worth one for two hardcoded
+strings), so keep the two in sync when editing; `src/email.test.ts` pins the contract
+that the URL sits bare on its own line and that `escapeHtml` never touches the text.
+
 Both reuse the existing `verification` table — **no schema change / migration**.
 The callbacks need runtime secrets so they live in `createAuth(env)`, not the
 static `authOptions`; they `await` the Resend send (reliable on Workers without

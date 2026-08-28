@@ -58,7 +58,9 @@ in memory, no cross-DB JOIN).
   timezone/weekdays — and the flag they didn't name — intact. Both values ride along as
   `weeklyEnabled`/`reminderEnabled` on the `GET /api/admin/users` and
   `/api/admin/users/:id` rows. Admin "send now" deliberately overrides the flags (it's a
-  manual one-off, not the schedule).
+  manual one-off, not the schedule) — **except a hard (mail-side) unsubscribe**, i.e. a
+  row whose `unsubscribed_via` is `'one-click'`/`'link'` and whose flag for that kind is
+  still off: that's a `409`, never a send (see the send-now routes below).
 - `email_log(user_id, kind, week_start, sent_at)` — one row per email actually sent
   (`0004`), so each (user, kind, week) goes out at most once even though the cron fires
   hourly. Written by the email path (`email/sender.ts` after a successful send), consulted
@@ -99,7 +101,7 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `GET /api/cycle` | `{ cycleStart, cycleEnd, daysElapsed, daysRemaining, totalDays }` for the current cycle (public; powers the landing-page progress bar without shipping `@hebcal/core` to the client). |
 | `GET /api/join-options` | `{ options: JoinOption[] }` — the signup commitment choices as of today (`computeJoinOptions`), each weekly pace annotated with its approximate lot count, collapsing to a single "1 lot" option near the cycle end (public; keeps the lot math out of the clients, esp. Flutter). |
 | `GET /api/unsubscribe?t=&lang=` | **Strictly read-only.** Renders a small self-contained bilingual HTML page with a confirm `<form method="post">`. Always `200`, even for a garbage token — it must never leak whether a token/user is real, and mail scanners GET every link in a message, so this must not mutate anything (public, no auth — the signed token is the authorization). |
-| `POST /api/unsubscribe?t=&lang=` | The RFC 8058 one-click target *and* the form's action. Verifies the token, then turns the scope's emails off (`weekly_enabled`/`reminder_enabled`). Accepts, but doesn't require, the `List-Unsubscribe=One-Click` form body. `200 text/plain` for a machine POST, the HTML success page when `Accept: text/html`; `400` on a bad/malformed token; unknown user and a repeat POST are both an idempotent `200`. **Never redirects** (RFC 8058 forbids it) (public). |
+| `POST /api/unsubscribe?t=&lang=` | The RFC 8058 one-click target *and* the form's action. Verifies the token, then turns the scope's emails off (`weekly_enabled`/`reminder_enabled`). Accepts, but doesn't require, the `List-Unsubscribe=One-Click` form body. `200 text/plain` for a machine POST, the HTML success page when `Accept: text/html`. **Always `200`** — a bad/malformed token gets the *error* page/text but still a `200`, because every other outcome (success, unknown user, a repeat POST) is one too and a `400` only for "this token didn't verify" leaks that it isn't real; a mailbox provider also reads a 4xx on the one-click POST as a broken unsubscribe, and the usual cause is the mail client truncating the URL. It's logged as a `{ evt: 'unsubscribe_bad_token', tokenLength, html }` warn line — never the token itself, which may still be a live credential. Unknown user and a repeat POST are both an idempotent `200`. **Never redirects** (RFC 8058 forbids it) (public). |
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
 | `GET /api/me/chaluka` | `{ commitment, joinedAt, assigned: MishnaRef[], completed: MishnaRef[], groupIds: string[] }` — the caller's whole-cycle portion (every mishna in their blocks, corpus order) + the learned subset, for the "My Chaluka" progress/stats view (auth). `groupIds` is parallel to `assigned` (group for `assigned[i]` is `groupIds[i]`): the group each completion is recorded under, so the Assignments page can check mishnayot off (per-ref because lots spill across groups at an overflow boundary). |
 | `GET /api/me/preferences` | The caller's email prefs, defaults if no row (auth). |
@@ -123,8 +125,8 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `POST /api/admin/users/:id/set-role` `{ role: 'admin'\|'user' }` | Promote/revoke admin by proxying better-auth `set-role` (writes the `role` column); apps/login's `customSession` treats `role==='admin'` as `isAdmin` on the next session, alongside `ADMIN_USER_IDS` (**admin**). |
 | `POST /api/admin/users/:id/set-email-prefs` `{ weeklyEnabled?, reminderEnabled? }` | Turn either (or both) of the user's **scheduled** emails on/off by upserting their `user_email_prefs` row. Only the named flags + `updated_at` (+ the audit columns, from the row's resulting state — `'admin'` when the admin leaves both off) are written on conflict, so an omitted flag and their timezone/weekdays survive. The same row Settings edits, so the user can undo it; `selectDue` skips them on the next bulk run. Returns the resulting `{ weeklyEnabled, reminderEnabled }`. `400` if a flag isn't a boolean or neither is given (**admin**). |
 | `POST/DELETE /api/admin/users/:id/completions` `{ ref, groupId }` | Mark/unmark a mishna learned on the user's behalf (the Assignments learn/unlearn toggle). Mirrors the self `/api/completions` routes, keyed on `:id` (**admin**). |
-| `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails. Verified-only, like the bulk path (**admin**). |
-| `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (**admin**). |
+| `POST /api/admin/users/:id/send-weekly` | Build and send an extra weekly email inline (bypasses dedup); `502` if the send fails. Verified-only, like the bulk path. `409 { error: 'user unsubscribed', detail }` when this kind is off **and** it was turned off from the mail (`unsubscribed_via` = `'one-click'`/`'link'`) — the one flag state send-now won't override; `detail` is a full sentence the client toasts verbatim (**admin**). |
+| `POST /api/admin/users/:id/send-reminder` | Same, for a reminder email (same `409` gate, on `reminder_enabled`) (**admin**). |
 | `POST /api/admin/users/:id/send-verification` | Re-send the better-auth verification email for a *pending* user: looks up the address via the `get-user` admin proxy, then calls better-auth's public `send-verification-email` (forwarding the caller's Origin). `409` if already verified, `404` if no email, `502` on send failure (**admin**). |
 | `DELETE /api/admin/users/:id` | Cascade: `AllocatorDO.leave(id)` then better-auth `remove-user` (**admin**). |
 | `GET /api/admin/about?locale=en\|he` | The `www` site's editable Markdown (`about.md`) for the locale, read via the GitHub Contents API; `''` if not committed yet. `locale` defaults to `en`; an unknown value is `400`. `500` if the editor isn't configured, `502` on a GitHub failure (**admin**). |
@@ -202,6 +204,18 @@ fine at volume 1) and send it **inline and synchronously** via the same `process
 (bypassing the dedup), so the admin gets the real result — a `502` on a Resend failure.
 The week is anchored from the user's prefs (`localParts` + `weekStartOnOrBefore`).
 
+They also bypass `weekly_enabled`/`reminder_enabled` — a manual one-off isn't the
+schedule — with one exception, checked **before** anything is built: a **hard
+unsubscribe**. If the flag for the kind being sent is off *and* `unsubscribed_via` says
+the user turned it off from the mail itself (`'one-click'`/`'link'`, per
+`isHardUnsubscribe`), the route answers `409 { error: 'user unsubscribed', detail }`.
+Re-mailing someone who pressed Gmail's one-click button is what earns a spam report, and
+it silently undoes a request we're bound to honor. Both halves of the test are needed:
+`unsubscribed_via` survives a *partial* re-enable (see `unsubscribeAudit`), so a user
+whose weekly an admin turned back on still reads `'one-click'` — the flag is what says
+the kind is still off. An `'admin'`/`'settings'` off switch is ours to undo and is still
+overridden.
+
 **Verified-only.** The email path never mails an unverified address. `loadEmails`
 (bulk) filters `WHERE "emailVerified" = 1`, and `loadRecipient` (admin send-now) returns
 `null` unless the address is present and verified — so an unverified user is silently
@@ -215,7 +229,8 @@ List-Unsubscribe=One-Click` and a `List-Id`, plus a **visible** "Unsubscribe" fo
 link (Gmail wants both). The link's `t` is a stateless HMAC-signed token
 (`email/unsubscribe.ts`): `base64url("v1.<userId>.<scope>") "."
 base64url(HMAC-SHA256)`, signed with `UNSUBSCRIBE_SECRET` (a **comma-separated list** —
-sign with the first, verify against all, which is the rotation story). **No expiry, and
+sign with the first, verify against all, which is the rotation story; the list is
+**append-only — never prune by default**, see "One-time setup"). **No expiry, and
 no timestamp in the payload at all** — an expired link on year-old mail earns a spam
 report, so nothing would ever be enforced against one; and a clock in the payload would
 make the token (hence the header and the footer) differ on every render, while the batch
@@ -224,6 +239,11 @@ different payload with `409 invalid_idempotent_request`, which would fail the re
 `step.do` and take the rest of that hour's batches with it. The token is a pure function
 of (secret, userId, scope); `processJobs` run twice over the same jobs produces
 byte-identical mail, and there's a test that says so.
+The footer renders the link as its **own paragraph**, not `"Chevras Mishnayos Baal Peh ·
+Unsubscribe"` on one line — a contract with the plain-text part, where html-to-text
+renders an anchor as `text href`, so a one-line footer would bury the URL mid-sentence
+instead of putting it on a line of its own (`Unsubscribe https://…`). Don't collapse the
+two `<Text>`s back together.
 Verification is `crypto.subtle.verify`, never a string compare, and every
 malformed input returns `null` rather than throwing. `scope` is always `all` today (the
 product decision is that unsubscribing kills *both* scheduled emails); it's in the format
@@ -248,6 +268,18 @@ the admin toggle), and one-on-one-off leaves the previous record standing.
 `apps/login`'s verification/password-reset mail deliberately gets **none** of this: it's
 transactional.
 
+> **Ops guardrail — do not create a Resend Audience or send a Broadcast for this
+> product from the Resend dashboard.** Unsubscribes live **only** in D1; Resend holds
+> no Contacts for these users, so a Broadcast would mail everyone who unsubscribed — a
+> legal and reputational problem, and one entirely invisible to this repo (no code
+> change, no test, no log would show it). All bulk mail must go through
+> `ReminderWorkflow` → `planSends` → `processJobs`, which honors
+> `weekly_enabled`/`reminder_enabled` via `selectDue`; one-off admin mail goes through
+> `POST /api/admin/users/:id/send-weekly|send-reminder`, which is gated on a hard
+> unsubscribe. If a Broadcast is ever genuinely needed, the **prerequisite** is syncing
+> D1's unsubscribe state into a Resend Audience (or adopting Resend Contacts as the
+> source of truth) first — that's a design change, not an ops action.
+
 Both routes answer with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and
 `X-Content-Type-Options: nosniff` (and the page repeats the referrer policy in a
 `<meta>`): the URL is a never-expiring bearer token, and the pages link to the
@@ -256,7 +288,19 @@ same-origin `/settings`, where the default referrer policy would hand the full U
 
 **Editing templates.** The emails are React Email components in `src/email/templates/`
 (`weekly-email.tsx`, `reminder-email.tsx`, shared `components/`, theme in `styles.ts`),
-rendered to HTML at send time by `templates/index.tsx`'s `weeklyEmail`/`reminderEmail`.
+rendered at send time by `templates/index.tsx`'s `weeklyEmail`/`reminderEmail`.
+
+Each renders to **both** an HTML and a `text/plain` part (`BuiltEmail.html` + `.text`,
+`OutgoingEmail.text` is required, not optional), and Resend sends a
+`multipart/alternative` when it gets both — a single-part HTML email is a spam-filter
+signal and unreadable in text-only clients. The text is `toPlainText(html)` over the
+**exact HTML being sent**, not a second `render(el, { plainText: true })`: one render
+instead of two per email inside a 100-email Workflow step, and the two parts can't drift
+apart. Both are pure, so the deterministic `Idempotency-Key` contract is unaffected (the
+byte-identical-re-render test covers `text` for free). Two `toPlainText` behaviors the
+output depends on: react-email skips the `<Preview>` preheader (its 150-char
+zero-width-space padding never reaches the text part) and `wordwrap: false` is hard-set,
+which is what keeps the long base64url unsubscribe URL on one unbroken, clickable line.
 Preview them live in the browser with `npm run email:dev` (from the repo root) — it serves
 the dev-only entries in `templates/preview/` (one per email state, with sample mishnayot) at
 `http://localhost:3030`. The CLI only lists `.tsx`/`.jsx` files with a default export, so the
@@ -318,6 +362,17 @@ wrangler secret put UNSUBSCRIBE_SECRET # HMAC key for the one-click unsubscribe 
                                        # (comma-separated list; rotate by prepending)
 ```
 
+**Rotating `UNSUBSCRIBE_SECRET`.** Prepend the new secret to the list and deploy — new
+tokens are signed with the first entry, verification accepts any entry, so no live link
+breaks and there's nothing else to do. The policy is that the list is **append-only:
+never prune by default.** The tokens have no expiry and ride in mail recipients keep
+forever, so removing a secret permanently kills the unsubscribe link in every message
+signed with it, and a dead unsubscribe link is exactly what earns the spam report this
+feature exists to prevent. Keeping one costs a single extra `crypto.subtle.verify` per
+retired secret, and only on requests whose token doesn't match a newer one. If a secret
+genuinely must be removed (compromise), the hard floor is **24 months** after the last
+send that used it — a deliberate act that accepts breaking older mail still in inboxes.
+
 For **local dev**, seed both apps' local D1 before `npm run dev`:
 
 ```sh
@@ -356,9 +411,12 @@ it themselves.
   rotation, determinism, malformed/forged input, throws with no secret), `pickLang`'s
   q-value ranking, GET is read-only and its rendered form's `action` really
   unsubscribes when posted, POST flips both flags (including for a user with **no**
-  prefs row), 400s on a bad token, is idempotent, never 3xx, sets the no-store/
+  prefs row), answers `200`-with-the-error-page (and writes nothing) on a bad token,
+  is idempotent, never 3xx, sets the no-store/
   no-referrer/nosniff headers, and the audit columns' full lifecycle across Settings and
   the admin toggle. `UNSUBSCRIBE_SECRET` is bound in `vitest.config.mts`.
 - `preferences.integration.test.ts` — email prefs + admin send-now. The send path has no
   `RESEND_API_KEY` in tests, so `senderDeps()` throws and send-now surfaces as a `502`
-  (the real build/send is covered offline in the email test above).
+  (the real build/send is covered offline in the email test above) — which doubles as the
+  "the gate did *not* fire" assertion for the hard-unsubscribe `409` tests (one-click/link
+  → `409`; settings/admin, a partial re-enable, and no prefs row → `502`).

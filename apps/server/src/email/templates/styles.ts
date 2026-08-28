@@ -65,12 +65,22 @@ export const hr: CSSProperties = {
   margin: '28px 0 16px',
 };
 
-/** The footer line: sender name + the visible unsubscribe link. */
+/** The footer's first line: the sender name. */
 export const footer: CSSProperties = {
   color: '#888888',
   fontSize: 13,
   lineHeight: 1.6,
   margin: '0',
+};
+
+/**
+ * The footer's second line: the visible unsubscribe link. It's a separate paragraph
+ * (not appended to the brand line) so the plain-text part puts the URL on a line of
+ * its own — see the comment in `components/email-shell.tsx`.
+ */
+export const footerUnsubscribe: CSSProperties = {
+  ...footer,
+  margin: '4px 0 0',
 };
 
 export const footerLink: CSSProperties = {

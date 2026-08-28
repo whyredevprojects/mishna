@@ -3,8 +3,9 @@ import { Resend } from 'resend';
 // Transactional auth emails (verification + password reset) sent via Resend.
 // Self-contained in the login worker — it has its own RESEND_API_KEY secret and
 // RESEND_FROM_EMAIL var, so it never has to call back into apps/server. apps/server
-// owns the bulk reminder/weekly mail on the same verified getchevrasmishnayos.com
-// domain; these are one-off `resend.emails.send`, not the batch path.
+// owns the bulk reminder/weekly mail on the same verified sender domain (the single
+// source of truth is `config/domains.json`); these are one-off `resend.emails.send`,
+// not the batch path.
 //
 // English, inline-styled HTML (email clients strip <style>/external CSS). better-auth
 // hands us a ready-to-click `url` (verify-email / reset-password endpoint + token).
@@ -21,9 +22,36 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;');
 }
 
-/** A simple branded shell: heading, a line of intro text, and a CTA button. */
-function shell(heading: string, intro: string, buttonLabel: string, url: string): string {
-  return `<!doctype html>
+/** The two bodies of one email: the HTML part and its `text/plain` alternative. */
+export interface EmailBody {
+  html: string;
+  text: string;
+}
+
+/**
+ * A simple branded shell: heading, a line of intro text, and a CTA button — in both
+ * parts. Resend sends a `multipart/alternative` when it gets `html` **and** `text`; an
+ * HTML-only message is a spam-filter signal and unreadable in a text-only client, which
+ * for *these* two emails means a user who can't verify their address or reset their
+ * password. The text half is hand-written from the same four arguments rather than
+ * derived from the HTML: this worker has no `@react-email/*` dependency (only
+ * better-auth, kysely, resend) and pulling a renderer in for two hardcoded strings isn't
+ * worth the bundle. Keep the two in sync by hand when editing.
+ *
+ * `escapeHtml` applies to the HTML part only — escaping the text part would put a
+ * literal `&amp;` in front of the user.
+ *
+ * Exported for `email.test.ts` (constructing `Resend` happens in `send`, so importing
+ * this module has no side effects).
+ */
+export function shell(
+  heading: string,
+  intro: string,
+  buttonLabel: string,
+  url: string,
+): EmailBody {
+  return {
+    html: `<!doctype html>
 <html lang="en">
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
   <body style="margin:0;background:#f5f3ee;font-family:Georgia,'Times New Roman',serif;">
@@ -41,7 +69,17 @@ function shell(heading: string, intro: string, buttonLabel: string, url: string)
       </p>
     </div>
   </body>
-</html>`;
+</html>`,
+    // The URL sits alone on its own line: a mail client that auto-links plain text
+    // needs the whole thing unbroken, and a user copy-pasting must not pick up
+    // surrounding prose.
+    text: `${heading}
+
+${intro}
+
+${buttonLabel}:
+${url}`,
+  };
 }
 
 /** Sends one transactional email; throws on a Resend error so callers can await it. */
@@ -49,7 +87,7 @@ async function send(
   env: Env,
   to: string,
   subject: string,
-  html: string,
+  body: EmailBody,
 ): Promise<void> {
   const resend = new Resend(env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
@@ -57,7 +95,7 @@ async function send(
     replyTo: env.RESEND_REPLY_TO_EMAIL,
     to,
     subject,
-    html,
+    ...body,
   });
   if (error) {
     throw new Error(`Resend send failed: ${error.message}`);

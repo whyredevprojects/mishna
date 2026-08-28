@@ -28,9 +28,22 @@
  * - **`scope` is carried but currently always `all`.** The product decision is that
  *   unsubscribing turns off *both* scheduled emails. Keeping the field means granular
  *   links can ship later without a token-format change (old links keep verifying).
- * - **Secret rotation.** `UNSUBSCRIBE_SECRET` is a comma-separated list: new tokens are
- *   signed with the first, verification accepts any of them. Rotate by prepending the
- *   new secret, then dropping the old one once the mail carrying it has aged out.
+ * - **Secret rotation, and the retention policy that goes with it.**
+ *   `UNSUBSCRIBE_SECRET` is a comma-separated list: new tokens are signed with the
+ *   first, verification accepts any of them. Rotate by **prepending** the new secret and
+ *   deploying — nothing else is required, and no link ever breaks.
+ *
+ *   The policy is that the list is **append-only: never prune by default.** These
+ *   tokens have no expiry and ride in mail recipients keep forever, so dropping a secret
+ *   permanently kills the unsubscribe link in every message signed with it — and a dead
+ *   unsubscribe link is precisely what earns the spam report this feature exists to
+ *   prevent. The cost of keeping one is a single extra `crypto.subtle.verify` per
+ *   retired secret, only on the (rare) requests whose token doesn't match a newer one.
+ *
+ *   If a secret ever genuinely *must* go (compromise, say), the floor is **24 months**
+ *   after the last send that used it, and removal is a deliberate, documented act —
+ *   accepting that any older mail still in an inbox loses its one-click link.
+ *   (`apps/server/CLAUDE.md` "One-time setup" carries the same policy.)
  * - Verification uses `crypto.subtle.verify` (constant-time inside the runtime), never
  *   a string comparison of hex digests.
  * - Every parse failure (missing dot, bad base64, wrong version, unknown scope) is a

@@ -13,7 +13,13 @@ interface Env {
   RESEND_API_KEY: string;
   /**
    * HMAC key(s) signing the one-click unsubscribe tokens, comma-separated (sign with
-   * the first, verify against all — that's the rotation story). Set with
+   * the first, verify against all — that's the rotation story). Rotate by *prepending*
+   * the new secret and deploying. The list is **append-only: never prune by default** —
+   * the tokens have no expiry and ride in mail people keep forever, so dropping a secret
+   * permanently breaks the unsubscribe link in every message signed with it (the spam
+   * report this feature exists to prevent), while keeping one costs a single extra
+   * `crypto.subtle.verify`. If one ever must go (compromise), the hard floor is **24
+   * months** after the last send that used it. Set with
    * `wrangler secret put UNSUBSCRIBE_SECRET`.
    */
   UNSUBSCRIBE_SECRET: string;
@@ -39,7 +45,13 @@ declare namespace Cloudflare {
   interface Env {
     /** Resend API key. Set with `wrangler secret put RESEND_API_KEY`. */
     RESEND_API_KEY: string;
-    /** HMAC key(s) for the one-click unsubscribe tokens (comma-separated). */
+    /**
+     * HMAC key(s) for the one-click unsubscribe tokens (comma-separated; sign with the
+     * first, verify against all). Rotate by prepending. The list is **append-only:
+     * never prune by default** — the tokens never expire and ride in mail people keep
+     * forever, so removing a secret kills the unsubscribe link in every message signed
+     * with it. Hard floor if one ever must go: **24 months** after its last send.
+     */
     UNSUBSCRIBE_SECRET: string;
     /** GitHub PAT (contents:write on whyredevprojects/mishna). Set with `wrangler secret put GITHUB_TOKEN`. */
     GITHUB_TOKEN: string;

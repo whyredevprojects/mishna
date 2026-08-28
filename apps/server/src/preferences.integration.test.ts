@@ -110,4 +110,69 @@ describe('email preferences + admin send-now', () => {
     );
     expect(forbidden.status).toBe(403);
   });
+
+  describe('send-now vs. a hard (mail-side) unsubscribe', () => {
+    /** Seed bob's prefs row with the flags + audit channel under test. */
+    function seedPrefs(
+      weeklyEnabled: number,
+      reminderEnabled: number,
+      via: string | null,
+    ): Promise<unknown> {
+      return env.DB.prepare(
+        `INSERT INTO user_email_prefs
+           (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled,
+            reminder_enabled, updated_at, unsubscribed_at, unsubscribed_via)
+           VALUES ('bob', 'America/New_York', 0, 4, ?, ?, 0, ?, ?)`,
+      )
+        .bind(weeklyEnabled, reminderEnabled, via ? 0 : null, via)
+        .run();
+    }
+
+    function sendNow(kind: 'weekly' | 'reminder'): Promise<Response> {
+      return SELF.fetch(`https://server/api/admin/users/bob/send-${kind}`, {
+        method: 'POST',
+        headers: as('admin'),
+      });
+    }
+
+    it('409s instead of re-mailing a user who used the one-click link', async () => {
+      await seedPrefs(0, 0, 'one-click');
+      const res = await sendNow('weekly');
+      expect(res.status).toBe(409);
+      const body = (await res.json()) as { error: string; detail?: unknown };
+      expect(body).toMatchObject({ error: 'user unsubscribed' });
+      // The client concatenates `detail` into a toast, so it must be real prose.
+      expect(typeof body.detail).toBe('string');
+      expect(body.detail).toContain('one-click');
+    });
+
+    it('409s for the confirm-page form channel too', async () => {
+      await seedPrefs(0, 0, 'link');
+      const res = await sendNow('weekly');
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({ error: 'user unsubscribed' });
+    });
+
+    it('still overrides an admin- or settings-driven off switch', async () => {
+      // Those are ours to undo; only a mail-side unsubscribe is off limits. 502 =
+      // the gate didn't fire and the send was attempted (no RESEND_API_KEY in tests).
+      for (const via of ['settings', 'admin']) {
+        await env.DB.exec('DELETE FROM user_email_prefs');
+        await seedPrefs(0, 0, via);
+        expect((await sendNow('weekly')).status, via).toBe(502);
+      }
+    });
+
+    it('only gates the kind that is still off', async () => {
+      // Admin re-enabled weekly after the one-click; `unsubscribed_via` survives a
+      // partial re-enable, so the flag is what decides per kind.
+      await seedPrefs(1, 0, 'one-click');
+      expect((await sendNow('weekly')).status).toBe(502);
+      expect((await sendNow('reminder')).status).toBe(409);
+    });
+
+    it('does not gate a user with no prefs row', async () => {
+      expect((await sendNow('weekly')).status).toBe(502);
+    });
+  });
 });

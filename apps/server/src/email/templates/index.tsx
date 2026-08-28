@@ -1,4 +1,5 @@
-import { render } from '@react-email/render';
+import { ReactElement } from 'react';
+import { render, toPlainText } from '@react-email/render';
 import { ResolvedMishna } from '../quota';
 import { ReminderEmail, REMINDER_TITLE } from './reminder-email';
 import { WeeklyEmail, WEEKLY_TITLE } from './weekly-email';
@@ -11,6 +12,36 @@ import { WeeklyEmail, WEEKLY_TITLE } from './weekly-email';
 export interface BuiltEmail {
   subject: string;
   html: string;
+  /**
+   * The `text/plain` half of the `multipart/alternative` message Resend assembles
+   * when it gets both parts. A single-part HTML email is a spam-filter signal and is
+   * unreadable in text-only clients, so every template ships both.
+   */
+  text: string;
+}
+
+/**
+ * Render one email to its HTML **and** text parts.
+ *
+ * The text is derived from the very HTML being sent (`toPlainText`, which is
+ * html-to-text under the hood) rather than from a second `render(el, { plainText:
+ * true })`: a second render doubles the React CPU per email inside a Workflow step
+ * that may be handling 100 of them, and deriving from the sent HTML means the two
+ * parts cannot say different things. Both are pure, so `sender.ts`'s deterministic
+ * `Idempotency-Key` contract holds either way.
+ *
+ * Two behaviors this leans on: react-email's default `plainTextSelectors` skip the
+ * `<Preview>` preheader (so its 150-char zero-width-space padding never leaks into
+ * the text part), and `toPlainText` hard-sets `wordwrap: false` — load-bearing,
+ * since html-to-text's default 80-column wrap would break the long base64url
+ * unsubscribe URL across lines and make it unclickable.
+ */
+async function build(
+  subject: string,
+  element: ReactElement,
+): Promise<BuiltEmail> {
+  const html = await render(element);
+  return { subject, html, text: toPlainText(html) };
 }
 
 /**
@@ -24,16 +55,14 @@ export async function weeklyEmail(
   appOrigin: string,
   unsubscribeUrl?: string,
 ): Promise<BuiltEmail> {
-  return {
-    subject: WEEKLY_TITLE,
-    html: await render(
-      <WeeklyEmail
-        items={items}
-        appOrigin={appOrigin}
-        unsubscribeUrl={unsubscribeUrl}
-      />,
-    ),
-  };
+  return build(
+    WEEKLY_TITLE,
+    <WeeklyEmail
+      items={items}
+      appOrigin={appOrigin}
+      unsubscribeUrl={unsubscribeUrl}
+    />,
+  );
 }
 
 /** The reminder email: only the mishnayot still not marked learned this week. */
@@ -42,14 +71,12 @@ export async function reminderEmail(
   appOrigin: string,
   unsubscribeUrl?: string,
 ): Promise<BuiltEmail> {
-  return {
-    subject: REMINDER_TITLE,
-    html: await render(
-      <ReminderEmail
-        pending={pending}
-        appOrigin={appOrigin}
-        unsubscribeUrl={unsubscribeUrl}
-      />,
-    ),
-  };
+  return build(
+    REMINDER_TITLE,
+    <ReminderEmail
+      pending={pending}
+      appOrigin={appOrigin}
+      unsubscribeUrl={unsubscribeUrl}
+    />,
+  );
 }

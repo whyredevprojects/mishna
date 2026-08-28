@@ -395,6 +395,13 @@ export class AdminUserDetailComponent {
         this.sending.set(false);
         const detail =
           typeof err.error?.detail === 'string' ? err.error.detail : null;
+        // 409 = the user unsubscribed from the mail itself, so the server refused
+        // (see apps/server `sendEmailNow`). Its `detail` is a complete explanation;
+        // prefixing it with "Could not send the email" reads like a failure to fix.
+        if (err.status === 409 && detail) {
+          this.toast.error(detail);
+          return;
+        }
         this.toast.error(
           detail ? `Could not send the email: ${detail}` : 'Could not send the email.',
         );

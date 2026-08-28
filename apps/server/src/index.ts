@@ -218,7 +218,8 @@ function parseUtcDate(value: string | undefined): Date | null {
  * against its `adminUserIds`) and their browser `Origin`: better-auth rejects
  * state-changing (POST) admin calls that arrive without a trusted Origin
  * (`MISSING_OR_NULL_ORIGIN`). The caller's Origin is same-origin in prod
- * (app.getchevrasmishnayos.com) and localhost:4200 in dev — both in `trustedOrigins` — so
+ * (the app host from `config/domains.json`) and localhost:4200 in dev — both in
+ * `trustedOrigins` — so
  * forwarding it satisfies the check while keeping CSRF protection intact.
  * Used by the admin user-management routes.
  */
@@ -529,9 +530,28 @@ app.post('/api/unsubscribe', async (c) => {
     c.req.query('t'),
   );
   if (!claims) {
+    // **200, not 4xx, on purpose.** Every other outcome here is already a 200 (success,
+    // unknown user, a repeat POST) so that the endpoint never leaks whether a token or
+    // the user it names is real — a 4xx only for "this one didn't verify" hands that
+    // back. It also matters for deliverability: a mailbox provider driving the RFC 8058
+    // one-click button reads a 4xx as "this sender's unsubscribe is broken", and the
+    // most common cause of a token failing is the *mail client* truncating the URL, not
+    // an attack. The body still says it failed (the informative error page / plain
+    // text), so a human who clicked knows to use Settings. The status is uniform; only
+    // the body varies by `Accept` — `wantsHtml` is a presentation heuristic, not a
+    // reliable human/machine discriminator, so it must not pick the status code.
+    // The token is deliberately NOT logged: one that fails only because its secret
+    // rotated out is still a live bearer credential.
+    console.warn(
+      JSON.stringify({
+        evt: 'unsubscribe_bad_token',
+        tokenLength: (c.req.query('t') ?? '').length,
+        html: wantsHtml(c),
+      }),
+    );
     return wantsHtml(c)
-      ? c.html(errorPageHtml(lang, c.env.APP_ORIGIN), 400, UNSUBSCRIBE_HEADERS)
-      : c.text(plainError(lang), 400, UNSUBSCRIBE_HEADERS);
+      ? c.html(errorPageHtml(lang, c.env.APP_ORIGIN), 200, UNSUBSCRIBE_HEADERS)
+      : c.text(plainError(lang), 200, UNSUBSCRIBE_HEADERS);
   }
   // An unknown user is a no-op success: the row is harmless and the caller must not
   // learn whether the id exists.
@@ -624,6 +644,12 @@ interface PrefsRow {
   reminder_email_dow: number;
   weekly_enabled: number;
   reminder_enabled: number;
+  /**
+   * `0006`'s audit channel. Not part of `EmailPrefs` (the shared type) — it's read
+   * here only so the send-now path can tell a *mail-side* unsubscribe apart from a
+   * flag an admin or the user's own Settings turned off (`isHardUnsubscribe`).
+   */
+  unsubscribed_via: string | null;
 }
 
 function rowToPrefs(row: PrefsRow | null): EmailPrefs {
@@ -639,7 +665,8 @@ function rowToPrefs(row: PrefsRow | null): EmailPrefs {
 
 function loadPrefs(env: Env, userId: string): Promise<PrefsRow | null> {
   return env.DB.prepare(
-    `SELECT timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled
+    `SELECT timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled,
+            unsubscribed_via
        FROM user_email_prefs WHERE user_id = ?`,
   )
     .bind(userId)
@@ -687,6 +714,22 @@ function unsubscribeAudit(
   if (weeklyEnabled && reminderEnabled) return { at: null, via: null };
   if (!weeklyEnabled && !reminderEnabled) return { at: now, via };
   return null;
+}
+
+/**
+ * A **hard** unsubscribe: the flags were last turned off from the *mail* (the RFC 8058
+ * one-click POST or the confirm page's form), not from a UI the user or an admin drove.
+ *
+ * Lives here, next to `unsubscribeAudit`, because it only makes sense against that
+ * function's contract: `unsubscribed_via` is written only when the resulting row has
+ * both flags off (the channel) or both on (cleared) — one-on/one-off leaves the previous
+ * record standing. So a user who one-clicked, then had weekly re-enabled by an admin,
+ * still reads `'one-click'` while `weekly_enabled = 1`; the caller must therefore pair
+ * this with the flag for the kind it's about to send.
+ */
+function isHardUnsubscribe(row: PrefsRow | null): boolean {
+  const via = row?.unsubscribed_via as UnsubscribeVia | null | undefined;
+  return via === 'one-click' || via === 'link';
 }
 
 /** The `ON CONFLICT` assignments for the audit columns (empty = leave them alone). */
@@ -1239,8 +1282,9 @@ app.post('/api/admin/users/:id/set-role', requireAdmin, async (c) => {
 // there, and selectDue skips them on the next bulk run. Only the named columns are
 // touched on conflict, so their timezone and send weekdays survive — plus `0006`'s
 // audit columns, which track the resulting subscribed/unsubscribed state either way.
-// (Admin "send now" deliberately ignores these flags: it's a manual one-off, not the
-// schedule.)
+// (Admin "send now" deliberately ignores these flags — it's a manual one-off, not the
+// schedule — *except* when they were turned off from the mail itself, which it answers
+// with a 409; see `sendEmailNow`.)
 app.post('/api/admin/users/:id/set-email-prefs', requireAdmin, async (c) => {
   const id = c.req.param('id');
   const { weeklyEnabled, reminderEnabled } = (await c.req
@@ -1311,12 +1355,35 @@ app.post('/api/admin/users/:id/set-email-prefs', requireAdmin, async (c) => {
 // kicked off by the cron), this builds and sends the one email *inline* and synchronously,
 // so the admin gets the real success/failure back (a 502 on a Resend error). Volume is 1,
 // so there's nothing to fan out.
+//
+// It deliberately overrides the `weekly_enabled`/`reminder_enabled` flags — a manual
+// one-off isn't the schedule — with **one** exception: a *hard* unsubscribe (the user
+// turned this email off from the mail itself). Re-mailing someone who used the RFC 8058
+// one-click button is the exact thing that earns a spam report, and it would silently
+// undo a request we're legally and reputationally bound to honor. That's a 409, not a
+// silent no-op, so the admin sees why. An admin/settings-driven off switch still gets
+// overridden as before.
 async function sendEmailNow(
   env: Env,
   userId: string,
   kind: EmailKind,
 ): Promise<Response> {
-  const prefs = rowToPrefs(await loadPrefs(env, userId));
+  const row = await loadPrefs(env, userId);
+  const prefs = rowToPrefs(row);
+  const enabled = kind === 'weekly' ? prefs.weeklyEnabled : prefs.reminderEnabled;
+  // Both halves matter: `unsubscribed_via` survives a partial re-enable (see
+  // `isHardUnsubscribe`), so the flag for *this* kind is what says it's still off.
+  // Must sit before the try below — `senderDeps(env)` throws when RESEND_API_KEY is
+  // unset (as in tests), which would otherwise mask this as a 502.
+  if (!enabled && isHardUnsubscribe(row)) {
+    return Response.json(
+      {
+        error: 'user unsubscribed',
+        detail: `This user turned off their ${kind} email using the one-click unsubscribe link in a previous email. Re-enable it in their email settings first (the Enable buttons above, or ask them to do it in Settings).`,
+      },
+      { status: 409 },
+    );
+  }
   const parts = localParts(new Date(), prefs.timezone);
   const weekStart = weekStartOnOrBefore(parts, prefs.weeklyEmailDow);
   try {

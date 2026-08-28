@@ -303,17 +303,42 @@ describe('one-click unsubscribe', () => {
       expect(await flags('alice')).toMatchObject({ weekly_enabled: 0 });
     });
 
-    it('400s on a bad signature, and on a truncated or garbage token', async () => {
+    it('answers 200 for a bad/truncated/garbage token but writes no row', async () => {
+      // Uniform 200: a 4xx here would leak that this particular token isn't real (every
+      // other outcome is a 200), and a mailbox provider driving the one-click button
+      // reads it as "this sender's unsubscribe is broken" — while the usual cause is
+      // the mail client truncating the URL. The body is what says it failed.
       const forged = await mintUnsubscribeToken('some-other-secret', 'alice');
       const good = await tokenFor('alice');
       for (const bad of [forged, good.slice(0, 12), 'garbage', '']) {
         const res = await oneClick(bad);
-        expect(res.status, `token ${bad.slice(0, 8)}…`).toBe(400);
+        expect(res.status, `token ${bad.slice(0, 8)}…`).toBe(200);
       }
       const rows = await env.DB.prepare(
         'SELECT COUNT(*) AS n FROM user_email_prefs',
       ).first<{ n: number }>();
       expect(rows?.n).toBe(0);
+    });
+
+    it('renders the error page (not the success page) on a bad token with Accept: text/html', async () => {
+      // The 200 must not become a *lie*: a human who clicked a mangled link has to be
+      // told it didn't work, or they'll believe they're unsubscribed and report spam.
+      const res = await SELF.fetch(
+        'https://server/api/unsubscribe?t=garbage&lang=en',
+        {
+          method: 'POST',
+          headers: {
+            accept: 'text/html,application/xhtml+xml',
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+          body: 'List-Unsubscribe=One-Click',
+        },
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/html');
+      const html = await res.text();
+      expect(html).toContain("This unsubscribe link isn't valid");
+      expect(html).not.toContain('been unsubscribed');
     });
 
     it('a token minted for A cannot unsubscribe B', async () => {

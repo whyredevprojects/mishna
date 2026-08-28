@@ -303,7 +303,10 @@ environments because the API is always same-origin:
   says which button spins). No confirm dialog (reversible, toast-only like the send
   buttons), plus a "Scheduled emails" row in the detail `<dl>`; `admin-users` shows a
   read-only "Weekly off"/"Reminders off"/"Emails off" tag in the status column. Note the
-  toggles and send-now are independent: send-now deliberately ignores both flags.
+  toggles and send-now are mostly independent: send-now deliberately ignores both flags,
+  *unless* the user turned that email off from the mail itself (the one-click unsubscribe)
+  — then the server answers `409` and both send call sites (here and `admin-assignments`)
+  toast the response's `detail` verbatim, without the "Could not send the email:" prefix.
 - **Admin lot editing**: `admin-group-detail.component.ts` shows each member's lots as
   `54 (Peah:1), …` (labels from the cached `GET /api/admin/lots` catalog) and a pencil
   opens inline numeric inputs (add/remove/Enter-to-add) with a "?" lot-reference dialog.

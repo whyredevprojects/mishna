@@ -14,6 +14,13 @@ export interface OutgoingEmail {
   subject: string;
   html: string;
   /**
+   * The `text/plain` alternative. **Required**, not optional: Resend sends a
+   * `multipart/alternative` when it gets both parts, and a missing text part should be
+   * a compile error rather than a silent HTML-only send (which costs deliverability and
+   * is unreadable in text-only clients). Built alongside the HTML in `templates/`.
+   */
+  text: string;
+  /**
    * Custom RFC 5322 headers. Resend's batch API takes these per element
    * (`CreateBatchEmailOptions.headers`), so they ride along with the batch send.
    * Used for the RFC 8058 one-click unsubscribe headers (see `buildEmail`).
@@ -132,6 +139,7 @@ async function buildEmail(
     to: job.to,
     subject: built.subject,
     html: built.html,
+    text: built.text,
     headers: {
       // RFC 8058: the URL must accept a POST that unsubscribes without further
       // interaction. `List-Unsubscribe-Post` is what tells Gmail/Yahoo the
