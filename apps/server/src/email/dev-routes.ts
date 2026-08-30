@@ -1,6 +1,11 @@
 import { Context, Hono } from 'hono';
 import { EmailKind, localParts, weekStartOnOrBefore } from '@mishna/domain';
-import { OutgoingEmail, PreparedEmail, planSends } from '@mishna/email-domain';
+import {
+  OutgoingEmail,
+  PreparedEmail,
+  mergePrefs,
+  planSends,
+} from '@mishna/email-domain';
 import { composeEmail } from '@mishna/email-templates';
 import { AuthVariables } from '../auth-middleware';
 import { emailContentEngine } from '../domain';
@@ -187,11 +192,13 @@ export function mountDevEmailRoutes(app: Hono<DevEnv>): void {
             commitment: number;
           }>(),
           c.env.DB.prepare(
-            'SELECT user_id, timezone, weekly_email_dow, weekly_enabled, reminder_enabled FROM user_email_prefs',
+            `SELECT user_id, timezone, weekly_email_dow, reminder_email_dow,
+                    weekly_enabled, reminder_enabled FROM user_email_prefs`,
           ).all<{
             user_id: string;
             timezone: string;
             weekly_email_dow: number;
+            reminder_email_dow: number;
             weekly_enabled: number;
             reminder_enabled: number;
           }>(),
@@ -199,16 +206,25 @@ export function mountDevEmailRoutes(app: Hono<DevEnv>): void {
       const commitments = new Map(joined.map((r) => [r.user_id, r.commitment]));
       const prefsById = new Map(prefs.map((r) => [r.user_id, r]));
       return c.json({
-        users: users.map((u) => ({
-          id: u.id,
-          email: u.email,
-          name: u.name,
-          emailVerified: u.emailVerified === 1,
-          commitment: commitments.get(u.id) ?? null,
-          timezone: prefsById.get(u.id)?.timezone ?? null,
-          weeklyEnabled: prefsById.get(u.id)?.weekly_enabled !== 0,
-          reminderEnabled: prefsById.get(u.id)?.reminder_enabled !== 0,
-        })),
+        users: users.map((u) => {
+          // Via `mergePrefs`, not an inline `!== 0`: the whole point of that function
+          // is that "what does this row mean" has exactly one answer everywhere (an
+          // inline copy that drifted is what caused the `blocksForUser` bug). The two
+          // also disagree — a NULL column reads as *off* through `mergePrefs` and as
+          // *on* through `!== 0` — so a dropdown built the other way would tell you
+          // this user gets mail when the cron thinks otherwise.
+          const merged = mergePrefs(prefsById.get(u.id));
+          return {
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            emailVerified: u.emailVerified === 1,
+            commitment: commitments.get(u.id) ?? null,
+            timezone: merged.timezone,
+            weeklyEnabled: merged.weeklyEnabled,
+            reminderEnabled: merged.reminderEnabled,
+          };
+        }),
       });
     }),
   );

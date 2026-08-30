@@ -32,8 +32,46 @@ import { mountDevEmailRoutes } from './email/dev-routes';
 
 mountDevEmailRoutes(app);
 
+/**
+ * 🔴 Shout if `APP_ORIGIN` still points at production.
+ *
+ * `wrangler.toml`'s `[vars]` pins the real apex, and `.dev.vars` is what overrides
+ * it — so the *default* local state is the dangerous one. Left alone, every email
+ * this workbench renders carries an unsubscribe link (footer **and** the RFC 8058
+ * `List-Unsubscribe` header) pointing at production, signed with the local secret:
+ * click it and you hit the live worker; mail it to a real inbox and the recipient
+ * gets an unsubscribe link that cannot verify. The Hebrew text also comes from
+ * production rather than the local dev server.
+ *
+ * Documented in `.dev.vars.example` and `apps/server/CLAUDE.md` — but documentation
+ * is not a guard, and this one is invisible until it has already gone out.
+ */
+let originChecked = false;
+function warnOnProductionOrigin(env: Env): void {
+  if (originChecked) return;
+  originChecked = true;
+  const origin = env.APP_ORIGIN ?? '';
+  let host = '';
+  try {
+    host = new URL(origin).hostname;
+  } catch {
+    host = '';
+  }
+  if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]') return;
+  console.warn(
+    `\n🔴 email workbench: APP_ORIGIN is ${origin || '(unset)'}, not localhost.\n` +
+      `   Unsubscribe links (footer + List-Unsubscribe header) will point at that\n` +
+      `   origin while being signed with your LOCAL secret, and Hebrew text will be\n` +
+      `   fetched from it. Set APP_ORIGIN=http://localhost:4200 in apps/server/.dev.vars.\n` +
+      `   (To keep local links but borrow production's text, pass ?textOrigin=… instead.)\n`,
+  );
+}
+
 export default {
-  fetch: (req: Request, env: Env, ctx: ExecutionContext) => app.fetch(req, env, ctx),
+  fetch: (req: Request, env: Env, ctx: ExecutionContext) => {
+    warnOnProductionOrigin(env);
+    return app.fetch(req, env, ctx);
+  },
   // The real cron handler, unchanged — so `wrangler dev --test-scheduled` and
   // `/__dev/email/cron` exercise the production path.
   scheduled: worker.scheduled,

@@ -1,7 +1,43 @@
 import { SELF, env } from 'cloudflare:test';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { applyMigrations } from './apply-migrations';
 import '.';
+
+// 🔴 This file drives `POST /api/admin/users/:id/send-{weekly,reminder}`, i.e. the
+// real inline send path. Two independent things keep it off the network, and both
+// are load-bearing:
+//
+//   1. `vitest.config.mts` pins a fake `RESEND_API_KEY`, so `.dev.vars` — where a
+//      developer plausibly has a REAL key on a verified sender domain — can't win.
+//   2. The default-deny `fetch` stub below, which throws on anything outbound.
+//
+// The send-now tests below assert `502`. Do NOT read that as "there is no Resend
+// key" (there is one — a fake). It means the send genuinely failed before leaving
+// the worker; today it fails in `prepareOne`, because this file never creates the
+// `AUTH_DB` "user" table, so the recipient lookup throws. What the assertion is
+// actually for is the discriminator against `409`: `502` proves the
+// hard-unsubscribe gate did *not* fire and a send was attempted. If you ever seed
+// `AUTH_DB` here, these become `502`-from-a-refused-fetch instead, which is fine —
+// but keep the stub, or the suite starts mailing people.
+const realFetch = globalThis.fetch;
+beforeAll(() => {
+  vi.stubGlobal('fetch', (input: RequestInfo | URL) => {
+    throw new Error(
+      `refused outbound fetch in tests: ${typeof input === 'string' ? input : String(input)}`,
+    );
+  });
+});
+afterAll(() => {
+  vi.stubGlobal('fetch', realFetch);
+});
 
 // AUTH is stubbed in vitest.config.mts: the `cookie` value is the user id, and
 // cookie 'admin' is flagged isAdmin.
@@ -88,9 +124,9 @@ describe('email preferences + admin send-now', () => {
   });
 
   it('only admins reach send-now; non-admins get 403', async () => {
-    // RESEND_API_KEY isn't set in tests, so senderDeps() (and thus the inline send)
-    // throws — exercising the route's 502 path. The actual build/send is covered
-    // offline in email.integration.test.ts via processJobs with an injected sender.
+    // The inline send can't succeed here (see the file header), so send-now
+    // surfaces its 502 path. The actual build/send is covered offline in
+    // email.integration.test.ts via processJobs with an injected sender.
     const weekly = await SELF.fetch(
       'https://server/api/admin/users/bob/send-weekly',
       { method: 'POST', headers: as('admin') },
@@ -155,7 +191,8 @@ describe('email preferences + admin send-now', () => {
 
     it('still overrides an admin- or settings-driven off switch', async () => {
       // Those are ours to undo; only a mail-side unsubscribe is off limits. 502 =
-      // the gate didn't fire and the send was attempted (no RESEND_API_KEY in tests).
+      // the gate didn't fire and the send was attempted (and then failed — the
+      // discriminator against 409, which would mean no attempt at all).
       for (const via of ['settings', 'admin']) {
         await env.DB.exec('DELETE FROM user_email_prefs');
         await seedPrefs(0, 0, via);

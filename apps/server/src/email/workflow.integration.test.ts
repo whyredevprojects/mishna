@@ -204,6 +204,13 @@ describe('ReminderWorkflow', () => {
           );
         },
       );
+      // Self-validation, and it is not optional: everything below this line also
+      // holds in a workflow that never retried at all, so if `send-batch-1` ever
+      // stops being a `step.do` with that name — the exact regression this test
+      // exists to catch — `mockStepError` silently no-ops and the assertions go
+      // green on a run that proved nothing. Waiting on the step by name fails
+      // instead.
+      await instance.waitForStepResult({ name: 'send-batch-1' });
       await instance.waitForStatus('complete');
 
       // Exactly three transport calls, of 100 / 100 / 50 — batch 0 was NOT re-sent

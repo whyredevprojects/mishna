@@ -271,7 +271,13 @@ overridden.
 **Verified-only.** The email path never mails an unverified address. `loadEmails`
 (bulk) filters `WHERE "emailVerified" = 1`, and `loadRecipient` (admin send-now) returns
 `null` unless the address is present and verified — so an unverified user is silently
-skipped by the cron and yields no `PreparedEmail` for send-now. Google sign-ins are
+skipped by the cron and yields no `PreparedEmail` for send-now. That's **two** predicates
+in two files, i.e. two independent ways to lose the guarantee, so each has its own test in
+`email/email.integration.test.ts` (the `planSends` pair and the `loadRecipient` block).
+The `planSends` ones seed a **group** on purpose: without blocks the user has nothing to
+send and `prepareSingle` drops them anyway, so the assertion would pass no matter what the
+address filter did — which is exactly what it used to do. The "queues a verified
+participant" control next to them is what keeps them honest. Google sign-ins are
 verified automatically by better-auth; password sign-ups stay unverified until a
 verification flow is added (`apps/login`). The admin views surface the flag so it's visible.
 
@@ -635,8 +641,22 @@ it themselves.
   is idempotent, never 3xx, sets the no-store/
   no-referrer/nosniff headers, and the audit columns' full lifecycle across Settings and
   the admin toggle. `UNSUBSCRIBE_SECRET` is bound in `vitest.config.mts`.
-- `preferences.integration.test.ts` — email prefs + admin send-now. The send path has no
-  `RESEND_API_KEY` in tests, so `senderDeps()` throws and send-now surfaces as a `502`
-  (the real build/send is covered offline in the email test above) — which doubles as the
-  "the gate did *not* fire" assertion for the hard-unsubscribe `409` tests (one-click/link
-  → `409`; settings/admin, a partial re-enable, and no prefs row → `502`).
+- `preferences.integration.test.ts` — email prefs + admin send-now. The inline send can't
+  succeed here, so send-now surfaces as a `502` (the real build/send is covered offline in
+  the email test above) — which is what makes it the "the gate did *not* fire"
+  discriminator for the hard-unsubscribe `409` tests (one-click/link → `409`;
+  settings/admin, a partial re-enable, and no prefs row → `502`). Read the `502` as
+  "a send was attempted and failed", **not** as "there is no Resend key" — there is one,
+  and it's fake on purpose (see below). Today it fails in `prepareOne`, because this file
+  never creates the `AUTH_DB` "user" table.
+
+🔴 **No test can reach Resend, and that is enforced twice.** `vitest.config.mts` binds a
+**fake** `RESEND_API_KEY`, because this pool loads `apps/server/.dev.vars` — where a
+developer very likely has a *real* key, on a verified sender domain. Binding it here makes
+`.dev.vars` lose for every file in the suite. On top of that, each test that touches the
+send path (`workflow.integration.test.ts`, `dev-routes.integration.test.ts`,
+`preferences.integration.test.ts`) stubs global `fetch` with a default-deny branch. Keep
+both: the binding is the floor, the stubs are what stop a *successfully constructed*
+client from making a request. The failure mode being defended against is not exotic —
+seeding `AUTH_DB` in `preferences.integration.test.ts` (an obvious improvement) is enough
+to put a live send one line away.

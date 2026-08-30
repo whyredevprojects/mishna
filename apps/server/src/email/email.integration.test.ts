@@ -11,7 +11,7 @@ import {
 import { planSends, refKey } from '@mishna/email-domain';
 import { D1EmailRepository } from '@mishna/email-data';
 import { applyMigrations } from '../apply-migrations';
-import { loadBlocks } from './data';
+import { loadBlocks, loadRecipient } from './data';
 import { OutgoingEmail, PreparedEmail, processJobs } from './sender';
 import { senderDeps } from './workflow';
 import {
@@ -211,13 +211,30 @@ describe('email path', () => {
       expect(await planSends(repo, engine, NOW_NY_WED_8AM)).toEqual([]);
     });
 
+    // 🔴 The verified-only guarantee (`loadEmails`' `WHERE "emailVerified" = 1`).
+    // These three go together and the group seeding is the point: without
+    // `seedGroupFor` the user has no blocks, so `prepareSingle` would drop them for
+    // having nothing to send and the assertion would pass no matter what the address
+    // filter did. The control proves the *only* difference is the address itself.
+    it('queues a verified participant with mishnayot (control for the two below)', async () => {
+      await seedParticipant({ userId: 'alice', weeklyDow: 3 });
+      await seedGroupFor('alice');
+      expect(await planSends(repo, engine, NOW_NY_WED_8AM)).toMatchObject([
+        { userId: 'alice', kind: 'weekly' },
+      ]);
+    });
+
     it('skips a participant with no email address', async () => {
-      await seedParticipant({ userId: 'ghost', weeklyDow: 3, email: null });
+      await seedParticipant({ userId: 'alice', weeklyDow: 3, email: null });
+      await seedGroupFor('alice');
       expect(await planSends(repo, engine, NOW_NY_WED_8AM)).toEqual([]);
     });
 
     it('skips a participant whose email is not verified', async () => {
-      await seedParticipant({ userId: 'unconfirmed', weeklyDow: 3, emailVerified: 0 });
+      // Dropping `WHERE "emailVerified" = 1` from loadEmails means the hourly cron
+      // mails every unverified signup — the population most likely to mark it spam.
+      await seedParticipant({ userId: 'alice', weeklyDow: 3, emailVerified: 0 });
+      await seedGroupFor('alice');
       expect(await planSends(repo, engine, NOW_NY_WED_8AM)).toEqual([]);
     });
 
@@ -517,11 +534,38 @@ describe('email path', () => {
     });
   });
 
+  describe('loadRecipient (the send-now half of verified-only)', () => {
+    // 🔴 The bulk path's guard is `loadEmails`' `WHERE "emailVerified" = 1`, covered
+    // in planSends above. This is the *other* enforcement point — admin "send now",
+    // which does its own single-user read and must refuse the same addresses. Two
+    // separate predicates in two files mean two separate ways to lose the guarantee.
+    it('returns the recipient for a verified address', async () => {
+      await seedParticipant({ userId: 'alice' });
+      await expect(loadRecipient(env, 'alice')).resolves.toMatchObject({
+        userId: 'alice',
+        email: 'alice@example.com',
+      });
+    });
+
+    it('returns null for an unverified address', async () => {
+      await seedParticipant({ userId: 'alice', emailVerified: 0 });
+      await expect(loadRecipient(env, 'alice')).resolves.toBeNull();
+    });
+
+    it('returns null when there is no address at all', async () => {
+      await seedParticipant({ userId: 'alice', email: null });
+      await expect(loadRecipient(env, 'alice')).resolves.toBeNull();
+    });
+
+    it('returns null for a user the auth db has never heard of', async () => {
+      await expect(loadRecipient(env, 'nobody')).resolves.toBeNull();
+    });
+  });
+
   describe('senderDeps (the production wiring)', () => {
     // Everything above injects its own deps, so a missing wire in senderDeps itself
     // would only ever be caught by the type checker. Resend's constructor throws
-    // without an api key (the tests deliberately have none — that's what makes
-    // send-now's 502 testable), so stub one in; nothing here actually sends.
+    // without an api key, so stub one in; nothing here actually sends.
     const wired = (overrides: Partial<Env> = {}) =>
       senderDeps({
         ...env,

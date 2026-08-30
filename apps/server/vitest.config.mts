@@ -19,11 +19,19 @@ export default defineConfig(() => ({
       wrangler: { configPath: './wrangler.toml' },
       miniflare: {
         // Secrets aren't in wrangler.toml, so the ones the tests need are bound
-        // here. (RESEND_API_KEY is deliberately absent — that's what makes the
-        // admin send-now route's 502 path testable.) This value is a test fixture,
-        // not a real key: production signs with `wrangler secret put`.
+        // here. These are test fixtures, not real keys: production sets both with
+        // `wrangler secret put`.
+        //
+        // 🔴 RESEND_API_KEY is pinned deliberately, and must stay pinned. This pool
+        // loads `apps/server/.dev.vars`, where a developer very likely has a REAL
+        // key — on a verified sender domain. Binding a fake one here makes
+        // `.dev.vars` lose for every test file, so no test can ever construct a
+        // working Resend client, whatever it does to the DB. (Individual email test
+        // files additionally stub global `fetch` with a default-deny branch; that is
+        // belt to this suspenders. Do not remove either.)
         bindings: {
           UNSUBSCRIBE_SECRET: 'test-unsubscribe-secret',
+          RESEND_API_KEY: 're_fake_test_key_never_real',
         },
         // The login worker isn't running in tests, so stub the AUTH service
         // binding. get-session treats the forwarded cookie value as the user id
