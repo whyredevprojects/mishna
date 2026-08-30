@@ -10,12 +10,13 @@ allocation writes so concurrent joins can't corrupt a group.
 
 | File | Role |
 |------|------|
-| `index.ts` | Hono app + routes + the worker entry. Default export is `{ fetch, scheduled }` (the cron handler kicks off the `ReminderWorkflow`); also exports `{ AllocatorDO, ReminderWorkflow }`. |
+| `index.ts` | Hono app + routes + the **production** worker entry (`wrangler.toml`'s `main`). Default export is `{ fetch, scheduled }` (the cron handler kicks off the `ReminderWorkflow`); also exports `{ AllocatorDO, ReminderWorkflow }` and the Hono `app` itself (for `dev-entry.ts`). |
+| `dev-entry.ts` | The **dev-only** entry: the same `app` plus the `/__dev/email/*` workbench, run by `npm run email:dev:server`. Never deployed — see "Testing email locally". |
 | `domain.ts` | Module-scope domain singletons (`structure`, `calendar`, `assignmentEngine`, `idGen`), built once per isolate. |
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `email/` | The email module — the **side-effecting** half only. Everything pure has moved out to libs (see the table below this one): `workflow.ts` (`ReminderWorkflow` + `senderDeps` + `batchPlan` + run metrics; builds a `D1EmailRepository` and calls the lib's `planSends`), `sender.ts` (`processJobs` — resolve text → `composeEmail` → Resend batch w/ idempotency key → `deps.record`, plus `prepareOne` for admin), `data.ts` (the admin/send-now readers only — `loadGroupBlocksFor`/`loadIdentitiesFor`/`alreadySentSet`/`loadCompletedFor` + single-user `loadRecipient`/`loadBlocks`/`loadCompleted`; reuses `@mishna/email-data`'s `chunked`/`placeholders` and `@mishna/email-domain`'s `mergePrefs`), `quota.ts` (`httpTextResolver` — the HTTP `TextResolver` over `mishna-text`, with the tractate loader injected), `unsubscribe.ts` (a thin **re-export shim** over `@mishna/email-domain`, kept so existing import paths work). |
+| `email/` | The email module — the **side-effecting** half only. Everything pure has moved out to libs (see the table below this one): `workflow.ts` (`ReminderWorkflow` + `senderDeps` + `batchPlan` + run metrics; builds a `D1EmailRepository` and calls the lib's `planSends`), `sender.ts` (`processJobs` — resolve text → `composeEmail` → Resend batch w/ idempotency key → `deps.record`, plus `prepareOne` for admin), `data.ts` (the admin/send-now readers only — `loadGroupBlocksFor`/`loadIdentitiesFor`/`alreadySentSet`/`loadCompletedFor` + single-user `loadRecipient`/`loadBlocks`/`loadCompleted`; reuses `@mishna/email-data`'s `chunked`/`placeholders` and `@mishna/email-domain`'s `mergePrefs`), `quota.ts` (`httpTextResolver` — the HTTP `TextResolver` over `mishna-text`, with the tractate loader injected), `unsubscribe.ts` (a thin **re-export shim** over `@mishna/email-domain`, kept so existing import paths work), `dev-routes.ts` + `dev-page.ts` (the dev-only local workbench, mounted only by `dev-entry.ts`). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
 
@@ -385,6 +386,131 @@ motivated this — see the multi-member regression test in `email/email.integrat
 Genuinely per-group, all-members reads — e.g. `GET /api/admin/groups/:id` listing each
 member's lots — deliberately do not filter.
 
+## Testing email locally
+
+Email is the scariest thing in this repo to change: it is the one path that leaves the
+building, it fires from a cron you can't watch, and a mistake reaches real inboxes and
+can't be taken back. So there is a local workbench — `/__dev/email/*` — that lets you
+look at, and deliberately send, a **real** email built by the **real** code, entirely
+on your machine.
+
+### Cold start
+
+```sh
+npm run db:init:local        # 1. seed the local mishna-auth + mishna-app D1
+npm run email:dev:server     # 2. serve the DEV entry point on :8787
+npm run dev                  # 3. (another terminal) the Angular dev server on :4200
+# then open http://localhost:8787/__dev/email
+```
+
+Step 3 is not optional if you want Hebrew text and safe links — see the `APP_ORIGIN`
+gotcha below. If you'd rather not run Angular, pass
+`?textOrigin=https://app.mishna2go.com` on `/render` (or `"textOrigin"` in the `/send`
+body) and leave `APP_ORIGIN` pointing at localhost.
+
+`email:dev:server` is:
+
+```sh
+npx wrangler dev apps/server/src/dev-entry.ts \
+    --config apps/server/wrangler.toml --persist-to .wrangler/state --port 8787
+```
+
+The positional script **overrides `wrangler.toml`'s `main`**, so this runs with the
+same config as production: same D1 databases, same DO/Workflow classes, same `[vars]`,
+no second toml to drift. (`npm run dev`'s Angular proxy also targets :8787, so the
+client works against this server exactly as it does against `nx serve server`.)
+
+### 🔴 The `APP_ORIGIN` gotcha — read this before previewing anything
+
+`wrangler.toml` `[vars]` pins `APP_ORIGIN = "https://app.mishna2go.com"` (generated
+from `config/domains.json` — don't edit it there). Leave it and a locally-previewed
+email points at **production** twice over:
+
+1. **The unsubscribe link** — the visible footer link *and* the RFC 8058
+   `List-Unsubscribe` header — becomes `https://app.mishna2go.com/api/unsubscribe?t=…`
+   with a token signed by your local secret. Clicking it hits production.
+2. **The Hebrew text fetch** — `httpTextResolver(APP_ORIGIN)` loads mishna-text's
+   tractate JSON from `${APP_ORIGIN}/<tractate>.json`.
+
+Override it in `apps/server/.dev.vars` (which beats `[vars]`):
+
+```
+APP_ORIGIN=http://localhost:4200
+```
+
+That fixes both at once: `nx serve client` copies `node_modules/mishna-text/data/*.json`
+into its assets, so it really serves `http://localhost:4200/berakhot.json`; and
+`apps/client/proxy.conf.json` proxies `/api/*` to `localhost:8787`, so the unsubscribe
+link in the previewed email lands on your **local** worker. `apps/server/.dev.vars.example`
+documents this, along with Resend's sandbox addresses (`delivered@resend.dev`,
+`bounced@resend.dev`, `complained@resend.dev`), which exercise the real API without
+touching a mailbox.
+
+### The routes
+
+| Route | What it does |
+|---|---|
+| `GET /__dev/email` | The workbench page: a user dropdown, a weekly/reminder radio, Preview into an iframe, and a "send to" box. ~150 lines of plain HTML/CSS/JS, no framework and no build step, inlined from `dev-page.ts` (this worker has no static-asset pipeline). |
+| `GET /__dev/email/plan?at=<ISO>` | **Dry run — sends nothing.** The real `planSends` against the real local D1 at an arbitrary instant: *"who would get mail at 08:00 Sunday?"* Returns the `PreparedEmail[]` as JSON. |
+| `GET /__dev/email/render?userId=&kind=&weekStart=&at=&textOrigin=&part=&raw=` | `prepareOne` → `composeEmail`. Defaults to `text/html` so the browser paints the actual email; `?raw=1` for the source, `?part=text` for the plain-text alternative, `?part=json` for the whole `OutgoingEmail` including the RFC 8058 headers. Real user, real mishnayot, real Hebrew, real signed unsubscribe token. Needs **no** `RESEND_API_KEY`. |
+| `POST /__dev/email/send` `{userId, kind, to?, weekStart?, textOrigin?}` | 🔴 Sends ONE **real** email through the production `processJobs` + `senderDeps`. `to` overrides the recipient. Writes the `email_log` row, exactly like admin send-now — so the scheduled send for that (user, kind, week) is then deduped away. |
+| `GET /__dev/email/cron?at=<ISO>&wait=&fresh=` | Creates a real `ReminderWorkflow` instance for that instant — the same thing the hourly `scheduled` handler does — and polls for its `RunMetrics`. **This really sends** to everyone due; run `/plan` at the same `at` first. |
+| `GET /__dev/email/users` | The dropdown's options, read straight from `AUTH_DB` + `participants` + `user_email_prefs`. Not `GET /api/admin/users`: that needs a real admin session cookie from `apps/login`, which a page opened directly against :8787 doesn't have. |
+
+Two things to know when a route says "nobody":
+
+- `?at=` is **UTC**, and the send window is 08:00 in the *user's* zone. An
+  `America/New_York` user is due at `12:00Z` (EDT) / `13:00Z` (EST).
+- `planSends` honors `email_log`, so a (user, kind, week) you already sent this week —
+  including via `/__dev/email/send` — comes back empty. That's correct, not a bug.
+
+### Seeding a user
+
+The workbench reads whatever is in your local D1, so the normal local flow is the
+seeding path: run `npm run dev`, sign up / sign in through the app, and press Join.
+Two requirements the email path enforces, which is usually why a user doesn't appear
+or `/render` answers `400 no sendable recipient`:
+
+- **Verified only.** `loadRecipient` returns `null` for an address that isn't
+  `emailVerified = 1` in `mishna-auth`. A Google sign-in is verified automatically; a
+  password sign-up isn't until it's confirmed. To force it locally:
+  `npx wrangler d1 execute mishna-auth --local --persist-to .wrangler/state --config apps/login/wrangler.toml --command 'UPDATE "user" SET "emailVerified" = 1'`
+- **Joined.** No blocks means no mishnayot; `/render` still works (you get the
+  deliberate empty-state email), `/plan` skips them.
+
+### 🔴 Why these routes cannot reach production
+
+`POST /__dev/email/send` mails **any address** as **any user**, with no auth. It is
+safe only because it is *structurally* undeployable, not because of a flag:
+`wrangler.toml` pins `main = "src/index.ts"`, and `index.ts` never imports
+`dev-entry.ts`, so `wrangler deploy` has no path to `dev-routes.ts` at all. There is no
+env var to set wrong, no environment to forget, and no `requireAdmin` a future handler
+can omit.
+
+The claim is checked two ways. Mechanically, on the real deploy bundle:
+
+```sh
+cd apps/server && npx wrangler deploy --dry-run --outdir /tmp/wfb
+grep -c '__dev' /tmp/wfb/index.js       # must print 0
+```
+
+and in CI, by `email/dev-routes.integration.test.ts`, which asserts the production
+entry answers `404` for every `/__dev/*` route. **Do not mount `mountDevEmailRoutes`
+from `index.ts`** — that is the one edit that would undo all of this, and both checks
+exist to catch it.
+
+### Previewing the templates alone
+
+`npm run email:dev` (port 3030) is the cheaper, offline half: react-email's own preview
+server over `libs/shared/email-templates/src/lib/preview/`, one entry per email
+*state* with sample data — `weekly`, `weekly-single-tractate` (the common
+one-heading case), `weekly-empty` (reachable in production via admin send-now),
+`weekly-large` (~40 mishnayot: the returning-user shape, and where you'd see Gmail's
+~102 KB clipping bury the unsubscribe footer), `weekly-no-unsubscribe` (the control —
+a footer that lost its link still looks like a normal footer), `reminder`,
+`reminder-empty`. No D1, no user, no worker. Use it for layout; use `/__dev/email` for
+"what would *this* user actually receive".
+
 ## Migrations
 
 The `mishna-app` schema is a set of numbered D1 migrations in `migrations/`, tracked by
@@ -485,6 +611,16 @@ it themselves.
   edge: `api.resend.com` (which doubles as the send counter) and the tractate JSON.
   `RESEND_API_KEY` is pinned to a fake value for this file, because a developer's
   `.dev.vars` may hold a real one.
+- `email/dev-routes.integration.test.ts` — the local workbench. Its first job is the
+  **gate**: every `/__dev/*` route is a `404` on the production entry (`SELF.fetch`),
+  because `POST /__dev/email/send` mails any address as any user with no auth and the
+  only thing stopping it in production is that `wrangler.toml`'s `main` never imports
+  `dev-entry.ts`. Then the routes themselves against real D1: `/plan` is a dry run
+  (no send, no `email_log` row), `/render` returns real Hebrew plus an unsubscribe
+  token that really verifies, `/send` honors the `to` override and records the send.
+  Like `workflow.integration.test.ts` it pins a **fake** `RESEND_API_KEY` and stubs
+  global `fetch` for `api.resend.com` and the tractate JSON — a developer's
+  `.dev.vars` may hold a real key.
 - `email/workflow.spec.ts` — `batchPlan`, exhaustively and deterministically: contiguous
   gap-free chunks and a throttle between every pair of batches, never after the last.
 - `email/quota.spec.ts` — `httpTextResolver` over an injected loader (no network): the

@@ -36,3 +36,36 @@ export const SAMPLE_ITEMS: ResolvedMishna[] = [
       'אֵלּוּ דְבָרִים שֶׁאֵין לָהֶם שִׁעוּר. הַפֵּאָה וְהַבִּכּוּרִים וְהָרֵאָיוֹן וּגְמִילוּת חֲסָדִים וְתַלְמוּד תּוֹרָה.',
   },
 ];
+
+/**
+ * One tractate only — so the preview shows the *single* heading case, which is what
+ * most real weekly emails actually look like (a pace of 1-3 mishnayot rarely spans
+ * two tractates). `SAMPLE_ITEMS` deliberately spans two, so both need a preview.
+ */
+export const SAMPLE_SINGLE_TRACTATE: ResolvedMishna[] = SAMPLE_ITEMS.filter(
+  (i) => i.ref.mesechta === 'Berachos',
+);
+
+/**
+ * A deliberately *large* portion (~40 mishnayot across three tractates). Not a pace
+ * anyone commits to — it's the shape a returning user's next unlearned bucket takes
+ * once they've been away, and the one that finds the layout problems the 3-item
+ * previews can't: clipping in Gmail (which truncates a message over ~102 KB and hides
+ * the footer — including the unsubscribe link — behind "View entire message"),
+ * heading repetition, and the plain-text part's length.
+ */
+export const SAMPLE_LARGE_ITEMS: ResolvedMishna[] = Array.from(
+  { length: 39 },
+  (_, i) => {
+    const source = SAMPLE_ITEMS[i % SAMPLE_ITEMS.length];
+    return {
+      ref: {
+        mesechta: source.ref.mesechta,
+        perek: Math.floor(i / 6) + 1,
+        mishna: (i % 6) + 1,
+      },
+      tractateHebrew: source.tractateHebrew,
+      hebrew: source.hebrew,
+    };
+  },
+).sort((a, b) => a.ref.mesechta.localeCompare(b.ref.mesechta));

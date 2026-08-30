@@ -1,7 +1,44 @@
 # Local-only secrets for `wrangler dev`. Copy to `.dev.vars` (gitignored) and fill in.
 # In production these are set with `wrangler secret put <NAME>` instead.
+#
+# .dev.vars can also override a wrangler.toml [vars] value — see APP_ORIGIN below,
+# which you almost certainly want to set while working on email.
 
 RESEND_API_KEY=KEY
+
+# 🔴 SET THIS WHEN WORKING ON EMAIL.
+#
+# wrangler.toml's [vars] pins APP_ORIGIN = "https://app.mishna2go.com" (generated
+# from config/domains.json — don't edit it there). Leave it at that value locally and
+# BOTH of the email path's outbound URLs point at PRODUCTION:
+#
+#   1. The unsubscribe link in a locally-previewed email — the visible footer link and
+#      the RFC 8058 List-Unsubscribe header — is https://app.mishna2go.com/api/unsubscribe.
+#      Click it and you unsubscribe that user in the PRODUCTION database.
+#   2. The Hebrew text fetch. `httpTextResolver(APP_ORIGIN)` loads mishna-text's
+#      tractate JSON from `${APP_ORIGIN}/<tractate>.json`.
+#
+# Point it at the Angular dev server instead. That fixes both at once:
+#   - `nx serve client` copies node_modules/mishna-text/data/*.json into its assets,
+#     so it serves http://localhost:4200/berakhot.json — the text resolver works.
+#   - apps/client/proxy.conf.json proxies /api/* to http://localhost:8787, so the
+#     unsubscribe link in the previewed email lands on your LOCAL worker.
+# Run `npm run dev` (the Angular dev server) alongside `npm run email:dev:server`.
+#
+# No Angular server running? Leave APP_ORIGIN local anyway and pass
+# `?textOrigin=https://app.mishna2go.com` to /__dev/email/render — the workbench
+# borrows production's tractate JSON while every link stays local. Never do the
+# reverse.
+APP_ORIGIN=http://localhost:4200
+
+# Resend sandbox addresses. These exercise the real API — auth, rate limits, the batch
+# endpoint, the idempotency key — and return a real message id, without touching a
+# mailbox. The /__dev/email workbench defaults its "send to" box to the first:
+#   delivered@resend.dev   accepted and "delivered"
+#   bounced@resend.dev     simulates a hard bounce
+#   complained@resend.dev  simulates a spam complaint
+# mishna2go.com is a verified Resend sender, so a local send to a REAL inbox also
+# works. Make that the deliberate choice, not the default.
 
 # Fine-grained GitHub PAT with Contents: read & write on whyredevprojects/mishna.
 # Used by the admin about-page editor to commit apps/www/src/content/about.md.

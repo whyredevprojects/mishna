@@ -30,7 +30,21 @@ depend on `@mishna/domain` or on any Cloudflare binding.
 | `components/email-shell.tsx` | Shared chrome: heading, CTA, and the unsubscribe footer. |
 | `components/mishna-list.tsx` | The mishnayot grouped by tractate; each Hebrew body is `dir="rtl"`. |
 | `styles.ts` | The inline-style theme (email clients strip `<style>`/external CSS). |
-| `preview/` | Dev-only entries for `npm run email:dev` — one per email state, plus a `.ts` sample-data file the CLI ignores. |
+| `preview/` | Dev-only entries for `npm run email:dev` — one per email **state**, plus a `.ts` sample-data file the CLI ignores (it only lists `.tsx`/`.jsx` with a default export). |
+
+The preview states, and why each one earns its file: `weekly` (two tractates, so the
+grouping headings show), `weekly-single-tractate` (**one** heading — what most real
+weeklies look like at a pace of 1-3), `weekly-empty` and `reminder-empty` (reachable
+in production: admin send-now passes `skipWhenEmpty: false`), `weekly-large` (~40
+mishnayot — the returning user's next unlearned bucket, and the size at which Gmail's
+~102 KB clipping would hide the footer's unsubscribe link behind "View entire
+message"), `weekly-no-unsubscribe` (the control: a footer that lost its link still
+looks like a perfectly normal footer, and the fallout shows up in deliverability data
+weeks later), `reminder`.
+
+For "what would *this real user* receive", the templates preview isn't enough — it has
+no D1, no user and no `AssignmentSource`. Use `apps/server`'s `/__dev/email` workbench
+(`npm run email:dev:server`); see "Testing email locally" in `apps/server/CLAUDE.md`.
 
 ## Key conventions
 

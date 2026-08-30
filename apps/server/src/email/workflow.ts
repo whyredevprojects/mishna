@@ -67,23 +67,42 @@ export interface RunMetrics {
 }
 
 /** The D1-backed email repository (the EmailRepository port impl) over this env. */
-function emailRepo(env: Env): D1EmailRepository {
+export function emailRepo(env: Env): D1EmailRepository {
   return new D1EmailRepository({
     db: env.DB,
     authDb: env.AUTH_DB,
   });
 }
 
-/** Wire the real side effects: Resend for sending, HTTP fetch for Hebrew text. */
-export function senderDeps(env: Env): SenderDeps {
-  const resend = new Resend(env.RESEND_API_KEY);
-  const repo = emailRepo(env);
+/**
+ * Everything `composeEmail` needs from the environment — i.e. `SenderDeps` minus the
+ * two effects that actually leave the process (`send`, `record`).
+ *
+ * Split out because *rendering* an email needs no Resend client, and `new Resend()`
+ * throws without an API key. The local preview route (`email/dev-routes.ts`
+ * `/__dev/email/render`) is therefore usable with no key at all, while still going
+ * through the exact production wiring — the real `httpTextResolver`, the real
+ * `APP_ORIGIN`, the real signed unsubscribe token.
+ */
+export type ComposeDeps = Omit<SenderDeps, 'send' | 'record'>;
+
+/**
+ * The non-transport half of the production wiring.
+ *
+ * `textOrigin` defaults to `APP_ORIGIN` (which is where mishna-text's tractate JSON
+ * is served from — the client copies `mishna-text/data` into its assets). It's a
+ * parameter only for the local preview tooling, which may want the Hebrew text from
+ * one origin while the *links* in the email still point at the local worker.
+ */
+export function composeDeps(
+  env: Env,
+  textOrigin: string = env.APP_ORIGIN,
+): ComposeDeps {
   return {
-    resolveText: httpTextResolver(env.APP_ORIGIN),
+    resolveText: httpTextResolver(textOrigin),
     from: env.RESEND_FROM_EMAIL,
     replyTo: env.RESEND_REPLY_TO_EMAIL,
     appOrigin: env.APP_ORIGIN,
-    record: (userId, kind, weekStart) => repo.recordSent(userId, kind, weekStart),
     // The RFC 8058 one-click unsubscribe link, signed with UNSUBSCRIBE_SECRET.
     // No `lang` is appended: the emails themselves are English-chrome only, so the
     // landing page picks the language from the browser's Accept-Language instead
@@ -93,6 +112,16 @@ export function senderDeps(env: Env): SenderDeps {
         env.APP_ORIGIN,
         await mintUnsubscribeToken(env.UNSUBSCRIBE_SECRET, userId, 'all'),
       ),
+  };
+}
+
+/** Wire the real side effects: Resend for sending, HTTP fetch for Hebrew text. */
+export function senderDeps(env: Env, textOrigin?: string): SenderDeps {
+  const resend = new Resend(env.RESEND_API_KEY);
+  const repo = emailRepo(env);
+  return {
+    ...composeDeps(env, textOrigin),
+    record: (userId, kind, weekStart) => repo.recordSent(userId, kind, weekStart),
     send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
       const { error } = await resend.batch.send(emails, { idempotencyKey });
       if (error) {

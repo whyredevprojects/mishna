@@ -65,7 +65,18 @@ import {
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
 
-const app = new Hono<AppEnv>();
+/**
+ * The API's Hono app.
+ *
+ * Exported so the **dev-only** entry point (`src/dev-entry.ts`, served by
+ * `npm run email:dev:server`) can mount the local email preview routes onto the very
+ * same app this file's default export serves — same middleware, same bindings, same
+ * `wrangler.toml`. Those routes exist *only* in that entry: `wrangler.toml` pins
+ * `main = "src/index.ts"`, which never imports `dev-entry.ts`, so `wrangler deploy`
+ * cannot bundle them. See `dev-routes.integration.test.ts`, which asserts the
+ * production surface answers `404` for `/__dev/*`.
+ */
+export const app = new Hono<AppEnv>();
 
 app.use('*', poweredBy());
 
