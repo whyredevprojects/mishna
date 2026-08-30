@@ -1,5 +1,5 @@
 import { Block, GroupState, MishnaRef, blocksForUser } from '@mishna/domain';
-import { DEFAULT_EMAIL_PREFS, refKey } from '@mishna/email-domain';
+import { EmailPrefs, mergePrefs, refKey } from '@mishna/email-domain';
 import { chunked, placeholders } from '@mishna/email-data';
 
 // ---------------------------------------------------------------------------
@@ -15,16 +15,12 @@ import { chunked, placeholders } from '@mishna/email-data';
 // send-now loaders and the admin-only batched readers that aren't part of the port.
 // ---------------------------------------------------------------------------
 
-export interface Recipient {
+/** One sendable recipient: identity + their (defaults-merged) email preferences. */
+export type Recipient = EmailPrefs & {
   userId: string;
   email: string;
   name: string | null;
-  timezone: string;
-  weeklyEmailDow: number;
-  reminderEmailDow: number;
-  weeklyEnabled: boolean;
-  reminderEnabled: boolean;
-}
+};
 
 interface PrefsRow {
   user_id: string;
@@ -195,28 +191,14 @@ export async function loadRecipient(
   // Verified-only, same as the bulk path: admin "send now" can't mail an
   // unverified address either.
   if (!user?.email || user.emailVerified !== 1) return null;
-  return buildRecipient(userId, user, prefs ?? undefined);
-}
-
-function buildRecipient(
-  userId: string,
-  user: UserRow,
-  prefs: PrefsRow | undefined,
-): Recipient {
+  // The defaults merge is `@mishna/email-domain`'s `mergePrefs` — the same one
+  // `D1EmailRepository.loadCandidates` uses, so "no prefs row" can't mean two
+  // different things on the bulk and send-now paths (it used to be two copies).
   return {
     userId,
     email: user.email,
     name: user.name,
-    timezone: prefs?.timezone ?? DEFAULT_EMAIL_PREFS.timezone,
-    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULT_EMAIL_PREFS.weeklyEmailDow,
-    reminderEmailDow:
-      prefs?.reminder_email_dow ?? DEFAULT_EMAIL_PREFS.reminderEmailDow,
-    weeklyEnabled: prefs
-      ? prefs.weekly_enabled === 1
-      : DEFAULT_EMAIL_PREFS.weeklyEnabled,
-    reminderEnabled: prefs
-      ? prefs.reminder_enabled === 1
-      : DEFAULT_EMAIL_PREFS.reminderEnabled,
+    ...mergePrefs(prefs),
   };
 }
 

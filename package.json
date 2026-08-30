@@ -9,7 +9,7 @@
     "dev:i18n": "npx nx serve-i18n client",
     "e2e": "npx nx e2e client-e2e",
     "sync:domains": "node tools/sync-domains.mjs",
-    "email:dev": "npx email dev --dir apps/server/src/email/templates/preview --port 3030",
+    "email:dev": "npx email dev --dir libs/shared/email-templates/src/lib/preview --port 3030",
     "db:migrate:local:app": "npx wrangler d1 migrations apply mishna-app --local --persist-to .wrangler/state --config apps/server/wrangler.toml",
     "db:migrate:local:auth": "npx wrangler d1 migrations apply mishna-auth --local --persist-to .wrangler/state --config apps/login/wrangler.toml",
     "db:migrate:local": "npm run db:migrate:local:auth && npm run db:migrate:local:app",

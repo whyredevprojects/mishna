@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { render, toPlainText } from '@react-email/render';
-import { ResolvedMishna } from '../quota';
+import { ResolvedMishna } from '@mishna/email-domain';
 import { ReminderEmail, REMINDER_TITLE } from './reminder-email';
 import { WeeklyEmail, WEEKLY_TITLE } from './weekly-email';
 
@@ -8,6 +8,12 @@ import { WeeklyEmail, WEEKLY_TITLE } from './weekly-email';
 // React component rendered to email-safe HTML (inline styles) at send time via
 // `render`. English chrome; the mishna text itself stays Hebrew (RTL). See the
 // individual *.tsx files to edit a template.
+//
+// `render` picks its renderer from the runtime's export condition: `workerd` →
+// `renderToReadableStream`, `node` → `renderToPipeableStream`. Both emit the same
+// static markup for these templates, but that isn't a contract — so this lib's tests
+// assert semantics (the labels, the Hebrew body, the footer, the text part's shape)
+// and apps/server's workerd integration test keeps the byte-level guarantees.
 
 export interface BuiltEmail {
   subject: string;

@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { Heading, Section, Text } from '@react-email/components';
-import { ResolvedMishna } from '../../quota';
+import { ResolvedMishna } from '@mishna/email-domain';
 import * as styles from '../styles';
 
 interface MishnaListProps {

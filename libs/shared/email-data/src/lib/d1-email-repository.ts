@@ -16,9 +16,9 @@
 import { Block, GroupState, MishnaRef, blocksForUser } from '@mishna/domain';
 import {
   Candidate,
-  DEFAULT_EMAIL_PREFS,
   EmailKind,
   EmailRepository,
+  mergePrefs,
 } from '@mishna/email-domain';
 
 /** The collaborators a {@link D1EmailRepository} needs, injected explicitly. */
@@ -56,20 +56,14 @@ export function placeholders(n: number): string {
   return new Array(n).fill('?').join(',');
 }
 
+/**
+ * A participant + their prefs row (or no row) as a `Candidate`. The defaults-merge
+ * itself is `@mishna/email-domain`'s `mergePrefs` — the single implementation, shared
+ * with the app's admin readers, so a missing row can't mean two different things on
+ * the two paths.
+ */
 function buildCandidate(userId: string, prefs: PrefsRow | undefined): Candidate {
-  return {
-    userId,
-    timezone: prefs?.timezone ?? DEFAULT_EMAIL_PREFS.timezone,
-    weeklyEmailDow: prefs?.weekly_email_dow ?? DEFAULT_EMAIL_PREFS.weeklyEmailDow,
-    reminderEmailDow:
-      prefs?.reminder_email_dow ?? DEFAULT_EMAIL_PREFS.reminderEmailDow,
-    weeklyEnabled: prefs
-      ? prefs.weekly_enabled === 1
-      : DEFAULT_EMAIL_PREFS.weeklyEnabled,
-    reminderEnabled: prefs
-      ? prefs.reminder_enabled === 1
-      : DEFAULT_EMAIL_PREFS.reminderEnabled,
-  };
+  return { userId, ...mergePrefs(prefs) };
 }
 
 export class D1EmailRepository implements EmailRepository {

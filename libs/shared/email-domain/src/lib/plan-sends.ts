@@ -16,6 +16,7 @@ import {
   localParts,
   weekStartOnOrBefore,
 } from '@mishna/domain';
+import { prepareSingle } from './content';
 import { EmailRepository } from './email-repository';
 import {
   AssignmentSource,
@@ -101,6 +102,10 @@ function earliestWeek(due: Candidacy[]): string {
  * next still-unlearned bucket (same as the dashboard): weekly shows the whole
  * bucket, reminder only its still-pending mishnayot. Skips users with no address,
  * and anyone who has learned their whole portion (an empty bucket — nothing left).
+ *
+ * The per-user decision is `prepareSingle` (`content.ts`) — the *same* function admin
+ * send-now uses, with `skipWhenEmpty` as the one deliberate difference between the
+ * two callers, so the content rule can't drift between the schedule and the button.
  */
 export function buildPreparedEmails(
   live: Candidacy[],
@@ -110,24 +115,21 @@ export function buildPreparedEmails(
 ): PreparedEmail[] {
   const prepared: PreparedEmail[] = [];
   for (const d of live) {
-    const to = data.emailByUser.get(d.userId);
-    if (!to) continue;
-    const completed = data.completedByUser.get(d.userId) ?? [];
-    const next = engine.getNextAssignment(
-      data.blocksByUser.get(d.userId) ?? [],
-      completed,
-      now,
-    ).mishnas;
-    if (next.length === 0) continue;
-    // weekly = the whole bucket; reminder = its still-pending mishnayot (non-empty,
-    // since the bucket was chosen for holding an unlearned mishna).
-    prepared.push({
-      userId: d.userId,
-      kind: d.kind,
-      weekStart: d.weekStart,
-      to,
-      refs: refsForKind(d.kind, next, completed),
-    });
+    const one = prepareSingle(
+      {
+        userId: d.userId,
+        kind: d.kind,
+        weekStart: d.weekStart,
+        to: data.emailByUser.get(d.userId),
+        blocks: data.blocksByUser.get(d.userId) ?? [],
+        completed: data.completedByUser.get(d.userId) ?? [],
+        date: now,
+      },
+      engine,
+      // The bulk path stops mailing a user who has finished their whole portion.
+      { skipWhenEmpty: true },
+    );
+    if (one) prepared.push(one);
   }
   return prepared;
 }

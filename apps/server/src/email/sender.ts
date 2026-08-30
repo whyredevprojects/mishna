@@ -1,34 +1,25 @@
 import { EmailKind, weekStartToDate } from '@mishna/domain';
-import { PreparedEmail, refsForKind } from '@mishna/email-domain';
+import {
+  AssignmentSource,
+  EmailTransport,
+  OutgoingEmail,
+  PreparedEmail,
+  TextResolver,
+  batchIdempotencyKey,
+  prepareSingle,
+} from '@mishna/email-domain';
+import { composeEmail } from '@mishna/email-templates';
 import { loadBlocks, loadCompleted, loadRecipient } from './data';
-import { TextResolver, nextRefs } from './quota';
-import { reminderEmail, weeklyEmail } from './templates';
 
 export type { PreparedEmail } from '@mishna/email-domain';
+export type { OutgoingEmail } from '@mishna/email-domain';
 
-/** One outgoing email, in Resend's batch shape. */
-export interface OutgoingEmail {
-  from: string;
-  replyTo: string;
-  to: string;
-  subject: string;
-  html: string;
-  /**
-   * The `text/plain` alternative. **Required**, not optional: Resend sends a
-   * `multipart/alternative` when it gets both parts, and a missing text part should be
-   * a compile error rather than a silent HTML-only send (which costs deliverability and
-   * is unreadable in text-only clients). Built alongside the HTML in `templates/`.
-   */
-  text: string;
-  /**
-   * Custom RFC 5322 headers. Resend's batch API takes these per element
-   * (`CreateBatchEmailOptions.headers`), so they ride along with the batch send.
-   * Used for the RFC 8058 one-click unsubscribe headers (see `buildEmail`).
-   */
-  headers?: Record<string, string>;
-}
-
-/** Side-effecting dependencies, injected so the consumer is testable offline. */
+/**
+ * Side-effecting dependencies, injected so `processJobs` is testable offline. The
+ * pure halves it used to own — the outgoing shape, the idempotency key, the RFC 8058
+ * headers, and the rendering — now live in `@mishna/email-domain` /
+ * `@mishna/email-templates`; what's left here is the wiring.
+ */
 export interface SenderDeps {
   resolveText: TextResolver;
   /**
@@ -36,7 +27,7 @@ export interface SenderDeps {
    * `idempotencyKey` is deterministic per batch, so a retry of the same batch is
    * collapsed by Resend rather than re-delivered.
    */
-  send: (emails: OutgoingEmail[], idempotencyKey: string) => Promise<void>;
+  send: EmailTransport;
   /**
    * Persist a successful send (the `email_log` dedup write), so the same
    * (user, kind, week) isn't re-sent on a later run. Wired to the
@@ -57,98 +48,43 @@ export interface SenderDeps {
  * Resolve one user's send for the admin "send now" path, or null if they can't be
  * emailed. Per-user DB reads — fine at volume 1. The bulk path does NOT use this; it
  * prepares many at once with batched reads in `planSends`.
+ *
+ * The *decision* is `prepareSingle` (`@mishna/email-domain`), the same function the
+ * bulk path runs — with `skipWhenEmpty: false`, the one deliberate difference: an
+ * admin who presses "Send weekly" on a user who has finished their whole portion
+ * gets the empty-state email rather than a silent no-op that looks like a broken
+ * button. `GET /api/admin/users/:id` reports the counts so the admin sees it coming.
+ *
+ * The content engine is a **parameter**, not the `../domain` module singleton: this
+ * module is I/O wiring, and reaching for a singleton here is what forced the whole
+ * email path to be tested inside workerd.
  */
 export async function prepareOne(
   env: Env,
   userId: string,
   kind: EmailKind,
   weekStart: string,
+  engine: AssignmentSource,
 ): Promise<PreparedEmail | null> {
   const recipient = await loadRecipient(env, userId);
   if (!recipient) return null;
-  const completed = await loadCompleted(env, userId);
-  const next = nextRefs(
-    await loadBlocks(env, userId),
-    completed,
-    weekStartToDate(weekStart),
-  );
-  const refs = refsForKind(kind, next, completed);
-  return { userId, kind, weekStart, to: recipient.email, refs };
-}
-
-/**
- * A deterministic Idempotency-Key for a batch, derived from its contents (sorted, so
- * order doesn't matter). A retry of the *same* batch yields the same key; a different
- * set of jobs yields a different one. SHA-256 so distinct batches can't collide into
- * one key (which would make Resend drop genuinely-new mail).
- *
- * The other half of the contract is `buildEmail`: Resend answers a reused key that
- * arrives with a *different* payload with `409 invalid_idempotent_request`, so the
- * rendered email must be a pure function of the same job fields this key covers —
- * no clocks, no randomness (see the note on the unsubscribe token's format).
- */
-async function batchIdempotencyKey(jobs: PreparedEmail[]): Promise<string> {
-  const canonical = jobs
-    .map((j) => `${j.userId}:${j.kind}:${j.weekStart}`)
-    .sort()
-    .join(';');
-  const digest = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(canonical),
-  );
-  const hex = [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return `reminder-batch-${hex.slice(0, 32)}`;
-}
-
-/**
- * A human-readable RFC 2919 list id for the scheduled mail. Gmail's bulk-sender
- * rules want *either* a stable `List-Id` per subscription type or a distinct `From:`
- * per type; the reminder already comes from the same sender as the weekly, so the
- * list id is the belt to that braces.
- *
- * No hardcoded host fallback: the domain lives in `config/domains.json` and reaches
- * this worker as `APP_ORIGIN` (`npm run sync:domains`), so a literal here would be an
- * un-synced second source of truth. An unparseable `APP_ORIGIN` is a deploy bug that
- * has already broken every link in the email — better to throw than to mail a batch
- * stamped with someone else's list id.
- */
-function listId(appOrigin: string): string {
-  return `Mishna study emails <study.${new URL(appOrigin).host}>`;
-}
-
-/** Render the email for one prepared job. */
-async function buildEmail(
-  job: PreparedEmail,
-  resolved: Awaited<ReturnType<TextResolver>>,
-  deps: SenderDeps,
-): Promise<OutgoingEmail> {
-  // One URL per email: it goes in the RFC 8058 header *and* in the visible footer
-  // link (Gmail requires the in-body link in addition to the header). The token is
-  // deterministic per user, so re-rendering this job produces the identical email —
-  // which is what the batch idempotency key promises Resend.
-  const unsubscribeUrl = await deps.unsubscribeUrlFor(job.userId);
-  const built =
-    job.kind === 'weekly'
-      ? await weeklyEmail(resolved, deps.appOrigin, unsubscribeUrl)
-      : await reminderEmail(resolved, deps.appOrigin, unsubscribeUrl);
-  return {
-    from: deps.from,
-    replyTo: deps.replyTo,
-    to: job.to,
-    subject: built.subject,
-    html: built.html,
-    text: built.text,
-    headers: {
-      // RFC 8058: the URL must accept a POST that unsubscribes without further
-      // interaction. `List-Unsubscribe-Post` is what tells Gmail/Yahoo the
-      // one-click button is safe to show.
-      'List-Unsubscribe': `<${unsubscribeUrl}>`,
-      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-      'List-Id': listId(deps.appOrigin),
+  const [blocks, completed] = await Promise.all([
+    loadBlocks(env, userId),
+    loadCompleted(env, userId),
+  ]);
+  return prepareSingle(
+    {
+      userId,
+      kind,
+      weekStart,
+      to: recipient.email,
+      blocks,
+      completed,
+      date: weekStartToDate(weekStart),
     },
-  };
+    engine,
+    { skipWhenEmpty: false },
+  );
 }
 
 /**
@@ -165,7 +101,14 @@ export async function processJobs(
 
   const emails: OutgoingEmail[] = [];
   for (const job of jobs) {
-    emails.push(await buildEmail(job, await deps.resolveText(job.refs), deps));
+    emails.push(
+      await composeEmail(job, await deps.resolveText(job.refs), {
+        from: deps.from,
+        replyTo: deps.replyTo,
+        appOrigin: deps.appOrigin,
+        unsubscribeUrl: await deps.unsubscribeUrlFor(job.userId),
+      }),
+    );
   }
 
   await deps.send(emails, await batchIdempotencyKey(jobs));

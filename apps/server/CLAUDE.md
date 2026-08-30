@@ -15,9 +15,29 @@ allocation writes so concurrent joins can't corrupt a group.
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
 | `auth-middleware.ts` | `requireAuth` — validates the session cookie via the `AUTH` service binding. |
-| `email/` | The email module. The bulk **decision logic** (`planSends` — who is due at 08:00 local → `PreparedEmail[]`) and its **D1 reads** now live in the `@mishna/email-domain` + `@mishna/email-data` libs; this app owns the side-effecting half: `workflow.ts` (`ReminderWorkflow` + `senderDeps` + run metrics; builds a `D1EmailRepository` and calls the lib's `planSends`), `sender.ts` (`processJobs` — render → Resend batch w/ idempotency key → `deps.record`, plus `prepareOne` for admin; re-exports `PreparedEmail` from the lib), `data.ts` (the admin/send-now readers only — `loadGroupBlocksFor`/`loadIdentitiesFor`/`alreadySentSet`/`loadCompletedFor` + single-user `loadRecipient`/`loadBlocks`/`loadCompleted`; reuses `@mishna/email-data`'s `chunked`/`placeholders` and `@mishna/email-domain`'s `DEFAULT_EMAIL_PREFS`), `quota.ts` (week's mishnayot + Hebrew text via `mishna-text`), `unsubscribe.ts` (the signed one-click-unsubscribe token + URL + the self-contained bilingual landing page the `/api/unsubscribe` routes render), `templates/` (React Email components, one file per email, rendered to HTML at send time; English chrome with each mishna's Hebrew text kept RTL; `templates/preview/` holds the dev-only preview entries — see below). |
+| `email/` | The email module — the **side-effecting** half only. Everything pure has moved out to libs (see the table below this one): `workflow.ts` (`ReminderWorkflow` + `senderDeps` + `batchPlan` + run metrics; builds a `D1EmailRepository` and calls the lib's `planSends`), `sender.ts` (`processJobs` — resolve text → `composeEmail` → Resend batch w/ idempotency key → `deps.record`, plus `prepareOne` for admin), `data.ts` (the admin/send-now readers only — `loadGroupBlocksFor`/`loadIdentitiesFor`/`alreadySentSet`/`loadCompletedFor` + single-user `loadRecipient`/`loadBlocks`/`loadCompleted`; reuses `@mishna/email-data`'s `chunked`/`placeholders` and `@mishna/email-domain`'s `mergePrefs`), `quota.ts` (`httpTextResolver` — the HTTP `TextResolver` over `mishna-text`, with the tractate loader injected), `unsubscribe.ts` (a thin **re-export shim** over `@mishna/email-domain`, kept so existing import paths work). |
 | `apply-migrations.ts` | Test support: eager-loads `migrations/*.sql` and applies them to a D1 binding (used by the test `beforeAll`s). |
 | `migrations/` | Numbered D1 migrations (`0001_initial.sql`, `0002_completions.sql`, …) — the source of truth for the `mishna-app` schema. |
+
+### Where the email code lives
+
+The rule is **pure logic in a lib, effects in the app** — so the rules can be tested in
+plain node in under a second instead of inside a workerd integration run.
+
+| Lives in | What |
+|---|---|
+| `@mishna/email-domain` | `planSends`/`selectDue`/`prepareSingle` (who + what), `mergePrefs`/`unsubscribeAudit`/`isHardUnsubscribe`/`flagsAfterUnsubscribe` (the prefs rules), the unsubscribe **token** and **landing page**, `OutgoingEmail`/`EmailTransport`/`batchIdempotencyKey`/`listId`/`unsubscribeHeaders`, and the `TextResolver`/`ResolvedMishna` port. |
+| `@mishna/email-data` | `D1EmailRepository` — the bulk path's SQL. |
+| `@mishna/email-templates` | The React Email components + `composeEmail` (job + text → `OutgoingEmail`). |
+| `apps/server/src/email/` | The Workflow, the Resend wiring, `httpTextResolver`'s `fetch`, and the per-user D1 reads for admin/send-now. |
+| `apps/server/src/index.ts` | The `/api/unsubscribe` + prefs + send-now **routes and their SQL** (including `applyUnsubscribe`'s upsert — the `DEFAULT 1` trap it guards is SQL behavior and needs a real D1 either way). |
+
+Two seams worth knowing about: `httpTextResolver(base, loadTractate = getTractate)`
+takes its loader as a parameter (so caching + the degrade-on-failure path are testable
+offline), and `prepareOne(env, userId, kind, weekStart, engine)` takes the content
+engine as a parameter rather than importing the `../domain` singleton — `src/email/`
+depends on `domain.ts`'s narrow `emailContentEngine` (typed as the lib's
+`AssignmentSource`), never on `AssignmentEngine` itself.
 
 ## Data model (D1 binding `DB`, database `mishna-app`)
 
@@ -164,18 +184,36 @@ due an email *now* (08:00 in the user's own timezone; weekly on their weekly wee
 reminder on their reminder weekday when something's still unlearned), then sends the fully
 resolved `PreparedEmail`s in Resend-batch-sized chunks — each chunk a durable `step.do`,
 with a free `step.sleep` between to stay under Resend's rate limit. It closes with a
-`run-metrics` step logging one `{ evt: 'reminder_run', durationMs, planned, sent, batches }`
-line — the early-warning for the per-invocation ceiling.
+`run-metrics` step that both logs and **returns** one
+`{ evt: 'reminder_run', durationMs, planned, sent, batches }` line — the early-warning for
+the per-invocation ceiling, and (since it is the workflow's output) what the tests assert
+on instead of scraping logs.
+
+The chunking itself is a pure function, `batchPlan(total, size)`, returning
+`{ n, start, end, throttleAfter }` per batch. Split out because it is the only *decision*
+the workflow makes and it is otherwise reachable only through the durable engine — where a
+`step.sleep` has no result to introspect, so "a throttle between every pair of batches and
+never after the last" could only be inferred from wall-clock timing. `workflow.spec.ts`
+pins it directly, in microseconds.
 
 **Email content — the next unlearned bucket.** Emails keep their calendar *schedule*
 and per-week dedup (timing anchored to the user's weekly-email weekday; `email_log`
 deduped on `(user, kind, weekStart)`), but their *content* is the user's **next
-still-unlearned bucket** — the same `pace`-sized slice the dashboard shows, via `nextRefs`
-(`email/quota.ts`) → `AssignmentEngine.getNextAssignment`. The weekly email shows the whole
-bucket; the reminder shows only its still-pending mishnayot. Both are **skipped once the
-user has learned their whole portion** (an empty next bucket), so a finished user gets no
-further mail. Because the content is progress-based, `planSends` loads completions for
-**every** due user (not just reminders).
+still-unlearned bucket** — the same `pace`-sized slice the dashboard shows, via
+`@mishna/email-domain`'s `resolveOne` → the injected `AssignmentSource`
+(`getNextAssignment`) → `refsForKind`. The weekly email shows the whole bucket; the
+reminder shows only its still-pending mishnayot. Because the content is progress-based,
+`planSends` loads completions for **every** due user (not just reminders).
+
+**A finished user: skipped by the cron, NOT by send-now.** Both callers go through the
+one function, `prepareSingle`, and the difference is an explicit parameter:
+`buildPreparedEmails` passes `skipWhenEmpty: true` (a user who has learned their whole
+portion gets no further scheduled mail), and `prepareOne` passes `false`. An admin who
+presses "Send weekly" on a finished user asked for an email; sending nothing looks like a
+broken button, so they get the templates' **empty state** — which is a real, deliberate
+email. So the admin can see it coming, `GET /api/admin/users/:id` returns
+`weeklyRefCount` / `reminderPendingCount` (derived with the same `resolveOne`), and the
+admin user-detail page prints them next to the buttons with a warning when either is `0`.
 
 **Scalability — batched reads.** `planSends` does **not** do a per-user query loop. It
 loads all participants+prefs once (`loadCandidates`, addresses excluded), filters to those
@@ -198,6 +236,19 @@ deterministic Resend `Idempotency-Key` (`reminder-batch-<sha256-of-the-batch>`),
 batch sends but the `email_log` write then throws and the `step.do` retries, Resend
 collapses the re-send instead of double-mailing. The `httpTextResolver` cache lives on the
 resolver (per batch), so 100 users needing one tractate fetch it once.
+
+**A bad tractate degrades; it does not fail the batch.** `mishna-text`'s `getTractate`
+throws on a name it doesn't know and on a fetch failure, and it runs *inside* a
+`send-batch-N` step — so an unguarded throw fails that step, takes 99 innocent recipients
+down with it, and retries forever. `httpTextResolver` therefore catches per tractate,
+remembers the failure (one attempt and one log line per tractate per batch), emits a
+structured `{ evt: 'tractate_load_failed', tractate, base, detail }` `console.error`, and
+renders those refs with `hebrew: ''`. The recipient still gets their email with the
+reference in it. The class of bug this hides — a `mishna-text` bump renaming a file — is
+caught at CI time instead, by `email/quota.spec.ts`, which asserts every one of the corpus's
+63 `nameEn` values resolves to a file. The loader is injected
+(`httpTextResolver(base, loadTractate = getTractate)`) so all of that is unit-tested with
+no network.
 
 The admin "send now" routes resolve one `PreparedEmail` via `prepareOne` (per-user reads —
 fine at volume 1) and send it **inline and synchronously** via the same `processJobs` path
@@ -227,7 +278,7 @@ verification flow is added (`apps/login`). The admin views surface the flag so i
 `List-Unsubscribe: <https://…/api/unsubscribe?t=…>`, `List-Unsubscribe-Post:
 List-Unsubscribe=One-Click` and a `List-Id`, plus a **visible** "Unsubscribe" footer
 link (Gmail wants both). The link's `t` is a stateless HMAC-signed token
-(`email/unsubscribe.ts`): `base64url("v1.<userId>.<scope>") "."
+(`@mishna/email-domain`'s `unsubscribe-token.ts`): `base64url("v1.<userId>.<scope>") "."
 base64url(HMAC-SHA256)`, signed with `UNSUBSCRIBE_SECRET` (a **comma-separated list** —
 sign with the first, verify against all, which is the rotation story; the list is
 **append-only — never prune by default**, see "One-time setup"). **No expiry, and
@@ -286,9 +337,14 @@ Both routes answer with `Cache-Control: no-store`, `Referrer-Policy: no-referrer
 same-origin `/settings`, where the default referrer policy would hand the full URL —
 `?t=` included — to that navigation.
 
-**Editing templates.** The emails are React Email components in `src/email/templates/`
-(`weekly-email.tsx`, `reminder-email.tsx`, shared `components/`, theme in `styles.ts`),
-rendered at send time by `templates/index.tsx`'s `weeklyEmail`/`reminderEmail`.
+**Editing templates.** The emails now live in **`@mishna/email-templates`**
+(`libs/shared/email-templates/src/lib/`: `weekly-email.tsx`, `reminder-email.tsx`, shared
+`components/`, theme in `styles.ts`), rendered at send time by `render.tsx`'s
+`weeklyEmail`/`reminderEmail`. `sender.ts`'s old `buildEmail` is that lib's
+`composeEmail(job, resolved, opts)`. See its `CLAUDE.md` — in particular the note that
+`jsx: "react-jsx"` must stay in **both** of that project's tsconfigs, because esbuild
+resolves a tsconfig per source file and would otherwise emit `React.createElement` into
+this worker's bundle.
 
 Each renders to **both** an HTML and a `text/plain` part (`BuiltEmail.html` + `.text`,
 `OutgoingEmail.text` is required, not optional), and Resend sends a
@@ -302,11 +358,14 @@ output depends on: react-email skips the `<Preview>` preheader (its 150-char
 zero-width-space padding never reaches the text part) and `wordwrap: false` is hard-set,
 which is what keeps the long base64url unsubscribe URL on one unbroken, clickable line.
 Preview them live in the browser with `npm run email:dev` (from the repo root) — it serves
-the dev-only entries in `templates/preview/` (one per email state, with sample mishnayot) at
+the dev-only entries in `libs/shared/email-templates/src/lib/preview/` (one per email state,
+with sample mishnayot) at
 `http://localhost:3030`. The CLI only lists `.tsx`/`.jsx` files with a default export, so the
 `.ts` sample-data file is ignored. Two install-time gotchas (react 18.3.1 pin and the
 `react-dom/server.edge` alias) are documented at the top of `wrangler.toml` / in
-`package.json`.
+`package.json`. The alias is a **workerd-condition** problem only — `@mishna/email-templates`'
+own tests run in plain node, where `@react-email/render` resolves its `node` condition, and
+they deliberately do not set it.
 
 Assignments pass **all** of a user's blocks across groups straight to
 `AssignmentEngine`, which sorts by corpus position internally. The admin
@@ -406,7 +465,32 @@ it themselves.
   send → log) directly, with an injected `send` so it runs offline; plus the two
   guarantees that only show up in the wiring — a re-render of the same batch is
   byte-identical (the Resend 409 trap) and `senderDeps` really hands `processJobs` a
-  signed unsubscribe URL.
+  signed unsubscribe URL. Those byte-level assertions are the **runtime** guard for the
+  templates and must stay here even though `@mishna/email-templates` has its own
+  (semantic, node-side) tests: workerd renders via `renderToReadableStream`, node via
+  `renderToPipeableStream`, and identical output is not contractually guaranteed.
+- `email/workflow.integration.test.ts` — the `ReminderWorkflow` through
+  `introspectWorkflowInstance`, i.e. the **real durable engine** (real `step.do`
+  checkpointing, real retries, real replay) with sleeps and retry backoff disabled.
+  Covers batching (250 planned → `send-batch-0/1/2`, sends of 100/100/50, output
+  `{planned:250, sent:250, batches:3}`, 250 `email_log` rows); 🔴 **a retry does not
+  re-send earlier batches** — the most expensive bug this codebase could have, and one
+  `email_log` cannot catch, since it is written *after* a send; a permanently failing
+  batch → `errored`, the Resend message in `getError()`, and `email_log` rows only for
+  the batches that completed; the throttle costing real time; the **cron handler**
+  deduping a double fire (asserted on the transport — one Resend POST for two fires at
+  the same `scheduledTime`, two for distinct hours); and a **headroom probe** — 2000
+  synthetic jobs serialize to ~278 KB (≈139 B/job) as a single `plan-sends` step result
+  and round-trip intact across replays. Only two things are stubbed, both at the network
+  edge: `api.resend.com` (which doubles as the send counter) and the tractate JSON.
+  `RESEND_API_KEY` is pinned to a fake value for this file, because a developer's
+  `.dev.vars` may hold a real one.
+- `email/workflow.spec.ts` — `batchPlan`, exhaustively and deterministically: contiguous
+  gap-free chunks and a throttle between every pair of batches, never after the last.
+- `email/quota.spec.ts` — `httpTextResolver` over an injected loader (no network): the
+  63-name corpus↔`mishna-text` mapping, the per-resolver cache (a 100-ref batch spanning
+  two tractates loads twice), missing perek/mishna → `hebrew: ''`, and the degrade path
+  for an unloadable tractate (one structured `console.error`, other tractates unaffected).
 - `unsubscribe.integration.test.ts` — the one-click unsubscribe: the token (round-trip,
   rotation, determinism, malformed/forged input, throws with no secret), `pickLang`'s
   q-value ranking, GET is read-only and its rendered form's `action` really

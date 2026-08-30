@@ -296,7 +296,14 @@ environments because the API is always same-origin:
   selects, and enable checkboxes. Save → `SettingsService.updatePreferences` + a toast.
 - **Admin send-now**: `admin-user-detail.component.ts` has "Send weekly"/"Send reminder"
   buttons (`AdminService.sendWeekly`/`sendReminder`) that queue an extra email, with a
-  success/error toast. `ToastService` now has `success()` alongside `error()`. The same
+  success/error toast. Above them sits a "Next email contents — Weekly: N mishnayos ·
+  Reminder: N pending" line from the detail response's `weeklyRefCount` /
+  `reminderPendingCount`, plus a `wa-callout variant="warning"` when either is `0`.
+  That is not decoration: send-now deliberately does **not** skip a user who has
+  finished their whole portion (a silent no-op reads as a broken button), so it can
+  legitimately mail the template's empty state — the admin has to see that before
+  clicking. The buttons stay enabled; the warning is the whole mechanism.
+  `ToastService` now has `success()` alongside `error()`. The same
   page also has **Disable/Enable weekly email** and **Disable/Enable reminder emails**
   toggles — one `emailPrefsMutation` over `AdminService.setEmailPrefs`, which sends only
   the flag being flipped so the server leaves the other alone (a `togglingEmail` signal

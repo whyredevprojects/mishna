@@ -1,0 +1,15 @@
+{
+  "name": "@mishna/email-templates",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "@mishna/email-domain": "0.0.1",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
+    "react": "^18.3.1",
+    "tslib": "^2.3.0"
+  }
+}

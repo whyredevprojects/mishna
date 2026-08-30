@@ -40,7 +40,11 @@ const CYCLE_START = new CycleCalendar()
   .toISOString()
   .slice(0, 10);
 
-const REF: MishnaRef = { mesechta: 'Berachos', perek: 1, mishna: 1 };
+// A REAL corpus name. It used to read 'Berachos', which is not a mesechta any
+// `MishnaRef` in this app can carry (the corpus uses 'Berakhot') and only passed
+// because `resolveText` is stubbed here — a fixture that quietly taught the wrong
+// spelling. `email/quota.spec.ts` pins the whole 63-name mapping.
+const REF: MishnaRef = { mesechta: 'Berakhot', perek: 1, mishna: 1 };
 
 const APP_TABLES = [
   'participants',
@@ -420,7 +424,7 @@ describe('email path', () => {
       // html-to-text upper-cases <h1>/<h2>, hence the shouty title + tractate.
       expect(text).toContain('YOUR MISHNAYOS FOR THE COMING WEEK');
       expect(text).toContain('Here are your mishnayos for the coming week');
-      expect(text).toContain('BERACHOS'); // the tractate heading
+      expect(text).toContain('BERAKHOT'); // the tractate heading
       expect(text).toContain('Perek 1, Mishna 1'); // the ref label
       expect(text).toContain('טקסט'); // the Hebrew body survives verbatim
       expect(text).toContain('https://app.test/dashboard'); // the CTA's URL

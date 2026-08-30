@@ -145,6 +145,15 @@ export interface AdminUsers {
 /** GET /api/admin/users/:id */
 export interface AdminUserDetail extends AdminUser {
   groups: { id: string; blockSize: number }[];
+  /**
+   * How many mishnayot a "Send weekly email" right now would carry. `0` means the
+   * user has finished their whole portion, so send-now would mail the template's
+   * empty state — deliberately (an admin who presses the button asked for an email),
+   * which is why the number is surfaced next to the button.
+   */
+  weeklyRefCount: number;
+  /** Same, for "Send reminder email": the still-unlearned mishnayot in that bucket. */
+  reminderPendingCount: number;
 }
 
 /** GET /api/admin/stats — the Overview dashboard counters. */

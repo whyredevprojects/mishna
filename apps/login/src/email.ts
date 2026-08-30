@@ -82,21 +82,51 @@ ${url}`,
   };
 }
 
+/** The message these two emails hand to the transport. Resend's `emails.send` shape. */
+export interface OutgoingMessage {
+  from: string;
+  replyTo: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/**
+ * The transport seam: sends one message and reports a provider-level failure in the
+ * result (Resend's `{ data, error }` convention) rather than by throwing.
+ *
+ * Injectable so `sendVerificationEmail` / `sendResetPasswordEmail` are testable
+ * end-to-end — subject, recipient, `from`/`replyTo` from env, both parts present, and
+ * the *absence* of any `List-Unsubscribe*` header — without a network or an API key.
+ * Omit it in production and the Resend client is constructed at call time (its
+ * constructor throws without a key, which is what keeps importing this module
+ * side-effect-free).
+ */
+export type SendFn = (
+  msg: OutgoingMessage,
+) => Promise<{ error?: { message: string } | null }>;
+
 /** Sends one transactional email; throws on a Resend error so callers can await it. */
 async function send(
   env: Env,
   to: string,
   subject: string,
   body: EmailBody,
+  sendFn?: SendFn,
 ): Promise<void> {
-  const resend = new Resend(env.RESEND_API_KEY);
-  const { error } = await resend.emails.send({
+  const msg: OutgoingMessage = {
     from: env.RESEND_FROM_EMAIL,
     replyTo: env.RESEND_REPLY_TO_EMAIL,
     to,
     subject,
     ...body,
-  });
+  };
+  // No `headers` on either message, deliberately — see the note at the top of this
+  // file. These are transactional; a List-Unsubscribe on account recovery is wrong.
+  const { error } = await (sendFn
+    ? sendFn(msg)
+    : new Resend(env.RESEND_API_KEY).emails.send(msg));
   if (error) {
     throw new Error(`Resend send failed: ${error.message}`);
   }
@@ -106,6 +136,7 @@ async function send(
 export function sendVerificationEmail(
   env: Env,
   { to, url }: { to: string; url: string },
+  sendFn?: SendFn,
 ): Promise<void> {
   return send(
     env,
@@ -117,6 +148,7 @@ export function sendVerificationEmail(
       'Verify email',
       url,
     ),
+    sendFn,
   );
 }
 
@@ -124,6 +156,7 @@ export function sendVerificationEmail(
 export function sendResetPasswordEmail(
   env: Env,
   { to, url }: { to: string; url: string },
+  sendFn?: SendFn,
 ): Promise<void> {
   return send(
     env,
@@ -135,5 +168,6 @@ export function sendResetPasswordEmail(
       'Reset password',
       url,
     ),
+    sendFn,
   );
 }

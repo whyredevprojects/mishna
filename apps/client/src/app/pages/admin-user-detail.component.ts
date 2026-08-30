@@ -52,6 +52,9 @@ type EmailKind = 'weekly' | 'reminder';
         gap: var(--wa-space-s, 0.5rem);
         flex-wrap: wrap;
       }
+      .send-preview {
+        margin: 0;
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -98,6 +101,35 @@ type EmailKind = 'weekly' | 'reminder';
             </dd>
           </dl>
         </wa-card>
+
+        <!--
+          What the two send-now buttons below would actually mail, right now. The
+          server derives these with the same function the send path uses. Send-now
+          deliberately does NOT skip a user who has finished their portion (a silent
+          no-op reads as a broken button), so it can legitimately send the empty-state
+          email — the admin has to be able to see that before clicking.
+        -->
+        <p class="muted send-preview">
+          Next email contents — Weekly:
+          {{ u.weeklyRefCount }}
+          {{ u.weeklyRefCount === 1 ? 'mishna' : 'mishnayos' }} · Reminder:
+          {{ u.reminderPendingCount }} pending
+        </p>
+        @if (u.weeklyRefCount === 0 || u.reminderPendingCount === 0) {
+          <wa-callout variant="warning">
+            <wa-icon slot="icon" name="triangle-exclamation"></wa-icon>
+            @if (u.weeklyRefCount === 0 && u.reminderPendingCount === 0) {
+              This user has nothing left to learn, so both send buttons would mail an
+              empty email ("You have no mishnayos scheduled for this week").
+            } @else if (u.weeklyRefCount === 0) {
+              "Send weekly email" would mail an empty email — this user has no
+              mishnayos left in their portion.
+            } @else {
+              "Send reminder email" would mail an empty email — this user has already
+              learned everything in their current bucket.
+            }
+          </wa-callout>
+        }
 
         <div class="actions">
           <wa-button

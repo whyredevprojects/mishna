@@ -14,12 +14,30 @@ import {
   weekStartOnOrBefore,
   weekStartToDate,
 } from '@mishna/domain';
-import { DEFAULT_EMAIL_PREFS, EmailPrefs } from '@mishna/email-domain';
+import {
+  DEFAULT_EMAIL_PREFS,
+  EmailPrefs,
+  UnsubscribeScope,
+  UnsubscribeVia,
+  confirmPageHtml,
+  donePageHtml,
+  errorPageHtml,
+  flagsAfterUnsubscribe,
+  isHardUnsubscribe,
+  mergePrefs,
+  pickLang,
+  plainDone,
+  plainError,
+  resolveOne,
+  unsubscribeAudit,
+  verifyUnsubscribeToken,
+} from '@mishna/email-domain';
 import { AllocatorDO } from './allocator';
 import {
   assignmentEngine,
   calendar,
   chalakim,
+  emailContentEngine,
   idGen,
   lotCatalog,
   structure,
@@ -36,18 +54,10 @@ import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
 import { prepareOne, processJobs } from './email/sender';
 import {
-  UnsubscribeScope,
-  confirmPageHtml,
-  donePageHtml,
-  errorPageHtml,
-  pickLang,
-  plainDone,
-  plainError,
-  verifyUnsubscribeToken,
-} from './email/unsubscribe';
-import {
   GroupBlock,
   alreadySentSet,
+  loadBlocks,
+  loadCompleted,
   loadCompletedFor,
   loadGroupBlocksFor,
   loadIdentitiesFor,
@@ -406,30 +416,17 @@ app.get('/api/join-options', (c) => {
 type FlagColumn = 'weekly_enabled' | 'reminder_enabled';
 
 /**
- * How a user's scheduled emails were last turned off (`0006`'s audit trail): the RFC
- * 8058 machine POST, the confirm page's form, the user's own Settings save, or an
- * admin toggling it for them. See `unsubscribeAudit` for when each is written.
- */
-type UnsubscribeVia = 'one-click' | 'link' | 'settings' | 'admin';
-
-/**
- * Which flags a scope covers. A `switch` rather than a pair of `!==` tests so that
- * adding a scope to `UnsubscribeScope` without deciding what it turns off is a
- * compile error here, instead of silently behaving like `all`.
+ * The flags→columns translation, and *only* that: which of the two columns a scope
+ * leaves at `0` is `@mishna/email-domain`'s `flagsAfterUnsubscribe` (the exhaustive
+ * switch, so a new scope is a compile error there rather than silently behaving like
+ * `all`). The column names are SQL and stay here.
  */
 function scopeColumns(scope: UnsubscribeScope): FlagColumn[] {
-  switch (scope) {
-    case 'all':
-      return ['weekly_enabled', 'reminder_enabled'];
-    case 'weekly':
-      return ['weekly_enabled'];
-    case 'reminder':
-      return ['reminder_enabled'];
-    default: {
-      const unhandled: never = scope;
-      throw new Error(`unhandled unsubscribe scope: ${String(unhandled)}`);
-    }
-  }
+  const flags = flagsAfterUnsubscribe(scope);
+  const columns: FlagColumn[] = [];
+  if (!flags.weeklyEnabled) columns.push('weekly_enabled');
+  if (!flags.reminderEnabled) columns.push('reminder_enabled');
+  return columns;
 }
 
 /**
@@ -652,15 +649,9 @@ interface PrefsRow {
   unsubscribed_via: string | null;
 }
 
+/** A prefs row (or none) as `EmailPrefs`. The merge itself is the shared `mergePrefs`. */
 function rowToPrefs(row: PrefsRow | null): EmailPrefs {
-  if (!row) return { ...DEFAULT_EMAIL_PREFS };
-  return {
-    timezone: row.timezone,
-    weeklyEmailDow: row.weekly_email_dow,
-    reminderEmailDow: row.reminder_email_dow,
-    weeklyEnabled: row.weekly_enabled === 1,
-    reminderEnabled: row.reminder_enabled === 1,
-  };
+  return mergePrefs(row);
 }
 
 function loadPrefs(env: Env, userId: string): Promise<PrefsRow | null> {
@@ -693,44 +684,9 @@ app.get('/api/me/preferences', requireAuth, async (c) => {
   return c.json(rowToPrefs(await loadPrefs(c.env, c.get('userId'))));
 });
 
-/**
- * `0006`'s audit columns for a prefs write, given the flags the row will *end up*
- * with — or `null` for "don't touch them".
- *
- * Both scheduled emails back on means the user is subscribed again, so the columns
- * are cleared; otherwise the row would read "unsubscribed via one-click" forever
- * while both emails are on, and any later suppression logic keyed on
- * `unsubscribed_at` would wrongly skip a re-subscribed user. Both off is itself an
- * unsubscribe and is recorded with the channel it came through (this is what writes
- * `'settings'` / `'admin'`; `applyUnsubscribe` writes the mail-side ones). One on and
- * one off is neither, so the previous record stands.
- */
-function unsubscribeAudit(
-  weeklyEnabled: boolean,
-  reminderEnabled: boolean,
-  via: UnsubscribeVia,
-  now: number,
-): { at: number | null; via: UnsubscribeVia | null } | null {
-  if (weeklyEnabled && reminderEnabled) return { at: null, via: null };
-  if (!weeklyEnabled && !reminderEnabled) return { at: now, via };
-  return null;
-}
-
-/**
- * A **hard** unsubscribe: the flags were last turned off from the *mail* (the RFC 8058
- * one-click POST or the confirm page's form), not from a UI the user or an admin drove.
- *
- * Lives here, next to `unsubscribeAudit`, because it only makes sense against that
- * function's contract: `unsubscribed_via` is written only when the resulting row has
- * both flags off (the channel) or both on (cleared) — one-on/one-off leaves the previous
- * record standing. So a user who one-clicked, then had weekly re-enabled by an admin,
- * still reads `'one-click'` while `weekly_enabled = 1`; the caller must therefore pair
- * this with the flag for the kind it's about to send.
- */
-function isHardUnsubscribe(row: PrefsRow | null): boolean {
-  const via = row?.unsubscribed_via as UnsubscribeVia | null | undefined;
-  return via === 'one-click' || via === 'link';
-}
+// `unsubscribeAudit` (when the `0006` columns move) and `isHardUnsubscribe` (whether
+// the last off-switch came from the mail itself) are pure rules and live in
+// `@mishna/email-domain`; only the SQL that applies them is here.
 
 /** The `ON CONFLICT` assignments for the audit columns (empty = leave them alone). */
 function auditSetClause(
@@ -1002,21 +958,18 @@ app.get('/api/admin/users', requireAdmin, async (c) => {
   const { results: prefRows } = await c.env.DB.prepare(
     'SELECT user_id, weekly_enabled, reminder_enabled FROM user_email_prefs',
   ).all<{ user_id: string; weekly_enabled: number; reminder_enabled: number }>();
+  // One `mergePrefs` per row, and one for "no row at all" — the same shared merge the
+  // email path uses, so this list can't disagree with who actually gets mail.
   const togglesByUser = new Map<string, EmailToggles>(
-    prefRows.map((r) => [
-      r.user_id,
-      {
-        weeklyEnabled: r.weekly_enabled === 1,
-        reminderEnabled: r.reminder_enabled === 1,
-      },
-    ]),
+    prefRows.map((r) => [r.user_id, mergePrefs(r)]),
   );
+  const noRow = mergePrefs(null);
 
   const merged = users.map((u) =>
     adminUserRow(
       u,
       commitmentByUser.get(u.id) ?? null,
-      togglesByUser.get(u.id) ?? DEFAULT_EMAIL_PREFS,
+      togglesByUser.get(u.id) ?? noRow,
     ),
   );
   return c.json({ users: merged, total: total ?? merged.length, limit, offset });
@@ -1052,9 +1005,27 @@ app.get('/api/admin/users/:id', requireAdmin, async (c) => {
     blockSize: userBlockSize(g.toState(), id),
   }));
 
+  // What "Send weekly"/"Send reminder" would actually put in the email, right now.
+  // Send-now deliberately does NOT skip a user who has finished their whole portion
+  // (an admin who presses the button asked for an email; a silent no-op reads as a
+  // broken button), so it can legitimately send the templates' *empty state* — and
+  // the admin has to be able to see that coming. Derived with the same `resolveOne`
+  // the send path uses, so these counts can't disagree with what gets mailed.
+  const [blocks, completed] = await Promise.all([
+    loadBlocks(c.env, id),
+    loadCompleted(c.env, id),
+  ]);
+  const contentAt = new Date();
+  const emailContent = (kind: EmailKind) =>
+    resolveOne(kind, blocks, completed, contentAt, emailContentEngine).length;
+
   return c.json({
     ...adminUserRow(user, row?.commitment ?? null, prefs),
     groups: groupSummaries,
+    /** Mishnayot a weekly email would carry now (0 = it would be the empty state). */
+    weeklyRefCount: emailContent('weekly'),
+    /** Still-unlearned mishnayot a reminder would carry now (0 = empty state). */
+    reminderPendingCount: emailContent('reminder'),
   });
 });
 
@@ -1375,7 +1346,7 @@ async function sendEmailNow(
   // `isHardUnsubscribe`), so the flag for *this* kind is what says it's still off.
   // Must sit before the try below — `senderDeps(env)` throws when RESEND_API_KEY is
   // unset (as in tests), which would otherwise mask this as a 502.
-  if (!enabled && isHardUnsubscribe(row)) {
+  if (!enabled && isHardUnsubscribe(row?.unsubscribed_via ?? null)) {
     return Response.json(
       {
         error: 'user unsubscribed',
@@ -1387,7 +1358,13 @@ async function sendEmailNow(
   const parts = localParts(new Date(), prefs.timezone);
   const weekStart = weekStartOnOrBefore(parts, prefs.weeklyEmailDow);
   try {
-    const prepared = await prepareOne(env, userId, kind, weekStart);
+    const prepared = await prepareOne(
+      env,
+      userId,
+      kind,
+      weekStart,
+      emailContentEngine,
+    );
     await processJobs(prepared ? [prepared] : [], senderDeps(env));
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);

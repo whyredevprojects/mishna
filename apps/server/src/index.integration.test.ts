@@ -436,9 +436,17 @@ describe('server API integration', () => {
     const detail = (await detailRes.json()) as {
       id: string;
       groups: { id: string; blockSize: number }[];
+      weeklyRefCount: number;
+      reminderPendingCount: number;
     };
     expect(detail.id).toBe('alice');
     expect(detail.groups.length).toBeGreaterThanOrEqual(1);
+    // What "send now" would actually mail. Admin send-now does not skip a finished
+    // user (it sends the empty state on purpose), so the admin UI shows these next to
+    // the buttons — a 0 is a warning, not a disabled button.
+    expect(detail.weeklyRefCount).toBeGreaterThan(0);
+    // Nothing learned yet, so the reminder's pending set is the whole bucket.
+    expect(detail.reminderPendingCount).toBe(detail.weeklyRefCount);
 
     // Remove assignments leaves the participant row gone but doesn't delete auth.
     const removed = await SELF.fetch(

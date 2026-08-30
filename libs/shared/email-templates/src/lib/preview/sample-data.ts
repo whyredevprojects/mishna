@@ -1,4 +1,4 @@
-import { ResolvedMishna } from '../../quota';
+import { ResolvedMishna } from '@mishna/email-domain';
 
 // Sample data for the React Email preview server (`npm run email:dev`). This file
 // is a plain `.ts` with no default export, so the preview CLI does not list it as

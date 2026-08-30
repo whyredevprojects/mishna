@@ -16,7 +16,8 @@
     "paths": {
       "@mishna/domain": ["./libs/shared/domain/src/index.ts"],
       "@mishna/email-domain": ["./libs/shared/email-domain/src/index.ts"],
-      "@mishna/email-data": ["./libs/shared/email-data/src/index.ts"]
+      "@mishna/email-data": ["./libs/shared/email-data/src/index.ts"],
+      "@mishna/email-templates": ["./libs/shared/email-templates/src/index.ts"]
     },
     "strict": false,
     "noUncheckedSideEffectImports": false,

@@ -119,8 +119,19 @@ Both emails ship an HTML **and** a `text/plain` part (Resend sends a
 signal and unreadable in a text-only client, which here would mean a user who can't
 verify or reset. The text half is hand-written next to the HTML in `shell()` (this
 worker has no `@react-email/*` dependency and isn't worth one for two hardcoded
-strings), so keep the two in sync when editing; `src/email.test.ts` pins the contract
-that the URL sits bare on its own line and that `escapeHtml` never touches the text.
+strings), so keep the two in sync when editing.
+
+`send()` takes an optional injected **`SendFn`** (`(msg) => Promise<{ error? }>`);
+omit it and the Resend client is constructed at call time (its constructor throws
+without a key, which is what keeps importing this module side-effect-free).
+`sendVerificationEmail` / `sendResetPasswordEmail` forward it, so `src/email.test.ts`
+drives both end-to-end with no network and no API key. That test pins: the URL sits bare
+on its own line, `escapeHtml` never touches the text part, the exact subject/recipient
+and the env `from`/`replyTo` reach the transport, a Resend `{ error }` **rejects** (the
+better-auth callback awaits it — swallowing it would leave a user with no email and no
+error anywhere), and — the invariant that used to be a code comment only — **neither
+message carries any `List-Unsubscribe*` header, `List-Id`, or in-body unsubscribe
+link.**
 
 Both reuse the existing `verification` table — **no schema change / migration**.
 The callbacks need runtime secrets so they live in `createAuth(env)`, not the

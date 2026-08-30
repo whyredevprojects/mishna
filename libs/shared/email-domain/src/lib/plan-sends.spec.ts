@@ -7,7 +7,8 @@ import {
   MishnaStructure,
   createMishnaStructure,
 } from '@mishna/domain';
-import { InMemoryEmailRepository } from './email-repository';
+import { prepareSingle } from './content';
+import { EmailRepository, InMemoryEmailRepository } from './email-repository';
 import {
   buildPreparedEmails,
   dropAlreadySent,
@@ -250,5 +251,324 @@ describe('planSends', () => {
     expect(repo.recorded.has(sentKey('u1', 'weekly', '2026-01-04'))).toBe(true);
     // …and a subsequent plan run now treats that user as already sent.
     expect(await planSends(repo, engine, SUNDAY_8AM_NY)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Accepted behavior, pinned
+// ---------------------------------------------------------------------------
+
+describe('changing the weekly weekday mid-week (ACCEPTED duplicate)', () => {
+  it('DELIBERATELY sends a second weekly that week — this is not a bug report', () => {
+    // `email_log` is keyed on (user, kind, weekStart), and `weekStart` is anchored to
+    // the user's *current* weekly weekday. So a user who receives Sunday's weekly and
+    // then moves their weekly to Wednesday gets a second one three days later: the
+    // Wednesday run computes weekStart = the Wednesday, which no log row matches.
+    //
+    // This is knowingly accepted rather than fixed:
+    //   - it is rare (it needs a settings change in the window between the old day and
+    //     the new one) and self-healing (from the next week on there is one anchor),
+    //   - the content is progress-based, so the second email is not a stale duplicate;
+    //     it shows whatever the user still has left,
+    //   - the alternatives (anchoring the log to a fixed weekday, or writing extra
+    //     suppression rows on a prefs save) add a second source of truth to the dedup
+    //     for a once-per-user-per-lifetime edge.
+    // If this test ever fails, the *dedup key* changed — decide deliberately, don't
+    // "fix" the test.
+    const sunday = candidate({ weeklyEmailDow: 0, reminderEnabled: false });
+    const [sundaySend] = selectDue([sunday], SUNDAY_8AM_NY);
+    expect(sundaySend).toEqual({
+      userId: 'u1',
+      kind: 'weekly',
+      weekStart: '2026-01-04',
+    });
+
+    // The user now moves their weekly email to Wednesday. 2026-01-07 is that Wednesday.
+    const WEDNESDAY_8AM_NY = new Date('2026-01-07T13:00:00Z');
+    const moved = candidate({ weeklyEmailDow: 3, reminderEnabled: false });
+    const sent = new Set([sentKey('u1', 'weekly', sundaySend.weekStart)]);
+    const due = selectDue([moved], WEDNESDAY_8AM_NY);
+
+    expect(due).toEqual([
+      { userId: 'u1', kind: 'weekly', weekStart: '2026-01-07' },
+    ]);
+    // ...and the Sunday log row does not suppress it, because the anchor moved with
+    // the weekday.
+    expect(dropAlreadySent(due, sent)).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Daylight-saving: the cron fires hourly, so 08:00 local must occur exactly once
+// per local day even on a 23- or 25-hour one. A transition that skipped or repeated
+// the send hour would silently drop a week's mail or double it.
+// ---------------------------------------------------------------------------
+
+describe('selectDue across a DST transition', () => {
+  /** Every hourly cron tick in `[from, to)`, as the cron would fire them. */
+  function hourlyTicks(from: string, to: string): Date[] {
+    const out: Date[] = [];
+    for (
+      let t = Date.parse(from);
+      t < Date.parse(to);
+      t += 60 * 60 * 1000
+    ) {
+      out.push(new Date(t));
+    }
+    return out;
+  }
+
+  const cases: { zone: string; label: string; from: string; to: string }[] = [
+    // US spring forward: 2026-03-08 is 23 hours long in New York (02:00 is skipped).
+    {
+      zone: 'America/New_York',
+      label: 'spring forward (23-hour day)',
+      from: '2026-03-07T00:00:00Z',
+      to: '2026-03-10T00:00:00Z',
+    },
+    // US fall back: 2026-11-01 is 25 hours long (01:00 happens twice).
+    {
+      zone: 'America/New_York',
+      label: 'fall back (25-hour day)',
+      from: '2026-10-31T00:00:00Z',
+      to: '2026-11-03T00:00:00Z',
+    },
+    // A half-hour DST shift, and a half-hour base offset — the case an
+    // hour-equality test is most likely to get wrong.
+    {
+      zone: 'Australia/Lord_Howe',
+      label: 'half-hour DST shift',
+      from: '2026-04-04T00:00:00Z',
+      to: '2026-04-07T00:00:00Z',
+    },
+    {
+      zone: 'Australia/Lord_Howe',
+      label: 'half-hour DST shift (start)',
+      from: '2026-10-03T00:00:00Z',
+      to: '2026-10-06T00:00:00Z',
+    },
+  ];
+
+  for (const { zone, label, from, to } of cases) {
+    it(`fires each user at most once per local day — ${zone}, ${label}`, () => {
+      // One candidate per weekday, so whichever local days fall in the window, each
+      // is covered by exactly one user's weekly.
+      const candidates = [0, 1, 2, 3, 4, 5, 6].map((dow) =>
+        candidate({
+          userId: `dow-${dow}`,
+          timezone: zone,
+          weeklyEmailDow: dow,
+          reminderEnabled: false,
+        }),
+      );
+      const fired: string[] = [];
+      for (const tick of hourlyTicks(from, to)) {
+        for (const d of selectDue(candidates, tick)) {
+          fired.push(`${d.userId}|${d.weekStart}`);
+        }
+      }
+      // No user fires twice for the same local week anchor...
+      expect(new Set(fired).size).toBe(fired.length);
+      // ...and every local day in the window did fire (nothing was skipped): the
+      // window spans 3 local days, hence 3 sends across the 7 candidates.
+      expect(fired).toHaveLength(3);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// planSends: the batching contract and a couple of interaction cases
+// ---------------------------------------------------------------------------
+
+describe('planSends read batching', () => {
+  /** An EmailRepository that records the id lists each read was called with. */
+  function spyRepo(inner: EmailRepository) {
+    const calls: Record<string, string[][]> = {
+      alreadySent: [],
+      loadBlocks: [],
+      loadCompleted: [],
+      loadEmails: [],
+    };
+    const repo: EmailRepository = {
+      loadCandidates: () => inner.loadCandidates(),
+      alreadySent: (ids, since) => {
+        calls['alreadySent'].push(ids);
+        return inner.alreadySent(ids, since);
+      },
+      loadBlocks: (ids) => {
+        calls['loadBlocks'].push(ids);
+        return inner.loadBlocks(ids);
+      },
+      loadCompleted: (ids) => {
+        calls['loadCompleted'].push(ids);
+        return inner.loadCompleted(ids);
+      },
+      loadEmails: (ids) => {
+        calls['loadEmails'].push(ids);
+        return inner.loadEmails(ids);
+      },
+      recordSent: (u, k, w) => inner.recordSent(u, k, w),
+    };
+    return { repo, calls };
+  }
+
+  it('resolves 250 due users with one set-based read each, not 250 lookups', async () => {
+    // The scalability contract: a run is O(reads), not O(due). Chunking the id list
+    // under D1's 100-bind ceiling is the *adapter's* job (covered against a fake D1
+    // in @mishna/email-data's spec); what the planner owes is a single, deduplicated
+    // call per read.
+    const ids = Array.from({ length: 250 }, (_, i) => `u${i}`);
+    const inner = new InMemoryEmailRepository({
+      candidates: ids.map((userId) => candidate({ userId })),
+      blocks: new Map(ids.map((id) => [id, [eightMishnaBlock(id)]])),
+      completed: new Map(ids.map((id) => [id, []])),
+      emails: new Map(ids.map((id) => [id, `${id}@example.com`])),
+    });
+    const { repo, calls } = spyRepo(inner);
+
+    const jobs = await planSends(repo, engine, SUNDAY_8AM_NY);
+
+    expect(jobs).toHaveLength(250);
+    for (const name of ['alreadySent', 'loadBlocks', 'loadCompleted', 'loadEmails']) {
+      expect(calls[name], name).toHaveLength(1);
+      expect(calls[name][0], name).toHaveLength(250);
+      // Deduplicated: a user due both kinds must not be looked up twice.
+      expect(new Set(calls[name][0]).size, name).toBe(250);
+    }
+  });
+
+  it('deduplicates the id lists when a user is due both kinds the same day', async () => {
+    const inner = new InMemoryEmailRepository({
+      candidates: [candidate({ reminderEmailDow: 0 })],
+      blocks: new Map([['u1', [eightMishnaBlock('u1')]]]),
+      completed: new Map([['u1', []]]),
+      emails: new Map([['u1', 'u1@example.com']]),
+    });
+    const { repo, calls } = spyRepo(inner);
+    const jobs = await planSends(repo, engine, SUNDAY_8AM_NY);
+    expect(jobs.map((j) => j.kind).sort()).toEqual(['reminder', 'weekly']);
+    expect(calls['loadBlocks'][0]).toEqual(['u1']);
+  });
+});
+
+describe('planSends interactions', () => {
+  function repoWith(over: {
+    candidates?: Candidate[];
+    completed?: MishnaRef[];
+    sent?: string[];
+  }) {
+    return new InMemoryEmailRepository({
+      candidates: over.candidates ?? [candidate()],
+      blocks: new Map([['u1', [eightMishnaBlock('u1')]]]),
+      completed: new Map([['u1', over.completed ?? []]]),
+      emails: new Map([['u1', 'u1@example.com']]),
+      sent: over.sent,
+    });
+  }
+
+  it('sends only the kind that is still outstanding when both are due', async () => {
+    // Weekly and reminder land on the same weekday and share a week anchor, so the
+    // dedup set has to distinguish them by kind — not just by (user, week).
+    const repo = repoWith({
+      candidates: [candidate({ reminderEmailDow: 0 })],
+      sent: [sentKey('u1', 'weekly', '2026-01-04')],
+    });
+    const jobs = await planSends(repo, engine, SUNDAY_8AM_NY);
+    expect(jobs.map((j) => j.kind)).toEqual(['reminder']);
+  });
+
+  it('an opted-out user is dropped before the dedup read, stale log row or not', async () => {
+    // A leftover `email_log` row from before they opted out must not be what is
+    // keeping them quiet — the flag is.
+    const repo = repoWith({
+      candidates: [candidate({ weeklyEnabled: false, reminderEnabled: false })],
+      sent: [sentKey('u1', 'weekly', '2025-12-28')],
+    });
+    expect(await planSends(repo, engine, SUNDAY_8AM_NY)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// prepareSingle — the one function behind both callers (see content.ts)
+// ---------------------------------------------------------------------------
+
+describe('prepareSingle', () => {
+  const wholePortion = [0, 1, 2, 3, 4, 5, 6, 7].map(ref);
+  const base = {
+    userId: 'u1',
+    kind: 'weekly' as const,
+    weekStart: '2026-01-04',
+    to: 'u1@example.com',
+    blocks: [eightMishnaBlock('u1')],
+    completed: [] as MishnaRef[],
+    date: SUNDAY_8AM_NY,
+  };
+
+  it('resolves the next unlearned bucket for a live user', () => {
+    const out = prepareSingle(base, engine, { skipWhenEmpty: true });
+    expect(out?.refs.map(refKey)).toEqual([ref(0), ref(1)].map(refKey));
+  });
+
+  it('returns null with no address, under either setting', () => {
+    for (const skipWhenEmpty of [true, false]) {
+      expect(
+        prepareSingle({ ...base, to: null }, engine, { skipWhenEmpty }),
+      ).toBeNull();
+      expect(
+        prepareSingle({ ...base, to: '' }, engine, { skipWhenEmpty }),
+      ).toBeNull();
+    }
+  });
+
+  describe('a user who has learned their whole portion', () => {
+    const finished = { ...base, completed: wholePortion };
+
+    it('skipWhenEmpty: true (the bulk path) — no email at all', () => {
+      // A finished user must stop receiving scheduled mail.
+      expect(prepareSingle(finished, engine, { skipWhenEmpty: true })).toBeNull();
+      expect(
+        prepareSingle({ ...finished, kind: 'reminder' }, engine, {
+          skipWhenEmpty: true,
+        }),
+      ).toBeNull();
+    });
+
+    it('skipWhenEmpty: false (admin send-now) — the empty-state email, deliberately', () => {
+      // The admin pressed the button; a silent no-op reads as a broken button. They
+      // get the templates' "no mishnayos scheduled" state, and the admin user-detail
+      // page shows the count beforehand so it is never a surprise.
+      const weekly = prepareSingle(finished, engine, { skipWhenEmpty: false });
+      expect(weekly).toMatchObject({
+        userId: 'u1',
+        kind: 'weekly',
+        weekStart: '2026-01-04',
+        to: 'u1@example.com',
+      });
+      expect(weekly?.refs).toEqual([]);
+
+      const reminder = prepareSingle({ ...finished, kind: 'reminder' }, engine, {
+        skipWhenEmpty: false,
+      });
+      expect(reminder?.refs).toEqual([]);
+    });
+  });
+
+  it('reminder carries only the still-pending part of the bucket', () => {
+    const out = prepareSingle(
+      { ...base, kind: 'reminder', completed: [ref(0)] },
+      engine,
+      { skipWhenEmpty: true },
+    );
+    expect(out?.refs.map(refKey)).toEqual([ref(1)].map(refKey));
+  });
+
+  it('a user with no blocks at all is treated as empty', () => {
+    expect(
+      prepareSingle({ ...base, blocks: [] }, engine, { skipWhenEmpty: true }),
+    ).toBeNull();
+    expect(
+      prepareSingle({ ...base, blocks: [] }, engine, { skipWhenEmpty: false })
+        ?.refs,
+    ).toEqual([]);
   });
 });

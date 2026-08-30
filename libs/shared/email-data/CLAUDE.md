@@ -32,12 +32,23 @@ implementation of `@mishna/email-domain`'s `EmailRepository` port. Depends on
 - **Verified-only.** `loadEmails` filters `WHERE "emailVerified" = 1` — the email path
   never mails an unverified address.
 - **Defaults for missing prefs.** A participant with no `user_email_prefs` row gets
-  `@mishna/email-domain`'s shared `DEFAULT_EMAIL_PREFS` (`America/New_York`, weekly=Sun,
-  reminder=Thu, both on) in `loadCandidates` — not a local copy.
+  `@mishna/email-domain`'s shared `DEFAULT_EMAIL_PREFS` — applied through that lib's
+  **`mergePrefs`**, not a local copy of the merge. `buildCandidate` is now just
+  `{ userId, ...mergePrefs(prefs) }`. It used to be a hand-rolled duplicate of
+  `apps/server`'s `buildRecipient`, which is exactly how the bulk path and admin
+  "send now" could have come to disagree about who has opted out.
 
 ## Testing
 
 The D1 query behavior is exercised against a **real** D1 binding in `apps/server`'s
 `email/email.integration.test.ts` (via `@cloudflare/vitest-pool-workers`), the same way
-`D1GroupRepository` is covered by `repository.test.ts`. The lib's own `nx test email-data`
-is a storage-free smoke test (the `chunked` helper + the port-conformance type check).
+`D1GroupRepository` is covered by `repository.test.ts`.
+
+`nx test email-data` covers the storage-free surface: the `chunked` helper, the
+port-conformance type check, and — against a **fake D1 that only counts binds** — the
+one property no real-D1 test reaches before it breaks in production: that no statement
+ever exceeds D1's **100-bind-parameter ceiling**. 250 ids chunk to 100/100/50 on
+`loadBlocks`/`loadCompleted`/`loadEmails`, and to 99+1 / 99+1 / 52+1 on `alreadySent`
+(which binds `sinceWeekStart` alongside), and an empty id list issues no statement at
+all. Nothing in the app's fixtures is anywhere near 100 users, so a reader that lost
+its `chunked(...)` wrapper would otherwise stay green until an 08:00 Sunday.

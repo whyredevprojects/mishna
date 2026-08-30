@@ -1,5 +1,5 @@
 import { Text } from '@react-email/components';
-import { ResolvedMishna } from '../quota';
+import { ResolvedMishna } from '@mishna/email-domain';
 import { EmailShell } from './components/email-shell';
 import { MishnaList } from './components/mishna-list';
 import * as styles from './styles';

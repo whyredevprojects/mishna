@@ -9,6 +9,7 @@ import {
   createMishnaChalakim,
   createMishnaStructure,
 } from '@mishna/domain';
+import { AssignmentSource } from '@mishna/email-domain';
 
 // ---------------------------------------------------------------------------
 // Domain singletons
@@ -27,6 +28,16 @@ export const calendar = new CycleCalendar();
 export const assignmentEngine = new AssignmentEngine(structure, calendar);
 export const idGen: IdGenerator = () => crypto.randomUUID();
 export const random: RandomSource = () => Math.random();
+
+/**
+ * The same engine, seen through the narrow port the email path actually needs
+ * (`getNextAssignment`). `src/email/` depends on **this** binding rather than on the
+ * concrete `assignmentEngine`, so nothing in the email module is coupled to
+ * `AssignmentEngine`'s full surface and every email function that *decides* content
+ * takes its engine as a parameter (see `email/sender.ts`'s `prepareOne`). Same
+ * instance — the corpus is parsed once per isolate.
+ */
+export const emailContentEngine: AssignmentSource = assignmentEngine;
 
 /**
  * One entry in the static lot catalog: a lot's number, its mesechta and 1-based

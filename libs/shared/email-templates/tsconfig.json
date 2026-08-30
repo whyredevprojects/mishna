@@ -1,0 +1,33 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "importHelpers": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    // JSX settings live here as well as in tsconfig.lib.json on purpose: esbuild
+    // (wrangler's bundler, when apps/server pulls this lib in through the
+    // tsconfig.base path alias) resolves a tsconfig **per source file**, walking up
+    // from the file itself — so it reads THIS file, not the app's. Without the
+    // automatic runtime here it falls back to the classic `React.createElement`
+    // transform and the deployed worker throws "React is not defined" at render time.
+    // There is a `grep -c 'React.createElement'` check on the bundle for this.
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "ignoreDeprecations": "6.0"
+  },
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}

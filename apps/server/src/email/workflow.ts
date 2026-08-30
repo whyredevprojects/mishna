@@ -4,12 +4,16 @@ import {
   WorkflowStep,
 } from 'cloudflare:workers';
 import { Resend } from 'resend';
-import { planSends } from '@mishna/email-domain';
+import {
+  OutgoingEmail,
+  mintUnsubscribeToken,
+  planSends,
+  unsubscribeUrl,
+} from '@mishna/email-domain';
 import { D1EmailRepository } from '@mishna/email-data';
-import { assignmentEngine } from '../domain';
+import { emailContentEngine } from '../domain';
 import { httpTextResolver } from './quota';
-import { OutgoingEmail, SenderDeps, processJobs } from './sender';
-import { mintUnsubscribeToken, unsubscribeUrl } from './unsubscribe';
+import { SenderDeps, processJobs } from './sender';
 
 interface Params {
   /** The cron's scheduledTime (epoch ms). Drives the 08:00-local send decision. */
@@ -18,6 +22,49 @@ interface Params {
 
 /** Resend's `/batch` endpoint accepts up to 100 emails per call. */
 const BATCH = 100;
+
+/** One durable `send-batch-N` step: which jobs it covers, and what follows it. */
+export interface BatchStep {
+  /** The batch index, i.e. the `send-batch-<n>` / `throttle-<n>` suffix. */
+  n: number;
+  start: number;
+  end: number;
+  /**
+   * Whether a `step.sleep` throttle follows this batch. False for the **last** one:
+   * the sleep exists to stay under Resend's batch rate limit *between* calls, and one
+   * after the final batch would add a pointless second to every run — and to every
+   * retry of one — while rate-limiting nothing.
+   */
+  throttleAfter: boolean;
+}
+
+/**
+ * How a run of `total` planned emails is chunked into `size`-job batches.
+ *
+ * Split out of `run()` as a pure function because it is the only *decision* the
+ * workflow makes, and it is otherwise reachable only through the durable engine —
+ * where a `step.sleep` has no result to introspect and the placement of the throttle
+ * could only be inferred from wall-clock timing. `workflow.spec.ts` pins it directly.
+ */
+export function batchPlan(total: number, size: number = BATCH): BatchStep[] {
+  const steps: BatchStep[] = [];
+  for (let i = 0; i < total; i += size) {
+    const end = Math.min(i + size, total);
+    steps.push({ n: i / size, start: i, end, throttleAfter: end < total });
+  }
+  return steps;
+}
+
+/** What one run reports: the workflow's output and its `reminder_run` log line. */
+export interface RunMetrics {
+  scheduledTime: number;
+  durationMs: number;
+  /** Emails `planSends` decided to send. */
+  planned: number;
+  /** Emails actually handed to a completed `send-batch-*` step. */
+  sent: number;
+  batches: number;
+}
 
 /** The D1-backed email repository (the EmailRepository port impl) over this env. */
 function emailRepo(env: Env): D1EmailRepository {
@@ -72,36 +119,37 @@ export class ReminderWorkflow extends WorkflowEntrypoint<Env, Params> {
     // Capture the start in a step so the duration survives workflow replays.
     const startedAt = await step.do('started-at', async () => Date.now());
     const jobs = await step.do('plan-sends', () =>
-      planSends(emailRepo(this.env), assignmentEngine, now),
+      planSends(emailRepo(this.env), emailContentEngine, now),
     );
 
+    const plan = batchPlan(jobs.length);
     let sent = 0;
-    for (let i = 0; i < jobs.length; i += BATCH) {
-      const chunk = jobs.slice(i, i + BATCH);
-      const n = i / BATCH;
+    for (const { n, start, end, throttleAfter } of plan) {
+      const chunk = jobs.slice(start, end);
       await step.do(`send-batch-${n}`, () =>
         processJobs(chunk, senderDeps(this.env)),
       );
       sent += chunk.length;
-      if (i + BATCH < jobs.length) {
+      if (throttleAfter) {
         await step.sleep(`throttle-${n}`, '1 second');
       }
     }
 
     // One structured line per run — the early-warning for the per-invocation
     // subrequest/wall-clock ceiling. Watch `durationMs` and `planned` over time.
-    await step.do('run-metrics', async () => {
-      console.log(
-        JSON.stringify({
-          evt: 'reminder_run',
-          scheduledTime: event.payload.scheduledTime,
-          durationMs: Date.now() - startedAt,
-          planned: jobs.length,
-          sent,
-          batches: Math.ceil(jobs.length / BATCH),
-        }),
-      );
-      return null;
+    // The step also *returns* the metrics (rather than `null`) so a run is
+    // observable without scraping logs: the workflow's output is this object, and
+    // `workflow.integration.test.ts` asserts on it.
+    return await step.do('run-metrics', async (): Promise<RunMetrics> => {
+      const metrics: RunMetrics = {
+        scheduledTime: event.payload.scheduledTime,
+        durationMs: Date.now() - startedAt,
+        planned: jobs.length,
+        sent,
+        batches: plan.length,
+      };
+      console.log(JSON.stringify({ evt: 'reminder_run', ...metrics }));
+      return metrics;
     });
   }
 }
