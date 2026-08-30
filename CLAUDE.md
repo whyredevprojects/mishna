@@ -42,6 +42,19 @@ implementation map and `README.md` there for the design narrative.
 
 Determinism: ids come from an injected `IdGenerator`, randomness (lot picks) from an injected `RandomSource`, dates are always passed in.
 
+## Testing
+
+`TESTING.md` (repo root) is the guide to the parts that aren't obvious: where a test
+belongs (pure decisions in a lib, in plain node; effects in the app, in workerd), what
+is deliberately not unit-testable and what covers it instead, and the deploy-bundle
+gates that no unit test can assert.
+
+**Read its Email section before touching anything on the email path.** That path
+reaches real inboxes and cannot be undone, and two of its rules are non-obvious enough
+to break by accident: `apps/server/.dev.vars` — with your real `RESEND_API_KEY` — *is*
+loaded into the test environment, and the local dev workbench renders **production**
+unsubscribe links unless `APP_ORIGIN` is overridden.
+
 ## Conventions
 
 - Domain logic lives in `libs/shared/domain` — apps should not duplicate it

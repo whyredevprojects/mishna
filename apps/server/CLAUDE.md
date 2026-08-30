@@ -650,13 +650,18 @@ it themselves.
   and it's fake on purpose (see below). Today it fails in `prepareOne`, because this file
   never creates the `AUTH_DB` "user" table.
 
-🔴 **No test can reach Resend, and that is enforced twice.** `vitest.config.mts` binds a
-**fake** `RESEND_API_KEY`, because this pool loads `apps/server/.dev.vars` — where a
-developer very likely has a *real* key, on a verified sender domain. Binding it here makes
-`.dev.vars` lose for every file in the suite. On top of that, each test that touches the
-send path (`workflow.integration.test.ts`, `dev-routes.integration.test.ts`,
-`preferences.integration.test.ts`) stubs global `fetch` with a default-deny branch. Keep
-both: the binding is the floor, the stubs are what stop a *successfully constructed*
-client from making a request. The failure mode being defended against is not exotic —
-seeding `AUTH_DB` in `preferences.integration.test.ts` (an obvious improvement) is enough
-to put a live send one line away.
+🔴 **No test can reach Resend, and that is enforced twice.** `vitest.config.mts` binds
+`RESEND_API_KEY` to the **empty string** (the same thing `apps/login`'s config does),
+because this pool loads `apps/server/.dev.vars` — where a developer very likely has a
+*real* key, on a verified sender domain. An explicit empty binding makes `.dev.vars` lose
+for every file in the suite, and empty beats fake: Resend's constructor throws on a falsy
+key, so the default state is "no client can exist" rather than "a client exists and its
+requests 401" — the latter still has the worker calling out from a test run.
+
+The two files that genuinely need a constructible client
+(`workflow.integration.test.ts`, `dev-routes.integration.test.ts`) opt in per-file with a
+fake key **and** a default-deny global `fetch` stub; `preferences.integration.test.ts`
+keeps the empty binding and adds the stub anyway. Keep both halves — the binding is the
+floor, the stub is what stops a constructed client from making a request. The failure mode
+is not exotic: seeding `AUTH_DB` in `preferences.integration.test.ts` (an obvious
+improvement) is enough to put a live send one line away.

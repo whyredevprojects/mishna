@@ -53,7 +53,7 @@ export function createAuth(env: Env) {
       onError: (error, ctx) => {
         const detail =
           error instanceof Error ? (error.stack ?? error.message) : String(error);
-        console.error('[better-auth] API error', ctx?.path ?? '', '\n', detail);
+        console.error('[better-auth] API error', '\n', detail);
       },
     },
     // Trusted origins = the static dev loopback wildcards (authOptions) plus the two

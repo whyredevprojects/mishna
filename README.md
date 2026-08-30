@@ -1,8 +1,9 @@
 # Mishna
 
 App for organizing groups to collectively memorize the entire Mishna by Rosh
-Chodesh Sivan. See [`CLAUDE.md`](./CLAUDE.md) for the project overview and
-[`apps/*/CLAUDE.md`](./apps) for per-app details.
+Chodesh Sivan. See [`CLAUDE.md`](./CLAUDE.md) for the project overview,
+[`TESTING.md`](./TESTING.md) for how to test the non-obvious parts (email above all),
+and [`apps/*/CLAUDE.md`](./apps) for per-app details.
 
 ## Local Development
 
@@ -69,19 +70,34 @@ cron triggers the `ReminderWorkflow` (a Cloudflare Workflow), which decides who 
 email right now (08:00 in each user's timezone) and sends the weekly/reminder emails via
 Resend in batches. Admin "send now" sends one email inline from the request handler.
 
-To exercise it locally (after `npm run db:init:local`):
+To exercise it locally, use the **workbench** — it renders and sends a real email built
+by the real code against your real local D1:
 
-- **Cron → Workflow (bulk):** run the server with `npx nx serve server` and trigger the
-  scheduled handler, e.g. `curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*"`. It
-  creates a workflow instance; inspect it with
-  `npx wrangler workflows instances list mishna-reminders` /
-  `... instances describe mishna-reminders <id>`.
-- **Admin "send now":** the admin button hits the server, which builds and sends the one
-  email inline and returns the real success/error to the UI.
+```sh
+npm run db:init:local        # once
+npm run email:dev:server     # the dev entry point, :8787
+npm run dev                  # another terminal — needed for local Hebrew text + safe links
+# open http://localhost:8787/__dev/email
+```
 
-A real send needs `RESEND_API_KEY` as a secret (`wrangler secret put RESEND_API_KEY` for
-deploys) or in `apps/server/.dev.vars` locally (gitignored). Without it the Resend client
-throws and the send surfaces as a `502` (admin send-now) or a retried workflow step.
+`/__dev/email/plan?at=<ISO>` is a dry run ("who *would* get mail at 08:00 Sunday?"),
+`/render` paints the actual email in your browser, `/send` sends one, and `/cron` runs
+the whole scheduled path. `npm run email:dev` (:3030) is the cheaper offline half —
+react-email's preview server over the templates alone.
+
+🔴 **Set `APP_ORIGIN=http://localhost:4200` in `apps/server/.dev.vars` first.** Otherwise
+every previewed email's unsubscribe link points at *production*, signed with your local
+secret. See `apps/server/.dev.vars.example`.
+
+A real send needs `RESEND_API_KEY` in `apps/server/.dev.vars` (gitignored;
+`wrangler secret put RESEND_API_KEY` for deploys). Send to `delivered@resend.dev` to
+exercise the real API without touching a mailbox. Without a key the Resend client throws
+and the send surfaces as a `502` (admin send-now) or a retried workflow step.
+
+**Before changing anything here, read [`TESTING.md`](./TESTING.md).** Email is the one
+path that reaches real people and can't be undone; that file covers the safety rules
+(notably: no test may reach Resend, and `.dev.vars` *is* loaded into the test env),
+what's deliberately untestable, and how to drive the Workflow's retry semantics.
 
 ### Notes
 

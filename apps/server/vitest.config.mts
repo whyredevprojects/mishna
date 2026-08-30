@@ -22,16 +22,22 @@ export default defineConfig(() => ({
         // here. These are test fixtures, not real keys: production sets both with
         // `wrangler secret put`.
         //
-        // 🔴 RESEND_API_KEY is pinned deliberately, and must stay pinned. This pool
-        // loads `apps/server/.dev.vars`, where a developer very likely has a REAL
-        // key — on a verified sender domain. Binding a fake one here makes
-        // `.dev.vars` lose for every test file, so no test can ever construct a
-        // working Resend client, whatever it does to the DB. (Individual email test
-        // files additionally stub global `fetch` with a default-deny branch; that is
-        // belt to this suspenders. Do not remove either.)
+        // 🔴 RESEND_API_KEY is blanked deliberately, and must stay blanked — the same
+        // thing apps/login's config does, for the same reason. This pool loads
+        // `apps/server/.dev.vars`, where a developer very likely has a REAL key, on a
+        // verified sender domain. An explicit empty binding makes `.dev.vars` lose for
+        // every file in the suite, and empty is better than fake: Resend's constructor
+        // throws on a falsy key, so the default state is "no client can exist" rather
+        // than "a client exists and its requests 401" — the latter still leaves the
+        // worker making outbound calls from a test run.
+        //
+        // The two files that need a constructible client (`workflow.integration.test.ts`,
+        // `dev-routes.integration.test.ts`) opt in per-file with a fake key AND a
+        // default-deny `fetch` stub. That opt-in is the whole safety story: keep both
+        // halves. See "No test can reach Resend" in apps/server/CLAUDE.md.
         bindings: {
           UNSUBSCRIBE_SECRET: 'test-unsubscribe-secret',
-          RESEND_API_KEY: 're_fake_test_key_never_real',
+          RESEND_API_KEY: '',
         },
         // The login worker isn't running in tests, so stub the AUTH service
         // binding. get-session treats the forwarded cookie value as the user id

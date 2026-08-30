@@ -15,8 +15,9 @@ import '.';
 // real inline send path. Two independent things keep it off the network, and both
 // are load-bearing:
 //
-//   1. `vitest.config.mts` pins a fake `RESEND_API_KEY`, so `.dev.vars` — where a
-//      developer plausibly has a REAL key on a verified sender domain — can't win.
+//   1. `vitest.config.mts` binds `RESEND_API_KEY` to the empty string, so `.dev.vars` —
+//      where a developer plausibly has a REAL key on a verified sender domain — can't
+//      win, and Resend's constructor throws rather than building a client at all.
 //   2. The default-deny `fetch` stub below, which throws on anything outbound.
 //
 // The send-now tests below assert `502`. Do NOT read that as "there is no Resend
