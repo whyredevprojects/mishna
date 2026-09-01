@@ -4,8 +4,8 @@
   "imagesHost": "images.mishna2go.com",
   "turnstileSiteKey": "0x4AAAAAADhFwbhDJNP7CeZY",
   "email": {
-    "auth": "Chevras Mishnayos Baal Peh <noreply@mishna2go.com>",
-    "reminders": "Chevras Mishnayos Baal Peh <reminders@mishna2go.com>",
+    "auth": "Chevras Mishnayos Baal Peh <noreply@mail.mishna2go.com>",
+    "reminders": "Chevras Mishnayos Baal Peh <reminders@mail.mishna2go.com>",
     "replyTo": "Chevras Mishnayos Baal Peh <support@mishna2go.com>"
   }
 }
