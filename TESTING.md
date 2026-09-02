@@ -109,10 +109,13 @@ Look at, and send, a real email built by the real code against your real local D
 
 ```sh
 npm run db:init:local        # once — seeds local mishna-auth + mishna-app
-npm run email:dev:server     # the DEV entry point, :8787
-npm run dev                  # another terminal — Angular on :4200 (see APP_ORIGIN below)
+npm run dev:email            # workbench on :8787 + login + Angular on :4200 (see APP_ORIGIN below)
 # open http://localhost:8787/__dev/email
 ```
+
+Use `dev:email` rather than `npm run dev`, not as well as it: both put a worker on :8787,
+and the loser of that race dies. `npm run dev` serves the **production** entry there, which
+has no `/__dev/email` at all — so getting the order wrong looks like a 404, not a clash.
 
 | Route | What it does |
 |---|---|

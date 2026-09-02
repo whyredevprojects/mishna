@@ -38,6 +38,17 @@
         "persistTo": "../../.wrangler/state"
       }
     },
+    "serve-email": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "npx wrangler dev apps/server/src/dev-entry.ts --config apps/server/wrangler.toml --persist-to .wrangler/state --port 8787"
+        ],
+        "cwd": "{workspaceRoot}",
+        "readyWhen": "Ready on"
+      }
+    },
     "deploy": {
       "executor": "@naxodev/nx-cloudflare:deploy"
     }

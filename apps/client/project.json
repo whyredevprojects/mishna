@@ -136,6 +136,26 @@
         "proxyConfig": "apps/client/proxy.conf.json"
       }
     },
+    "serve-solo": {
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
+      "configurations": {
+        "production": {
+          "buildTarget": "client:build:production"
+        },
+        "development": {
+          "buildTarget": "client:build:development"
+        },
+        "he": {
+          "buildTarget": "client:build:development-he"
+        }
+      },
+      "defaultConfiguration": "development",
+      "dependsOn": ["server:serve-email", "login:serve"],
+      "options": {
+        "proxyConfig": "apps/client/proxy.conf.json"
+      }
+    },
     "extract-i18n": {
       "executor": "@angular/build:extract-i18n",
       "options": {

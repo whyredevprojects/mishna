@@ -11,7 +11,7 @@ allocation writes so concurrent joins can't corrupt a group.
 | File | Role |
 |------|------|
 | `index.ts` | Hono app + routes + the **production** worker entry (`wrangler.toml`'s `main`). Default export is `{ fetch, scheduled }` (the cron handler kicks off the `ReminderWorkflow`); also exports `{ AllocatorDO, ReminderWorkflow }` and the Hono `app` itself (for `dev-entry.ts`). |
-| `dev-entry.ts` | The **dev-only** entry: the same `app` plus the `/__dev/email/*` workbench, run by `npm run email:dev:server`. Never deployed — see "Testing email locally". |
+| `dev-entry.ts` | The **dev-only** entry: the same `app` plus the `/__dev/email/*` workbench, served on :8787 by `npm run dev:email` (or alone by `npm run email:dev:server`). Never deployed — see "Testing email locally". |
 | `domain.ts` | Module-scope domain singletons (`structure`, `calendar`, `assignmentEngine`, `idGen`), built once per isolate. |
 | `repository.ts` | `D1GroupRepository implements GroupRepository` — the production persistence adapter. |
 | `allocator.ts` | `AllocatorDO` Durable Object — the single, serialized write path for join/leave. |
@@ -451,17 +451,41 @@ on your machine.
 
 ```sh
 npm run db:init:local        # 1. seed the local mishna-auth + mishna-app D1
-npm run email:dev:server     # 2. serve the DEV entry point on :8787
-npm run dev                  # 3. (another terminal) the Angular dev server on :4200
+npm run dev:email            # 2. the whole local stack, dev entry point on :8787
 # then open http://localhost:8787/__dev/email
 ```
 
-Step 3 is not optional if you want Hebrew text and safe links — see the `APP_ORIGIN`
-gotcha below. If you'd rather not run Angular, pass
+The Angular dev server is not optional if you want Hebrew text and safe links — see the
+`APP_ORIGIN` gotcha below — which is why `dev:email` starts it for you. If you'd rather
+not run Angular, start just the worker with `npm run email:dev:server` and pass
 `?textOrigin=https://app.mishna2go.com` on `/render` (or `"textOrigin"` in the `/send`
-body) and leave `APP_ORIGIN` pointing at localhost.
+body), leaving `APP_ORIGIN` pointing at localhost.
 
-`email:dev:server` is:
+### Why `dev:email` exists rather than "run `npm run dev` too"
+
+Both `npm run dev` and `npm run dev:email` put a worker on :8787, because
+`apps/client/proxy.conf.json` proxies `/api` there and there is only one slot. The
+difference is *which* worker:
+
+| | :8787 | :8788 | :4200 |
+|---|---|---|---|
+| `npm run dev` | `src/index.ts` — production entry | login | Angular |
+| `npm run dev:email` | `src/dev-entry.ts` — **+ `/__dev/email/*`** | login | Angular |
+
+So they are alternatives, not layers. Run both and one wrangler loses the bind race and
+dies — and nx reports that dead task as *successful*, so the rest of the stack comes up
+looking healthy around a :8787 that may be the production entry with no workbench on it.
+That failure reads as a 404 on `/__dev/email`, which is a long way from "port clash".
+
+`dev:email` removes the race instead of documenting it: `client:serve-solo` is
+`client:serve` with `server:serve-email` in its `dependsOn` in place of `server:serve`,
+so the production worker is never in the task graph at all. `server:serve-email` is a
+`nx:run-commands` target (the `@naxodev/nx-cloudflare:serve` executor has no option for a
+custom entry) whose `readyWhen: "Ready on"` holds Angular back until wrangler is actually
+listening. Keep that string free of the URL — wrangler colorizes it, so an ANSI escape
+sits between `Ready on ` and `http://localhost:8787` and the longer string never matches.
+
+The target runs:
 
 ```sh
 npx wrangler dev apps/server/src/dev-entry.ts \
@@ -470,8 +494,7 @@ npx wrangler dev apps/server/src/dev-entry.ts \
 
 The positional script **overrides `wrangler.toml`'s `main`**, so this runs with the
 same config as production: same D1 databases, same DO/Workflow classes, same `[vars]`,
-no second toml to drift. (`npm run dev`'s Angular proxy also targets :8787, so the
-client works against this server exactly as it does against `nx serve server`.)
+no second toml to drift. The client works against it exactly as against `nx serve server`.
 
 ### 🔴 The `APP_ORIGIN` gotcha — read this before previewing anything
 

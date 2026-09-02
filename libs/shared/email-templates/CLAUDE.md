@@ -44,7 +44,7 @@ weeks later), `reminder`.
 
 For "what would *this real user* receive", the templates preview isn't enough — it has
 no D1, no user and no `AssignmentSource`. Use `apps/server`'s `/__dev/email` workbench
-(`npm run email:dev:server`); see "Testing email locally" in `apps/server/CLAUDE.md`.
+(`npm run dev:email`); see "Testing email locally" in `apps/server/CLAUDE.md`.
 
 ## Key conventions
 

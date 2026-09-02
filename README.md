@@ -75,10 +75,13 @@ by the real code against your real local D1:
 
 ```sh
 npm run db:init:local        # once
-npm run email:dev:server     # the dev entry point, :8787
-npm run dev                  # another terminal — needed for local Hebrew text + safe links
+npm run dev:email            # workbench on :8787 + login + Angular on :4200, one command
 # open http://localhost:8787/__dev/email
 ```
+
+`dev:email` is `npm run dev`'s sibling: same login + Angular dev server, but :8787 is the
+**dev entry point** instead of the production one. Don't run both — they want the same
+port. (`npm run email:dev:server` still starts just the worker, if that's all you need.)
 
 `/__dev/email/plan?at=<ISO>` is a dry run ("who *would* get mail at 08:00 Sunday?"),
 `/render` paints the actual email in your browser, `/send` sends one, and `/cron` runs
