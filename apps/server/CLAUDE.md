@@ -123,6 +123,8 @@ state-changing admin POSTs that arrive without a trusted Origin).
 | `GET /api/join-options` | `{ options: JoinOption[] }` — the signup commitment choices as of today (`computeJoinOptions`), each weekly pace annotated with its approximate lot count, collapsing to a single "1 lot" option near the cycle end (public; keeps the lot math out of the clients, esp. Flutter). |
 | `GET /api/unsubscribe?t=&lang=` | **Strictly read-only.** Renders a small self-contained bilingual HTML page with a confirm `<form method="post">`. Always `200`, even for a garbage token — it must never leak whether a token/user is real, and mail scanners GET every link in a message, so this must not mutate anything (public, no auth — the signed token is the authorization). |
 | `POST /api/unsubscribe?t=&lang=` | The RFC 8058 one-click target *and* the form's action. Verifies the token, then turns the scope's emails off (`weekly_enabled`/`reminder_enabled`). Accepts, but doesn't require, the `List-Unsubscribe=One-Click` form body. `200 text/plain` for a machine POST, the HTML success page when `Accept: text/html`. **Always `200`** — a bad/malformed token gets the *error* page/text but still a `200`, because every other outcome (success, unknown user, a repeat POST) is one too and a `400` only for "this token didn't verify" leaks that it isn't real; a mailbox provider also reads a 4xx on the one-click POST as a broken unsubscribe, and the usual cause is the mail client truncating the URL. It's logged as a `{ evt: 'unsubscribe_bad_token', tokenLength, html }` warn line — never the token itself, which may still be a live credential. Unknown user and a repeat POST are both an idempotent `200`. **Never redirects** (RFC 8058 forbids it) (public). |
+| `GET /api/memorized?t=&lang=` | The emailed "I've memorized this" CTA. **Strictly read-only**: no DB read, no session, and the token is deliberately *not verified* — always the same `200` confirm form, so a probe learns nothing. Mail scanners and link-preview bots GET every URL in a message; they do not submit forms (public). |
+| `POST /api/memorized` | The confirm form's action. Verifies the token, checks `canMark`, marks the pinned bucket learned (one batched `recordCompletion` upsert, so a repeat click is a no-op), then decides about the session: **already the right user** → `303` to `/dashboard?memorized=1`; **signed out and inside the 7-day `canLogin` window** → mint via the `AUTH` binding, copy the `Set-Cookie`, then that same `303`; **signed out and past it, or a *different* user holds the browser** → `200` done page, no cookie, no redirect (never show A's dashboard to B, never swap B's session). A bad or expired token is a `200` error page that writes **nothing**, logged as `{ evt: 'memorized_bad_token', tokenLength }` — never the token, which may still be live (public). |
 | `GET /api/me` | `{ joined, commitment, user: { id, name, email, role }, isAdmin }` (auth). |
 | `GET /api/me/chaluka` | `{ commitment, joinedAt, assigned: MishnaRef[], completed: MishnaRef[], groupIds: string[] }` — the caller's whole-cycle portion (every mishna in their blocks, corpus order) + the learned subset, for the "My Chaluka" progress/stats view (auth). `groupIds` is parallel to `assigned` (group for `assigned[i]` is `groupIds[i]`): the group each completion is recorded under, so the Assignments page can check mishnayot off (per-ref because lots spill across groups at an overflow boundary). |
 | `GET /api/me/preferences` | The caller's email prefs, defaults if no row (auth). |
@@ -297,6 +299,51 @@ different payload with `409 invalid_idempotent_request`, which would fail the re
 `step.do` and take the rest of that hour's batches with it. The token is a pure function
 of (secret, userId, scope); `processJobs` run twice over the same jobs produces
 byte-identical mail, and there's a test that says so.
+**"I've memorized this" (the one-click check-off).** Every scheduled email that has
+mishnayot in it carries a prominent CTA **above** the list: *"Click here when you've
+memorized this."* Clicking it marks exactly the mishnayot that email showed as learned
+and — for the first week — signs the reader in, so the whole loop is one click from the
+inbox. (The empty-state emails get no CTA; there is nothing to have memorized.)
+
+The link's `t` is `base64url("m1.<userId>.<bucket>.<expiresAt>") "." base64url(HMAC-SHA256)`
+(`@mishna/email-domain`'s `memorized-token.ts`), signed with `MEMORIZED_SECRET`. Four
+things about it are deliberate:
+
+- **`bucket` is the whole "which mishnayot" payload, pinned at *plan* time.**
+  `AssignmentEngine.getBucketAssignment` is a positional slice whose `pace` is anchored
+  to the user's join date, so an index re-derives the exact refs for the rest of the
+  cycle in ~2 characters. Recomputing it at click time would be a real bug:
+  `nextUnlearnedBucket` advances the moment a bucket is complete, so anyone who checked
+  the bucket off in the app *first* would have the emailed link mark the **next** bucket
+  — mishnayot they never saw. `PreparedEmail.bucket` carries it; `plan-sends.spec.ts`
+  and `memorized.integration.test.ts` both guard the drift.
+- **It expires — and still re-renders byte-identically.** `expiresAt` is
+  `weekStart + 30 days`, and `weekStart` is already a field of the job, so the token
+  stays a pure function of (secret, job). This is the constraint the unsubscribe token
+  gave up expiry for: the batch `Idempotency-Key` covers only (user, kind, week), and
+  Resend answers a reused key carrying a different body with `409
+  invalid_idempotent_request`, failing the retried `step.do` and taking the rest of the
+  hour with it. A `Date.now()` anywhere in this payload brings that back.
+  `email.integration.test.ts` proves it directly: two `processJobs` runs with the system
+  clock advanced days between them must produce identical bytes.
+- **Two windows over one signed instant.** `canMark` runs the full 30 days; `canLogin`
+  closes after 7. A month-old link in a forwarded mailbox should still be able to say "I
+  learned these" — idempotent, low-value, reversible — without still being an
+  account-takeover primitive. Both derive from the same `expiresAt`, so there is exactly
+  one field to forge and the MAC covers it.
+- **Signing in never happens on this worker.** `POST /api/memorized` calls the login
+  worker's `/internal/memorized-session` over the `AUTH` service binding; that endpoint
+  is `createAuthEndpoint.serverOnly` (never on better-auth's HTTP router), lives on a
+  path no zone route dispatches, and **verifies the same signed token rather than
+  trusting a `userId`** — so even reaching it grants nothing beyond what holding a valid
+  link already does. See `apps/login/CLAUDE.md`.
+
+The CTA goes at the **top**, which is not just emphasis: Gmail clips messages over
+~102 KB, and a long weekly can reach that, so a CTA under the list may simply not be in
+what the reader sees. Like the unsubscribe footer it is its **own paragraph**, because
+html-to-text renders an anchor as `text href` and sharing a line would bury the URL
+mid-sentence in the text/plain part.
+
 The footer renders the link as its **own paragraph**, not `"Chevras Mishnayos Baal Peh ·
 Unsubscribe"` on one line — a contract with the plain-text part, where html-to-text
 renders an anchor as `text href`, so a one-line footer would bury the URL mid-sentence
@@ -435,7 +482,13 @@ email points at **production** twice over:
 1. **The unsubscribe link** — the visible footer link *and* the RFC 8058
    `List-Unsubscribe` header — becomes `https://app.mishna2go.com/api/unsubscribe?t=…`
    with a token signed by your local secret. Clicking it hits production.
-2. **The Hebrew text fetch** — `httpTextResolver(APP_ORIGIN)` loads mishna-text's
+2. **The "I've memorized this" CTA** — same problem, higher stakes. It becomes
+   `https://app.mishna2go.com/api/memorized?t=…`, and that link is a *check-off* on a
+   real user's portion and, for its first week, a *sign-in* credential. Your local
+   `MEMORIZED_SECRET` won't verify against production's, so it will fail closed rather
+   than actually do anything — but you will have put a credential-shaped URL naming a
+   real user id into a locally-rendered email. Don't rely on the secrets differing.
+3. **The Hebrew text fetch** — `httpTextResolver(APP_ORIGIN)` loads mishna-text's
    tractate JSON from `${APP_ORIGIN}/<tractate>.json`.
 
 Override it in `apps/server/.dev.vars` (which beats `[vars]`):
@@ -551,6 +604,12 @@ npm run db:migrate:remote              # apply migrations to the new remote DB
 wrangler types                         # regenerate worker-configuration.d.ts after binding changes
 wrangler secret put UNSUBSCRIBE_SECRET # HMAC key for the one-click unsubscribe links
                                        # (comma-separated list; rotate by prepending)
+wrangler secret put MEMORIZED_SECRET   # HMAC key for the "I've memorized this" links.
+                                       # Set the SAME value on apps/login too — this
+                                       # worker mints these tokens, that one verifies
+                                       # them when minting a session. Do it BEFORE
+                                       # deploying the code: minting fails closed
+                                       # without it, which would throw on every send.
 ```
 
 **Rotating `UNSUBSCRIBE_SECRET`.** Prepend the new secret to the list and deploy — new
@@ -563,6 +622,16 @@ feature exists to prevent. Keeping one costs a single extra `crypto.subtle.verif
 retired secret, and only on requests whose token doesn't match a newer one. If a secret
 genuinely must be removed (compromise), the hard floor is **24 months** after the last
 send that used it — a deliberate act that accepts breaking older mail still in inboxes.
+
+**Rotating `MEMORIZED_SECRET` — the opposite policy, deliberately.** Same mechanism
+(prepend, deploy, sign-with-first/verify-against-all), and it must be rotated on **both**
+workers together. But this list is **prunable and revocable**, because these tokens
+*do* expire: 30 days after their send, and one is a login credential for its first 7.
+So a retired secret can be dropped once everything signed with it is dead — floor: **60
+days** after its last send. And if a secret is ever suspected of leaking, **remove it
+immediately**: that is the correct incident response here rather than the harm, since it
+revokes every outstanding link in a single deploy and the worst outcome is a dead
+button. Do not carry this list forward out of habit from `UNSUBSCRIBE_SECRET`'s.
 
 For **local dev**, seed both apps' local D1 before `npm run dev`:
 

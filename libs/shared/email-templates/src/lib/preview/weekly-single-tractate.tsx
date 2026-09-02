@@ -2,6 +2,7 @@ import { WeeklyEmail } from '../weekly-email';
 import {
   SAMPLE_ORIGIN,
   SAMPLE_SINGLE_TRACTATE,
+  SAMPLE_MEMORIZED_URL,
   SAMPLE_UNSUBSCRIBE_URL,
 } from './sample-data';
 
@@ -17,6 +18,7 @@ export default function WeeklySingleTractatePreview() {
       items={SAMPLE_SINGLE_TRACTATE}
       appOrigin={SAMPLE_ORIGIN}
       unsubscribeUrl={SAMPLE_UNSUBSCRIBE_URL}
+      memorizedUrl={SAMPLE_MEMORIZED_URL}
     />
   );
 }

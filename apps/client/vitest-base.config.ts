@@ -12,6 +12,12 @@ import { defineConfig } from 'vitest/config';
 // Forcing the Angular testing entry points to be inlined + deduped keeps them a
 // single module instance across the setup file and the spec bundles. This base
 // config is merged in via the `runnerConfig` builder option.
+//
+// `@tanstack/angular-query-experimental` is in the same list for the same reason,
+// one level removed: it resolves to *source* (its package points at src/), so
+// without deduping it links against a second copy of @angular/core and its
+// `provideTanStackQuery` factory fails with NG0203 (`inject(DestroyRef)` outside an
+// injection context) the moment a spec instantiates a component that uses a query.
 export default defineConfig({
   resolve: {
     dedupe: [
@@ -22,12 +28,13 @@ export default defineConfig({
       '@angular/platform-browser',
       '@angular/platform-browser/testing',
       '@angular/router',
+      '@tanstack/angular-query-experimental',
     ],
   },
   test: {
     server: {
       deps: {
-        inline: [/@angular\//],
+        inline: [/@angular\//, /@tanstack\//],
       },
     },
   },

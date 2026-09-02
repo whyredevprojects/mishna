@@ -19,17 +19,26 @@ import {
   EmailPrefs,
   UnsubscribeScope,
   UnsubscribeVia,
+  canLogin,
+  canMark,
   confirmPageHtml,
+  dashboardUrl,
   donePageHtml,
   errorPageHtml,
   flagsAfterUnsubscribe,
   isHardUnsubscribe,
+  memorizedConfirmPageHtml,
+  memorizedDonePageHtml,
+  memorizedErrorPageHtml,
   mergePrefs,
   pickLang,
   plainDone,
   plainError,
+  plainMemorizedDone,
+  plainMemorizedError,
   resolveOne,
   unsubscribeAudit,
+  verifyMemorizedToken,
   verifyUnsubscribeToken,
 } from '@mishna/email-domain';
 import { AllocatorDO } from './allocator';
@@ -50,7 +59,12 @@ import {
   safeFilename,
   writeAbout,
 } from './about';
-import { AuthVariables, requireAdmin, requireAuth } from './auth-middleware';
+import {
+  AuthVariables,
+  requireAdmin,
+  requireAuth,
+  sessionUser,
+} from './auth-middleware';
 import { ReminderWorkflow, senderDeps } from './email/workflow';
 import { prepareOne, processJobs } from './email/sender';
 import {
@@ -193,7 +207,14 @@ async function buildBucketResponse(
     : null;
   const done = new Set(allCompleted.map(refKey));
   const completed = assignment.mishnas.filter((ref) => done.has(refKey(ref)));
-  return { ...assignment, groupId, completed, bucket, bucketCount, currentBucket };
+  return {
+    ...assignment,
+    groupId,
+    completed,
+    bucket,
+    bucketCount,
+    currentBucket,
+  };
 }
 
 /** `refKey`-style identity for a mishna ("Berachos|1|1"); cross-cycle, group-agnostic. */
@@ -304,7 +325,11 @@ function parseLotsBody(body: unknown): number[] | null {
     return null;
   }
   for (const v of lots) {
-    if (typeof v !== 'number' || !Number.isInteger(v) || !validLotNumbers.has(v)) {
+    if (
+      typeof v !== 'number' ||
+      !Number.isInteger(v) ||
+      !validLotNumbers.has(v)
+    ) {
       return null;
     }
   }
@@ -312,12 +337,37 @@ function parseLotsBody(body: unknown): number[] | null {
 }
 
 /** Whether `userId` belongs to `groupId` (the completion authorization check). */
-function isGroupMember(env: Env, groupId: string, userId: string): Promise<unknown> {
+function isGroupMember(
+  env: Env,
+  groupId: string,
+  userId: string,
+): Promise<unknown> {
   return env.DB.prepare(
     'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?',
   )
     .bind(groupId, userId)
     .first();
+}
+
+/**
+ * The upsert for one `(user, group, ref)` completion, as a bound statement.
+ *
+ * Split out from `recordCompletion` so the emailed check-off can hand a whole bucket
+ * to `DB.batch()` — one round trip, and atomic, so a click never leaves half a bucket
+ * marked. Single source of this SQL either way.
+ */
+function completionStatement(
+  env: Env,
+  userId: string,
+  ref: MishnaRef,
+  groupId: string,
+): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO completions (user_id, group_id, mesechta, perek, mishna, completed_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id, group_id, mesechta, perek, mishna)
+       DO UPDATE SET completed_at = excluded.completed_at`,
+  ).bind(userId, groupId, ref.mesechta, ref.perek, ref.mishna, Date.now());
 }
 
 /** Upsert a `(user, group, ref)` completion. Shared by the self + admin paths. */
@@ -327,14 +377,7 @@ function recordCompletion(
   ref: MishnaRef,
   groupId: string,
 ): Promise<unknown> {
-  return env.DB.prepare(
-    `INSERT INTO completions (user_id, group_id, mesechta, perek, mishna, completed_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(user_id, group_id, mesechta, perek, mishna)
-       DO UPDATE SET completed_at = excluded.completed_at`,
-  )
-    .bind(userId, groupId, ref.mesechta, ref.perek, ref.mishna, Date.now())
-    .run();
+  return completionStatement(env, userId, ref, groupId).run();
 }
 
 /** Delete a `(user, group, ref)` completion. Idempotent. Shared self + admin. */
@@ -574,6 +617,194 @@ app.post('/api/unsubscribe', async (c) => {
     : c.text(plainDone(lang), 200, UNSUBSCRIBE_HEADERS);
 });
 
+// -- "I've memorized this" (the emailed one-click check-off) ------------------
+// Public and deliberately **unauthenticated**: the reader clicks straight from an
+// inbox, possibly on a device that has never seen the app. Authorization is the
+// HMAC-signed token in the link (see `memorized-token.ts`), which names the user, the
+// bucket, and the instant both capabilities expire.
+//
+// The GET/POST split is the same as unsubscribe's, and for a sharper reason. Mail
+// scanners and link-preview bots fetch every URL in a message: a mutating GET here
+// would mark mishnayos learned for people who never clicked — silently, since unlike a
+// stray unsubscribe there is no visible signal, while their dashboard *and* the content
+// of their next email both quietly advance — and it would mint a session on a fetch the
+// reader never made. So GET only renders a form. Scanners do not submit forms.
+
+/**
+ * Response headers for both memorized routes. Same three as the unsubscribe pair, and
+ * `Referrer-Policy: no-referrer` matters more here: the POST **redirects** into the
+ * app, and without it the browser would hand that navigation the full URL — live
+ * token and all — as `Referer`.
+ */
+const MEMORIZED_HEADERS = UNSUBSCRIBE_HEADERS;
+
+/** The refs the emailed bucket held, re-derived from the pinned index. */
+async function bucketRefs(
+  env: Env,
+  userId: string,
+  bucket: number,
+  date: Date,
+): Promise<{ refs: MishnaRef[]; entries: GroupBlock[] }> {
+  const entries = (await loadGroupBlocksFor(env, [userId])).get(userId) ?? [];
+  if (entries.length === 0) return { refs: [], entries };
+  const blocks = entries.map((e) => e.block);
+  // Calendar-independent and anchored to the user's join date, so this reproduces
+  // exactly what the email listed however long ago it was sent. An out-of-range index
+  // (a lot edited away underneath them) yields [] rather than throwing.
+  const refs = assignmentEngine.getBucketAssignment(
+    blocks,
+    bucket,
+    date,
+  ).mishnas;
+  return { refs, entries };
+}
+
+/**
+ * Mark every ref of the bucket learned, in one atomic `DB.batch`. Reuses the same
+ * upsert the app's own check-off writes, so a second click adds nothing. Refs whose
+ * group can't be resolved are skipped rather than guessed at.
+ */
+async function markBucketLearned(
+  env: Env,
+  userId: string,
+  refs: MishnaRef[],
+  entries: GroupBlock[],
+): Promise<number> {
+  const writes: D1PreparedStatement[] = [];
+  for (const ref of refs) {
+    const groupId = groupIdForRefInBlocks(entries, ref);
+    if (groupId) writes.push(completionStatement(env, userId, ref, groupId));
+  }
+  if (writes.length === 0) return 0;
+  await env.DB.batch(writes);
+  return writes.length;
+}
+
+// Read-only. No DB read, no session, and the token is deliberately **not verified** —
+// always the same 200 form, so a probe learns nothing about whether a token is real.
+app.get('/api/memorized', (c) => {
+  const lang = pickLang(c.req.query('lang'), c.req.header('accept-language'));
+  return c.html(
+    memorizedConfirmPageHtml(lang, c.req.query('t') ?? '', c.env.APP_ORIGIN),
+    200,
+    MEMORIZED_HEADERS,
+  );
+});
+
+// The mutating half: the confirm form's action. Verify, mark, then sign the reader in
+// if the token is still fresh enough and this browser isn't already someone else's.
+app.post('/api/memorized', async (c) => {
+  const lang = pickLang(c.req.query('lang'), c.req.header('accept-language'));
+  const body = await c.req
+    .parseBody()
+    .catch(() => ({}) as Record<string, unknown>);
+  const bodyToken = body['t'];
+  const token =
+    typeof bodyToken === 'string' && bodyToken !== ''
+      ? bodyToken
+      : (c.req.query('t') ?? '');
+
+  // Both terminal pages: uniform 200, body chosen by `Accept` — the same shape as the
+  // unsubscribe routes. `done` means "the mishnayos were marked, but we did not sign
+  // you in here": either someone else holds this browser's session, or the 7-day login
+  // window has closed. Nothing distinguishes those two for the reader.
+  const fail = () =>
+    wantsHtml(c)
+      ? c.html(
+          memorizedErrorPageHtml(lang, c.env.APP_ORIGIN),
+          200,
+          MEMORIZED_HEADERS,
+        )
+      : c.text(plainMemorizedError(lang), 200, MEMORIZED_HEADERS);
+  const done = () =>
+    wantsHtml(c)
+      ? c.html(
+          memorizedDonePageHtml(lang, c.env.APP_ORIGIN),
+          200,
+          MEMORIZED_HEADERS,
+        )
+      : c.text(plainMemorizedDone(lang), 200, MEMORIZED_HEADERS);
+
+  const claims = await verifyMemorizedToken(c.env.MEMORIZED_SECRET, token);
+  // Uniform 200 for the same non-leaking reason as unsubscribe. The token is never
+  // logged: one that fails only because its secret rotated out is still live.
+  if (!claims) {
+    console.warn(
+      JSON.stringify({
+        evt: 'memorized_bad_token',
+        tokenLength: token.length,
+        html: wantsHtml(c),
+      }),
+    );
+    return fail();
+  }
+  // Expired: no write, no session, nothing.
+  const now = new Date();
+  if (!canMark(claims, now)) {
+    console.warn(
+      JSON.stringify({ evt: 'memorized_expired', userId: claims.userId }),
+    );
+    return fail();
+  }
+
+  const { refs, entries } = await bucketRefs(
+    c.env,
+    claims.userId,
+    claims.bucket,
+    now,
+  );
+  const marked = await markBucketLearned(c.env, claims.userId, refs, entries);
+  console.log(
+    JSON.stringify({
+      evt: 'memorized_marked',
+      userId: claims.userId,
+      bucket: claims.bucket,
+      marked,
+    }),
+  );
+
+  // Whose browser is this? Three outcomes, and only one of them signs anybody in.
+  const current = await sessionUser(c.req.header('cookie'), c.env);
+  const cookies: string[] = [];
+  if (current && current.id !== claims.userId) {
+    // Someone else is signed in here (a shared family device). Never swap them out,
+    // and never redirect — showing A's dashboard to B would be worse than the missing
+    // convenience. The marking still happened, correctly scoped to the token's user.
+    return done();
+  }
+  if (!current) {
+    if (!canLogin(claims, now)) {
+      // Marked, but the 7-day credential window has closed. Say so; don't sign in.
+      return done();
+    }
+    const res = await c.env.AUTH.fetch(
+      'https://login/internal/memorized-session',
+      { method: 'POST', headers: { 'x-memorized-token': token } },
+    );
+    if (res.ok) {
+      cookies.push(...res.headers.getSetCookie());
+    } else {
+      // The mark is the durable half and it succeeded; a failed sign-in must not lose
+      // it or 500 the reader.
+      console.warn(
+        JSON.stringify({ evt: 'memorized_session_failed', status: res.status }),
+      );
+      return done();
+    }
+  }
+
+  // Already the right user, or freshly signed in: land them on the dashboard with the
+  // dismissible notice. 303 so the follow-up is a GET (the cookie rides along —
+  // SameSite=Lax permits it on a top-level navigation).
+  const headers = new Headers(MEMORIZED_HEADERS);
+  for (const cookie of cookies) headers.append('set-cookie', cookie);
+  headers.set(
+    'location',
+    `${dashboardUrl(c.env.APP_ORIGIN, lang)}?memorized=1`,
+  );
+  return new Response(null, { status: 303, headers });
+});
+
 // The caller's identity (for the settings page), whether they're an admin, and
 // their join status + per-week commitment.
 app.get('/api/me', requireAuth, async (c) => {
@@ -611,7 +842,8 @@ app.get('/api/me/chaluka', requireAuth, async (c) => {
     return block ? block.ranges.map((range) => ({ range, groupId: g.id })) : [];
   });
   tagged.sort(
-    (a, b) => structure.indexOf(a.range.start) - structure.indexOf(b.range.start),
+    (a, b) =>
+      structure.indexOf(a.range.start) - structure.indexOf(b.range.start),
   );
 
   // assigned + groupIds are emitted in lockstep so they never drift: the group
@@ -700,9 +932,7 @@ app.get('/api/me/preferences', requireAuth, async (c) => {
 // `@mishna/email-domain`; only the SQL that applies them is here.
 
 /** The `ON CONFLICT` assignments for the audit columns (empty = leave them alone). */
-function auditSetClause(
-  audit: ReturnType<typeof unsubscribeAudit>,
-): string[] {
+function auditSetClause(audit: ReturnType<typeof unsubscribeAudit>): string[] {
   return audit
     ? [
         'unsubscribed_at = excluded.unsubscribed_at',
@@ -714,8 +944,13 @@ function auditSetClause(
 // Upsert the caller's email preferences.
 app.put('/api/me/preferences', requireAuth, async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const { timezone, weeklyEmailDow, reminderEmailDow, weeklyEnabled, reminderEnabled } =
-    body as Partial<EmailPrefs>;
+  const {
+    timezone,
+    weeklyEmailDow,
+    reminderEmailDow,
+    weeklyEnabled,
+    reminderEnabled,
+  } = body as Partial<EmailPrefs>;
   if (!isValidTimeZone(timezone)) {
     return c.json({ error: 'timezone must be a valid IANA zone' }, 400);
   }
@@ -772,7 +1007,7 @@ app.post('/api/join', requireAuth, async (c) => {
   const userId = c.get('userId');
   const body = await c.req
     .json<{ commitment?: number }>()
-    .catch(() => ({} as { commitment?: number }));
+    .catch(() => ({}) as { commitment?: number });
   const commitment = body.commitment;
   if (commitment !== 1 && commitment !== 2 && commitment !== 3) {
     return c.json({ error: 'commitment must be 1, 2, or 3' }, 400);
@@ -937,7 +1172,10 @@ function adminUserRow(
 // when it has no '@'); `?sort` is `field:asc|desc` (e.g. createdAt:desc).
 app.get('/api/admin/users', requireAdmin, async (c) => {
   const { limit, offset } = pageParams(c);
-  const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const q = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
   const search = c.req.query('search')?.trim();
   if (search) {
     q.set('searchValue', search);
@@ -963,12 +1201,18 @@ app.get('/api/admin/users', requireAdmin, async (c) => {
   const { results } = await c.env.DB.prepare(
     'SELECT user_id, commitment FROM participants',
   ).all<{ user_id: string; commitment: number }>();
-  const commitmentByUser = new Map(results.map((r) => [r.user_id, r.commitment]));
+  const commitmentByUser = new Map(
+    results.map((r) => [r.user_id, r.commitment]),
+  );
 
   // Email opt-out is a pair of per-user prefs flags; a missing row means the defaults.
   const { results: prefRows } = await c.env.DB.prepare(
     'SELECT user_id, weekly_enabled, reminder_enabled FROM user_email_prefs',
-  ).all<{ user_id: string; weekly_enabled: number; reminder_enabled: number }>();
+  ).all<{
+    user_id: string;
+    weekly_enabled: number;
+    reminder_enabled: number;
+  }>();
   // One `mergePrefs` per row, and one for "no row at all" — the same shared merge the
   // email path uses, so this list can't disagree with who actually gets mail.
   const togglesByUser = new Map<string, EmailToggles>(
@@ -983,16 +1227,18 @@ app.get('/api/admin/users', requireAdmin, async (c) => {
       togglesByUser.get(u.id) ?? noRow,
     ),
   );
-  return c.json({ users: merged, total: total ?? merged.length, limit, offset });
+  return c.json({
+    users: merged,
+    total: total ?? merged.length,
+    limit,
+    offset,
+  });
 });
 
 // One user's identity plus their join status, commitment and group membership.
 app.get('/api/admin/users/:id', requireAdmin, async (c) => {
   const id = c.req.param('id');
-  const res = await adminAuthFetch(
-    c,
-    `get-user?id=${encodeURIComponent(id)}`,
-  );
+  const res = await adminAuthFetch(c, `get-user?id=${encodeURIComponent(id)}`);
   if (!res.ok) {
     return c.json({ error: 'user not found' }, 404);
   }
@@ -1138,20 +1384,27 @@ app.get('/api/admin/stats', requireAdmin, async (c) => {
   const count = (q: D1PreparedStatement) =>
     q.first<{ n: number }>().then((r) => r?.n ?? 0);
 
-  const [activeUsers, totalGroups, totalCompletions, weekCompletions, verifiedUsers] =
-    await Promise.all([
-      count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM participants')),
-      count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM groups')),
-      count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM completions')),
-      count(
-        c.env.DB
-          .prepare('SELECT COUNT(*) AS n FROM completions WHERE completed_at >= ?')
-          .bind(weekStartMs),
+  const [
+    activeUsers,
+    totalGroups,
+    totalCompletions,
+    weekCompletions,
+    verifiedUsers,
+  ] = await Promise.all([
+    count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM participants')),
+    count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM groups')),
+    count(c.env.DB.prepare('SELECT COUNT(*) AS n FROM completions')),
+    count(
+      c.env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM completions WHERE completed_at >= ?',
+      ).bind(weekStartMs),
+    ),
+    count(
+      c.env.AUTH_DB.prepare(
+        'SELECT COUNT(*) AS n FROM "user" WHERE "emailVerified" = 1',
       ),
-      count(
-        c.env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM "user" WHERE "emailVerified" = 1'),
-      ),
-    ]);
+    ),
+  ]);
 
   return c.json({
     activeUsers,
@@ -1253,7 +1506,10 @@ app.post('/api/admin/users/:id/set-role', requireAdmin, async (c) => {
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     console.error('set-role failed', res.status, detail);
-    return c.json({ error: 'failed to set role', status: res.status, detail }, 502);
+    return c.json(
+      { error: 'failed to set role', status: res.status, detail },
+      502,
+    );
   }
   return c.json({ role });
 });
@@ -1279,10 +1535,16 @@ app.post('/api/admin/users/:id/set-email-prefs', requireAdmin, async (c) => {
     (weeklyEnabled !== undefined && typeof weeklyEnabled !== 'boolean') ||
     (reminderEnabled !== undefined && typeof reminderEnabled !== 'boolean')
   ) {
-    return c.json({ error: 'weeklyEnabled/reminderEnabled must be booleans' }, 400);
+    return c.json(
+      { error: 'weeklyEnabled/reminderEnabled must be booleans' },
+      400,
+    );
   }
   if (weeklyEnabled === undefined && reminderEnabled === undefined) {
-    return c.json({ error: 'weeklyEnabled or reminderEnabled is required' }, 400);
+    return c.json(
+      { error: 'weeklyEnabled or reminderEnabled is required' },
+      400,
+    );
   }
   // Column names come from this fixed pair, never from the body.
   const columns: string[] = [];
@@ -1352,7 +1614,8 @@ async function sendEmailNow(
 ): Promise<Response> {
   const row = await loadPrefs(env, userId);
   const prefs = rowToPrefs(row);
-  const enabled = kind === 'weekly' ? prefs.weeklyEnabled : prefs.reminderEnabled;
+  const enabled =
+    kind === 'weekly' ? prefs.weeklyEnabled : prefs.reminderEnabled;
   // Both halves matter: `unsubscribed_via` survives a partial re-enable (see
   // `isHardUnsubscribe`), so the flag for *this* kind is what says it's still off.
   // Must sit before the try below — `senderDeps(env)` throws when RESEND_API_KEY is
@@ -1380,7 +1643,10 @@ async function sendEmailNow(
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     console.error('send email now failed', kind, userId, '—', detail);
-    return Response.json({ error: 'email send failed', detail }, { status: 502 });
+    return Response.json(
+      { error: 'email send failed', detail },
+      { status: 502 },
+    );
   }
   return Response.json({ sent: true, kind, weekStart });
 }
@@ -1391,7 +1657,10 @@ async function sendEmailNow(
 app.post('/api/admin/users/:id/send-verification', requireAdmin, async (c) => {
   const id = c.req.param('id');
 
-  const userRes = await adminAuthFetch(c, `get-user?id=${encodeURIComponent(id)}`);
+  const userRes = await adminAuthFetch(
+    c,
+    `get-user?id=${encodeURIComponent(id)}`,
+  );
   if (!userRes.ok) return c.json({ error: 'user not found' }, 404);
   const user = (await userRes.json()) as {
     email?: string;
@@ -1477,15 +1746,11 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
     return c.json({ error: 'failed to remove assignments' }, 502);
   }
 
-  const removed = await adminAuthFetch(
-    c,
-    'remove-user',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ userId: id }),
-    },
-  );
+  const removed = await adminAuthFetch(c, 'remove-user', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId: id }),
+  });
   if (!removed.ok) {
     return c.json({ error: 'failed to delete account' }, 502);
   }
@@ -1510,10 +1775,7 @@ function aboutLocale(c: Context<AppEnv>): AboutLocale | null {
 }
 
 /** Maps an about.ts failure to a response: 500 for missing config, 502 for GitHub. */
-function aboutError(
-  c: Context<AppEnv>,
-  err: unknown,
-): Response {
+function aboutError(c: Context<AppEnv>, err: unknown): Response {
   if (err instanceof AboutConfigError) {
     return c.json({ error: err.message }, 500);
   }
@@ -1587,7 +1849,8 @@ app.post('/api/admin/about/image', requireAdmin, async (c) => {
     return c.json({ error: 'request body is empty' }, 400);
   }
 
-  const contentType = c.req.header('content-type') ?? 'application/octet-stream';
+  const contentType =
+    c.req.header('content-type') ?? 'application/octet-stream';
   const key = `about/${crypto.randomUUID()}-${safeFilename(c.req.header('x-filename'))}`;
   await c.env.ABOUT_BUCKET.put(key, c.req.raw.body, {
     httpMetadata: { contentType },
@@ -1600,7 +1863,8 @@ app.post('/api/admin/about/image', requireAdmin, async (c) => {
 // instance id is derived from the cron's scheduledTime, so a double cron fire (cron has
 // at-least-once semantics) dedupes to a single workflow run rather than two campaigns.
 export default {
-  fetch: (req: Request, env: Env, ctx: ExecutionContext) => app.fetch(req, env, ctx),
+  fetch: (req: Request, env: Env, ctx: ExecutionContext) =>
+    app.fetch(req, env, ctx),
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     await env.REMINDER_WORKFLOW.create({
       id: `reminder-${controller.scheduledTime}`,

@@ -95,8 +95,10 @@ Two independent defenses, and both must stay:
    (`email/workflow.integration.test.ts`, `email/dev-routes.integration.test.ts`) opt
    in with a fake key *and* stub global `fetch` with a **default-deny** branch — one
    that throws on any URL it doesn't recognize, so a new outbound call is a failure,
-   not a surprise. `preferences.integration.test.ts` keeps the empty binding and adds
-   the stub anyway.
+   not a surprise. `preferences.integration.test.ts` and
+   `memorized.integration.test.ts` keep the empty binding and add the stub anyway —
+   neither needs a Resend client, and the stub makes "this file cannot reach the
+   network" an assertion rather than an assumption.
 
 Writing a new email test? Copy the header of `workflow.integration.test.ts`. Do not
 "just this once" use the real key.
@@ -139,18 +141,22 @@ Full detail, including how to seed a user: **"Testing email locally" in
 
 `wrangler.toml` pins `APP_ORIGIN = "https://app.mishna2go.com"`, and `.dev.vars` is
 what overrides it — so **the default local state is the dangerous one.** Leave it and
-every email you preview points at production twice over: the unsubscribe link (footer
-*and* the `List-Unsubscribe` header) is a production URL signed with your *local*
-secret, and the Hebrew text is fetched from production.
+every email you preview points at production three ways over: the unsubscribe link
+(footer *and* the `List-Unsubscribe` header) is a production URL signed with your
+*local* secret; the **"I've memorized this" CTA** is too — and that one is a check-off
+on a real user's portion *and*, for its first week, a sign-in credential; and the
+Hebrew text is fetched from production. (The local secrets won't verify against
+production's, so those links fail closed rather than firing — but don't lean on that;
+you'd still have mailed a credential-shaped URL naming a real user id.)
 
 ```
 # apps/server/.dev.vars
 APP_ORIGIN=http://localhost:4200
 ```
 
-That fixes both: `nx serve client` really serves `http://localhost:4200/berakhot.json`
+That fixes all three: `nx serve client` really serves `http://localhost:4200/berakhot.json`
 (mishna-text's data is in its assets), and `apps/client/proxy.conf.json` proxies
-`/api/*` to `:8787`, so the unsubscribe link lands on your local worker. Not running
+`/api/*` to `:8787`, so both emailed links land on your local worker. Not running
 Angular? Keep `APP_ORIGIN` local and pass `?textOrigin=https://app.mishna2go.com` to
 borrow production's text while every link stays local. **Never the reverse.**
 
@@ -223,6 +229,17 @@ Breaks worth trying: make `verifyUnsubscribeToken` skip the signature check; mak
 `mergePrefs` ignore its row; make `batchIdempotencyKey` order-dependent; drop
 `WHERE "emailVerified" = 1` from `loadEmails`; remove the `step.do` around a batch
 send; make a batch re-send everything before it.
+
+The same drill on the "memorized" click-through, where the blast radius is a wrongly
+marked portion or a session handed to the wrong person — try: make
+`verifyMemorizedToken` skip the signature check; make `canLogin` always return `true`;
+let `GET /api/memorized` mark instead of just rendering the form; have
+`POST /api/memorized` mint a session when a *different* user already holds the browser;
+recompute the bucket from `nextUnlearnedBucket` at click time instead of reading the
+token's pinned one; put a `Date.now()` in `memorizedExpiresAt`. That last one should be
+caught by the byte-identity test in `email.integration.test.ts` that advances the system
+clock between two `processJobs` runs — the rest by `memorized.integration.test.ts` and
+`apps/login`'s `memorized-session.integration.test.ts`.
 
 Every one of those is currently caught. Three of them weren't until someone checked —
 including two where the existing test was **vacuous**: `skips a participant whose

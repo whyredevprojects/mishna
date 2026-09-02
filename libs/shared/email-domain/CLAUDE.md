@@ -65,6 +65,35 @@ Fully unit-tested, in plain node, in under a second.
 | `escapeHtml`, `settingsUrl`, `page`, `COPY` | The page's building blocks, exported so each is directly testable. |
 | `UnsubscribeScope`, `UnsubscribeClaims`, `UnsubscribeLang` | Types. |
 
+### One-click "I've memorized this" (`lib/memorized-token.ts`, `lib/memorized-page.ts`)
+
+| Export | What it is |
+|--------|------------|
+| `mintMemorizedToken(secret, userId, bucket, expiresAt)` | `base64url("m1.<userId>.<bucket>.<expiresAt>") "." base64url(HMAC-SHA256)`. Deterministic, **no clock**. Throws when the secret is unset. |
+| `memorizedExpiresAt(weekStart)` | `weekStart + MARK_TTL_DAYS`, epoch seconds. The single place the derivation lives — and the reason the scheme keeps expiry *and* byte-identical re-renders (see below). |
+| `verifyMemorizedToken(secret, token)` | Verifies against every comma-separated secret. Never throws. Deliberately does **not** check expiry: there are two windows and picking one is the caller's call. |
+| `parseMemorizedClaims(payload)` | Ends-inward parse, so a userId containing `.` can't shift `bucket`/`expiresAt`; both trailing fields must be plain non-negative integers. |
+| `canMark(claims, now)` / `canLogin(claims, now)` | The 30-day marking window and the 7-day login window, both off the same signed instant. `canLogin` is never more permissive. |
+| `memorizedUrl(appOrigin, token)` | The link that goes in the mail's top CTA. |
+| `MARK_TTL_DAYS` / `LOGIN_TTL_DAYS` | 30 and 7. |
+| `memorizedConfirmPageHtml` / `memorizedDonePageHtml` / `memorizedErrorPageHtml` / `plainMemorizedDone` / `plainMemorizedError` / `MEMORIZED_COPY` / `dashboardUrl` | The bilingual landing page. **Three states, not five**: invalid and expired collapse into one error page (nothing distinguishes them for the reader, and merging avoids telling a probe whether a token was real); "a different user holds this browser" and "the login window closed" collapse into one done page (the mishnayot were marked either way). |
+
+Two things here are load-bearing and easy to undo by accident:
+
+- **The expiry is derived from the job, never from `Date.now()`.** `weekStart` is
+  already a field of `PreparedEmail`, so the token stays a pure function of
+  (secret, job) and a re-rendered email is byte-identical — which the Resend
+  `Idempotency-Key` requires. This is the constraint the unsubscribe token gave up
+  expiry for; this one gets both.
+- **`bucket` is pinned at plan time, not recomputed at click time.**
+  `nextUnlearnedBucket` advances as soon as a bucket is complete, so recomputing would
+  make the link mark the *next* bucket for anyone who checked off in the app first.
+
+The shared HMAC/base64url primitives both tokens use live in `lib/hmac-token.ts`
+(`signToken` / `verifyToken` / `signingSecrets`); the two token modules keep only their
+payload shape and their policy — which are genuinely opposite (append-only-forever vs.
+prunable-and-revocable).
+
 ### Types
 
 `EmailKind` (re-exported from `@mishna/domain`), `EmailPrefs`, `Candidate`
@@ -119,6 +148,15 @@ Fully unit-tested, in plain node, in under a second.
   cross-user, dot-in-userId, and the no-secret/whitespace-list failures.
 - `unsubscribe-page.spec.ts` — `pickLang`'s q-ranking, HTML escaping of a hostile
   token, the confirm form's action, `settingsUrl`'s locale + trailing-slash handling.
+- `memorized-token.spec.ts` — round-trip, rotation, determinism over 100 mints, and the
+  escalation cases that matter more here than for the unsubscribe token: a forged
+  bucket, an expiry pushed out, a swapped userId (all under a *stolen* signature), a
+  foreign secret, and an unsubscribe token replayed as a memorized one. Plus the
+  `canMark`/`canLogin` boundary table, including the window where a link still marks but
+  no longer signs in.
+- `memorized-page.spec.ts` — the confirm form POSTs, carries the token in a **hidden
+  field** rather than the action's query string, escapes a hostile token, and every page
+  is `noindex` + `no-referrer`.
 - `prefs-rules.spec.ts` — the `mergePrefs` matrix (no row / partial row / each flag off
   / both off / `dow: 0`), `flagsAfterUnsubscribe` for all three scopes, and the
   `unsubscribeAudit` / `isHardUnsubscribe` truth tables.

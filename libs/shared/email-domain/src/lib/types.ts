@@ -59,6 +59,18 @@ export interface PreparedEmail {
   to: string;
   /** The exact mishnayot to render. */
   refs: MishnaRef[];
+  /**
+   * The positional bucket index `refs` were sliced from, pinned here at plan time.
+   *
+   * The email's "I've memorized this" link carries this index and re-derives the refs
+   * from it on click. It must be captured with the job and never recomputed later:
+   * `nextUnlearnedBucket` advances the moment a bucket is complete, so a user who
+   * checked this bucket off in the app first would otherwise have the link mark the
+   * *next* bucket — one they never saw. Pinning it also keeps the rendered body a pure
+   * function of the job, which is what the Resend idempotency key requires (see
+   * `memorized-token.ts`).
+   */
+  bucket: number;
 }
 
 /** The batched per-user inputs `buildPreparedEmails` resolves the content from. */
@@ -70,7 +82,7 @@ export interface ResolvedData {
 
 /**
  * The slice of `AssignmentEngine` the email path needs: the user's next
- * still-unlearned bucket. `@mishna/domain`'s `AssignmentEngine` satisfies this
+ * still-unlearned bucket, and that bucket's index. `@mishna/domain`'s `AssignmentEngine` satisfies this
  * structurally, so the domain stays decoupled from the concrete engine.
  */
 export interface AssignmentSource {
@@ -79,4 +91,15 @@ export interface AssignmentSource {
     completed: MishnaRef[],
     date: Date,
   ): { mishnas: MishnaRef[] };
+  /**
+   * The index of that same bucket, pinned onto `PreparedEmail.bucket`. The engine
+   * defines `getNextAssignment` as `getBucketAssignment(nextUnlearnedBucket(...))`,
+   * so the two always agree — `plan-sends.spec.ts` pins that identity, because it is
+   * what makes "store the index, re-derive the refs later" safe.
+   */
+  nextUnlearnedBucket(
+    blocks: Block[],
+    completed: MishnaRef[],
+    date: Date,
+  ): number;
 }

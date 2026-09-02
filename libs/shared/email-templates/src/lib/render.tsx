@@ -40,7 +40,7 @@ export interface BuiltEmail {
  * `<Preview>` preheader (so its 150-char zero-width-space padding never leaks into
  * the text part), and `toPlainText` hard-sets `wordwrap: false` — load-bearing,
  * since html-to-text's default 80-column wrap would break the long base64url
- * unsubscribe URL across lines and make it unclickable.
+ * unsubscribe and "memorized" URLs across lines and make them unclickable.
  */
 async function build(
   subject: string,
@@ -50,23 +50,33 @@ async function build(
   return { subject, html, text: toPlainText(html) };
 }
 
-/**
- * The weekly quota email: every mishna due this coming week, with its text.
- * `unsubscribeUrl` is the recipient's signed one-click link — it renders as the
- * footer's visible "Unsubscribe" link (the matching RFC 8058 headers are set in
- * `sender.ts`).
- */
+/** The links and origin a rendered email needs, beyond its content. */
+export interface RenderOptions {
+  appOrigin: string;
+  /**
+   * The recipient's signed one-click unsubscribe link — the footer's visible
+   * "Unsubscribe" (the matching RFC 8058 headers are set in `sender.ts`).
+   */
+  unsubscribeUrl?: string;
+  /**
+   * The recipient's signed "I've memorized this" link — the prominent CTA at the top.
+   * Ignored on the empty state, which has nothing to have memorized.
+   */
+  memorizedUrl?: string;
+}
+
+/** The weekly quota email: every mishna due this coming week, with its text. */
 export async function weeklyEmail(
   items: ResolvedMishna[],
-  appOrigin: string,
-  unsubscribeUrl?: string,
+  opts: RenderOptions,
 ): Promise<BuiltEmail> {
   return build(
     WEEKLY_TITLE,
     <WeeklyEmail
       items={items}
-      appOrigin={appOrigin}
-      unsubscribeUrl={unsubscribeUrl}
+      appOrigin={opts.appOrigin}
+      unsubscribeUrl={opts.unsubscribeUrl}
+      memorizedUrl={opts.memorizedUrl}
     />,
   );
 }
@@ -74,15 +84,15 @@ export async function weeklyEmail(
 /** The reminder email: only the mishnayot still not marked learned this week. */
 export async function reminderEmail(
   pending: ResolvedMishna[],
-  appOrigin: string,
-  unsubscribeUrl?: string,
+  opts: RenderOptions,
 ): Promise<BuiltEmail> {
   return build(
     REMINDER_TITLE,
     <ReminderEmail
       pending={pending}
-      appOrigin={appOrigin}
-      unsubscribeUrl={unsubscribeUrl}
+      appOrigin={opts.appOrigin}
+      unsubscribeUrl={opts.unsubscribeUrl}
+      memorizedUrl={opts.memorizedUrl}
     />,
   );
 }

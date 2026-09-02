@@ -6,7 +6,16 @@ import {
   introspectWorkflowInstance,
   waitOnExecutionContext,
 } from 'cloudflare:test';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { PreparedEmail } from '@mishna/email-domain';
 import { applyMigrations } from '../apply-migrations';
 import worker from '../index';
@@ -56,6 +65,9 @@ function jobs(n: number, offset = 0): PreparedEmail[] {
     weekStart: '2026-06-03',
     to: `u${offset + i}@example.com`,
     refs: [{ mesechta: 'Berakhot', perek: 1, mishna: 1 }],
+    // The pinned bucket the emailed "memorized" link marks. Varied per job so the
+    // durable-plan round-trip below can't pass on a constant.
+    bucket: i % 7,
   }));
 }
 
@@ -67,13 +79,16 @@ async function emailLogCount(): Promise<number> {
 }
 
 describe('ReminderWorkflow', () => {
-  const originalKey = (env as unknown as Record<string, unknown>)['RESEND_API_KEY'];
+  const originalKey = (env as unknown as Record<string, unknown>)[
+    'RESEND_API_KEY'
+  ];
 
   beforeAll(async () => {
     await applyMigrations(env.DB);
     // Pin a fake key: a developer's `.dev.vars` may hold a REAL one, and these tests
     // must never be one stubbed-fetch bug away from mailing 250 people.
-    (env as unknown as Record<string, unknown>)['RESEND_API_KEY'] = 're_fake_test_key';
+    (env as unknown as Record<string, unknown>)['RESEND_API_KEY'] =
+      're_fake_test_key';
   });
 
   afterAll(() => {
@@ -120,7 +135,9 @@ describe('ReminderWorkflow', () => {
     plan: PreparedEmail[],
     extra?: (m: {
       disableSleeps(steps?: { name: string; index?: number }[]): Promise<void>;
-      disableRetryDelays(steps?: { name: string; index?: number }[]): Promise<void>;
+      disableRetryDelays(
+        steps?: { name: string; index?: number }[],
+      ): Promise<void>;
       mockStepResult(
         step: { name: string; index?: number },
         result: unknown,
@@ -132,7 +149,10 @@ describe('ReminderWorkflow', () => {
       ): Promise<void>;
     }) => Promise<void>,
   ) {
-    const instance = await introspectWorkflowInstance(env.REMINDER_WORKFLOW, id);
+    const instance = await introspectWorkflowInstance(
+      env.REMINDER_WORKFLOW,
+      id,
+    );
     await instance.modify(async (m) => {
       await m.disableSleeps();
       await m.disableRetryDelays();
@@ -221,7 +241,10 @@ describe('ReminderWorkflow', () => {
       expect(firstRecipients[0]).toBe('u0@example.com');
       // Every recipient logged exactly once.
       expect(await emailLogCount()).toBe(250);
-      expect(await instance.getOutput()).toMatchObject({ sent: 250, batches: 3 });
+      expect(await instance.getOutput()).toMatchObject({
+        sent: 250,
+        batches: 3,
+      });
     });
 
     it('errors the run — and stops — when a batch fails permanently', async () => {
@@ -331,7 +354,8 @@ describe('ReminderWorkflow', () => {
       const hour = Date.parse('2026-06-03T13:00:00Z');
       await fire(hour);
       await fire(hour); // the redelivery
-      for (const instance of all.get()) await instance.waitForStatus('complete');
+      for (const instance of all.get())
+        await instance.waitForStatus('complete');
       expect(sentBatches).toHaveLength(1);
       expect(await emailLogCount()).toBe(1);
 
@@ -342,7 +366,8 @@ describe('ReminderWorkflow', () => {
       // A genuinely different hour is a genuinely different run, and does send.
       const nextHour = Date.parse('2026-06-03T14:00:00Z');
       await fire(nextHour);
-      for (const instance of all.get()) await instance.waitForStatus('complete');
+      for (const instance of all.get())
+        await instance.waitForStatus('complete');
       expect(sentBatches).toHaveLength(2);
       expect((await env.REMINDER_WORKFLOW.get(`reminder-${nextHour}`)).id).toBe(
         `reminder-${nextHour}`,

@@ -100,5 +100,9 @@ export function prepareSingle(
   if (!to) return null;
   const refs = resolveOne(kind, blocks, completed, date, engine);
   if (opts.skipWhenEmpty && refs.length === 0) return null;
-  return { userId, kind, weekStart, to, refs };
+  // Pin the bucket the refs came from. `resolveOne` goes through `getNextAssignment`,
+  // which the engine defines as `getBucketAssignment(nextUnlearnedBucket(...))`, so
+  // this index and those refs describe the same slice by construction.
+  const bucket = engine.nextUnlearnedBucket(blocks, completed, date);
+  return { userId, kind, weekStart, to, refs, bucket };
 }

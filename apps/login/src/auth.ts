@@ -1,6 +1,7 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { admin, captcha, customSession } from 'better-auth/plugins';
 import { sendResetPasswordEmail, sendVerificationEmail } from './email';
+import { memorizedSession } from './memorized-session';
 
 // Env-independent config. Shared with auth.config.ts so the offline schema
 // generator (better-auth CLI) emits DDL for exactly this configuration.
@@ -52,7 +53,9 @@ export function createAuth(env: Env) {
     onAPIError: {
       onError: (error, ctx) => {
         const detail =
-          error instanceof Error ? (error.stack ?? error.message) : String(error);
+          error instanceof Error
+            ? (error.stack ?? error.message)
+            : String(error);
         console.error('[better-auth] API error', '\n', detail);
       },
     },
@@ -143,6 +146,12 @@ export function createAuth(env: Env) {
             }),
           ]
         : []),
+      // The emailed "I've memorized this" link's sign-in half. Server-only: it is
+      // never registered on the HTTP router, and is reached solely through
+      // `auth.api.mintMemorizedSession` from this worker's /internal route (see
+      // index.ts and memorized-session.ts). Gated on the secret like captcha above —
+      // with none configured every call fails closed as UNAUTHORIZED.
+      ...(env.MEMORIZED_SECRET ? [memorizedSession(env.MEMORIZED_SECRET)] : []),
       admin({ adminUserIds: adminIds }),
       customSession(async ({ user, session }) => ({
         user: {

@@ -37,6 +37,7 @@ export default defineConfig(() => ({
         // halves. See "No test can reach Resend" in apps/server/CLAUDE.md.
         bindings: {
           UNSUBSCRIBE_SECRET: 'test-unsubscribe-secret',
+          MEMORIZED_SECRET: 'test-memorized-secret',
           RESEND_API_KEY: '',
         },
         // The login worker isn't running in tests, so stub the AUTH service
@@ -64,10 +65,44 @@ export default defineConfig(() => ({
               createdAt: '2026-06-01T00:00:00.000Z',
             });
 
+            // The login worker's server-only session minter, reached over this
+            // binding by POST /api/memorized. It decodes (does NOT verify — the real
+            // one verifies, and apps/login's own tests cover that) the token's
+            // payload to learn the user id, then answers with the cookie this stub's
+            // get-session understands: the cookie value IS the user id.
+            //
+            // Tests assert "nothing was minted" via the absence of a Set-Cookie on
+            // the response rather than by counting calls here: this binding runs in
+            // the workerd pool, so a counter in this file would not be readable from
+            // a test anyway — and the cookie is the thing that actually matters.
+            if (url.pathname === '/internal/memorized-session') {
+              const token = request.headers.get('x-memorized-token') ?? '';
+              const payload = token.split('.')[0] ?? '';
+              let userId = '';
+              try {
+                userId = atob(
+                  payload.replace(/-/g, '+').replace(/_/g, '/'),
+                ).split('.')[1];
+              } catch {
+                userId = '';
+              }
+              if (!userId) return new Response('Unauthorized', { status: 401 });
+              return new Response(JSON.stringify({ ok: true }), {
+                headers: {
+                  'content-type': 'application/json',
+                  'set-cookie': `${userId}; Path=/; HttpOnly; SameSite=Lax`,
+                },
+              });
+            }
             if (url.pathname === '/api/auth/get-session') {
               return json(
                 cookie
-                  ? { user: { ...fakeUser(cookie), isAdmin: cookie === 'admin' } }
+                  ? {
+                      user: {
+                        ...fakeUser(cookie),
+                        isAdmin: cookie === 'admin',
+                      },
+                    }
                   : null,
               );
             }
@@ -85,7 +120,8 @@ export default defineConfig(() => ({
                   )
                 : all;
               const offset = Number(url.searchParams.get('offset')) || 0;
-              const limit = Number(url.searchParams.get('limit')) || filtered.length;
+              const limit =
+                Number(url.searchParams.get('limit')) || filtered.length;
               return json({
                 users: filtered.slice(offset, offset + limit),
                 total: filtered.length,
@@ -105,7 +141,10 @@ export default defineConfig(() => ({
               if (!request.headers.get('origin')) {
                 return new Response(
                   JSON.stringify({ code: 'MISSING_OR_NULL_ORIGIN' }),
-                  { status: 403, headers: { 'content-type': 'application/json' } },
+                  {
+                    status: 403,
+                    headers: { 'content-type': 'application/json' },
+                  },
                 );
               }
               return json({ success: true });
@@ -116,7 +155,10 @@ export default defineConfig(() => ({
               if (!request.headers.get('origin')) {
                 return new Response(
                   JSON.stringify({ code: 'MISSING_OR_NULL_ORIGIN' }),
-                  { status: 403, headers: { 'content-type': 'application/json' } },
+                  {
+                    status: 403,
+                    headers: { 'content-type': 'application/json' },
+                  },
                 );
               }
               return json({ status: true });

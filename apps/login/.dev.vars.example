@@ -18,3 +18,11 @@ RESEND_API_KEY=replace-me
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 GOOGLE_CLIENT_ID=replace-me
 GOOGLE_CLIENT_SECRET=replace-me
+
+# HMAC key for the emailed "I've memorized this" links. This worker VERIFIES them (to
+# mint a session from the link); apps/server mints them. The two values must MATCH, so
+# copy whatever you put in apps/server/.dev.vars.
+#
+# Without it the server-only session-minting endpoint isn't even registered, and the
+# emailed CTA still marks mishnayos — it just won't sign anyone in.
+MEMORIZED_SECRET=local-memorized-secret

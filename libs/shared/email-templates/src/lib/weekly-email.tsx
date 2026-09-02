@@ -11,15 +11,24 @@ interface WeeklyEmailProps {
   appOrigin: string;
   /** The recipient's signed one-click unsubscribe URL (footer link). */
   unsubscribeUrl?: string;
+  /** The recipient's signed "I've memorized this" URL (the top CTA). */
+  memorizedUrl?: string;
 }
 
 /** The weekly quota email: every mishna due this coming week, with its text. */
-export function WeeklyEmail({ items, appOrigin, unsubscribeUrl }: WeeklyEmailProps) {
+export function WeeklyEmail({
+  items,
+  appOrigin,
+  unsubscribeUrl,
+  memorizedUrl,
+}: WeeklyEmailProps) {
   return (
     <EmailShell
       title={WEEKLY_TITLE}
       appOrigin={appOrigin}
       unsubscribeUrl={unsubscribeUrl}
+      // No "click when you've memorized this" over an empty list.
+      memorizedUrl={items.length > 0 ? memorizedUrl : undefined}
     >
       {items.length > 0 ? (
         <Text style={styles.intro}>

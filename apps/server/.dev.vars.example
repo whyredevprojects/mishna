@@ -6,6 +6,11 @@
 
 RESEND_API_KEY=KEY
 
+# HMAC key signing the "I've memorized this" links. Any string works locally; it must
+# match apps/login/.dev.vars so the local sign-in half verifies what this worker mints.
+# Comma-separated list in production (sign with the first, verify against all).
+MEMORIZED_SECRET=local-memorized-secret
+
 # 🔴 SET THIS WHEN WORKING ON EMAIL.
 #
 # wrangler.toml's [vars] pins APP_ORIGIN = "https://app.mishna2go.com" (generated
@@ -15,14 +20,20 @@ RESEND_API_KEY=KEY
 #   1. The unsubscribe link in a locally-previewed email — the visible footer link and
 #      the RFC 8058 List-Unsubscribe header — is https://app.mishna2go.com/api/unsubscribe.
 #      Click it and you unsubscribe that user in the PRODUCTION database.
-#   2. The Hebrew text fetch. `httpTextResolver(APP_ORIGIN)` loads mishna-text's
+#   2. The "I've memorized this" CTA at the top of the email — same problem, higher
+#      stakes. It becomes https://app.mishna2go.com/api/memorized?t=... and that link
+#      is a check-off on a real user's portion AND, for its first week, a sign-in
+#      credential. Your local MEMORIZED_SECRET won't verify against production's, so
+#      it fails closed rather than actually doing anything — but don't rely on that;
+#      you'd still have put a credential-shaped URL naming a real user in an email.
+#   3. The Hebrew text fetch. `httpTextResolver(APP_ORIGIN)` loads mishna-text's
 #      tractate JSON from `${APP_ORIGIN}/<tractate>.json`.
 #
-# Point it at the Angular dev server instead. That fixes both at once:
+# Point it at the Angular dev server instead. That fixes all of them at once:
 #   - `nx serve client` copies node_modules/mishna-text/data/*.json into its assets,
 #     so it serves http://localhost:4200/berakhot.json — the text resolver works.
 #   - apps/client/proxy.conf.json proxies /api/* to http://localhost:8787, so the
-#     unsubscribe link in the previewed email lands on your LOCAL worker.
+#     unsubscribe and memorized links in the previewed email land on your LOCAL worker.
 # Run `npm run dev` (the Angular dev server) alongside `npm run email:dev:server`.
 #
 # No Angular server running? Leave APP_ORIGIN local anyway and pass

@@ -31,8 +31,14 @@ interface SessionResponse {
 
 type AuthContext = { Bindings: Env; Variables: AuthVariables };
 
-/** Resolves the session user from the forwarded cookie, or null. */
-async function sessionUser(cookie: string | undefined, env: Env): Promise<SessionUser | null> {
+/**
+ * Resolves the session user from the forwarded cookie, or null.
+ *
+ * Exported for the one route that needs the *answer* rather than the gate: the
+ * emailed "I've memorized this" POST is authorized by its signed token, but still has
+ * to know whether this browser already holds a session, and whose.
+ */
+export async function sessionUser(cookie: string | undefined, env: Env): Promise<SessionUser | null> {
   if (!cookie) {
     return null;
   }

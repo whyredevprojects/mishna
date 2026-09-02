@@ -11,6 +11,8 @@ interface ReminderEmailProps {
   appOrigin: string;
   /** The recipient's signed one-click unsubscribe URL (footer link). */
   unsubscribeUrl?: string;
+  /** The recipient's signed "I've memorized this" URL (the top CTA). */
+  memorizedUrl?: string;
 }
 
 /** The reminder email: only the mishnayot still not marked learned this week. */
@@ -18,12 +20,15 @@ export function ReminderEmail({
   pending,
   appOrigin,
   unsubscribeUrl,
+  memorizedUrl,
 }: ReminderEmailProps) {
   return (
     <EmailShell
       title={REMINDER_TITLE}
       appOrigin={appOrigin}
       unsubscribeUrl={unsubscribeUrl}
+      // No "click when you've memorized this" over an empty list.
+      memorizedUrl={pending.length > 0 ? memorizedUrl : undefined}
     >
       {pending.length > 0 ? (
         <Text style={styles.intro}>

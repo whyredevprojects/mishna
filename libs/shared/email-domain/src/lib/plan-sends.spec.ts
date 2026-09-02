@@ -34,7 +34,8 @@ function fakeCalendar(cycleLengthDays = 28): CycleCalendar {
   const end = new Date(CYCLE_START.getTime() + cycleLengthDays * DAY_MS);
   const daysSince = (d: Date) =>
     Math.floor((d.getTime() - CYCLE_START.getTime()) / DAY_MS);
-  const daysLeft = (d: Date) => Math.floor((end.getTime() - d.getTime()) / DAY_MS);
+  const daysLeft = (d: Date) =>
+    Math.floor((end.getTime() - d.getTime()) / DAY_MS);
   return {
     cycleStart: () => CYCLE_START,
     cycleEnd: () => end,
@@ -58,7 +59,15 @@ function makeBlock(
     end: structure.refAt(b),
   }));
   const totalSize = pairs.reduce((sum, [a, b]) => sum + (b - a + 1), 0);
-  return { id: `block-${userId}`, userId, lots: [], ranges, totalSize, commitment, startDate };
+  return {
+    id: `block-${userId}`,
+    userId,
+    lots: [],
+    ranges,
+    totalSize,
+    commitment,
+    startDate,
+  };
 }
 
 const structure = createMishnaStructure();
@@ -89,13 +98,17 @@ function candidate(over: Partial<Candidate> = {}): Candidate {
 describe('selectDue', () => {
   it('fires the weekly email at 08:00 local on the weekly weekday', () => {
     const due = selectDue([candidate()], SUNDAY_8AM_NY);
-    expect(due).toEqual([{ userId: 'u1', kind: 'weekly', weekStart: '2026-01-04' }]);
+    expect(due).toEqual([
+      { userId: 'u1', kind: 'weekly', weekStart: '2026-01-04' },
+    ]);
   });
 
   it('fires the reminder at 08:00 local on the reminder weekday, anchored to the weekly week', () => {
     const due = selectDue([candidate()], THURSDAY_8AM_NY);
     // weekStart anchors to the weekly weekday (Sunday) on/before Thursday Jan 8.
-    expect(due).toEqual([{ userId: 'u1', kind: 'reminder', weekStart: '2026-01-04' }]);
+    expect(due).toEqual([
+      { userId: 'u1', kind: 'reminder', weekStart: '2026-01-04' },
+    ]);
   });
 
   it('fires nothing outside the send hour', () => {
@@ -103,8 +116,12 @@ describe('selectDue', () => {
   });
 
   it('respects the per-kind enabled flags', () => {
-    expect(selectDue([candidate({ weeklyEnabled: false })], SUNDAY_8AM_NY)).toEqual([]);
-    expect(selectDue([candidate({ reminderEnabled: false })], THURSDAY_8AM_NY)).toEqual([]);
+    expect(
+      selectDue([candidate({ weeklyEnabled: false })], SUNDAY_8AM_NY),
+    ).toEqual([]);
+    expect(
+      selectDue([candidate({ reminderEnabled: false })], THURSDAY_8AM_NY),
+    ).toEqual([]);
   });
 
   it('only fires for the timezone that is at 08:00 right now', () => {
@@ -128,10 +145,7 @@ describe('selectDue', () => {
 describe('dropAlreadySent', () => {
   it('drops candidacies whose (user, kind, week) is in the sent set', () => {
     const due = selectDue(
-      [
-        candidate({ userId: 'fresh' }),
-        candidate({ userId: 'done' }),
-      ],
+      [candidate({ userId: 'fresh' }), candidate({ userId: 'done' })],
       SUNDAY_8AM_NY,
     );
     const sent = new Set([sentKey('done', 'weekly', '2026-01-04')]);
@@ -158,16 +172,20 @@ describe('refsForKind', () => {
 });
 
 describe('buildPreparedEmails', () => {
-  const live = [{ userId: 'u1', kind: 'weekly' as const, weekStart: '2026-01-04' }];
+  const live = [
+    { userId: 'u1', kind: 'weekly' as const, weekStart: '2026-01-04' },
+  ];
   const reminderLive = [
     { userId: 'u1', kind: 'reminder' as const, weekStart: '2026-01-04' },
   ];
 
-  function data(over: {
-    completed?: MishnaRef[];
-    email?: string | null;
-    blocks?: Block[];
-  } = {}) {
+  function data(
+    over: {
+      completed?: MishnaRef[];
+      email?: string | null;
+      blocks?: Block[];
+    } = {},
+  ) {
     return {
       blocksByUser: new Map([['u1', over.blocks ?? [eightMishnaBlock('u1')]]]),
       completedByUser: new Map([['u1', over.completed ?? []]]),
@@ -205,14 +223,108 @@ describe('buildPreparedEmails', () => {
   });
 
   it('skips a user with no resolved address', () => {
-    expect(buildPreparedEmails(live, data({ email: null }), engine, SUNDAY_8AM_NY)).toEqual([]);
+    expect(
+      buildPreparedEmails(live, data({ email: null }), engine, SUNDAY_8AM_NY),
+    ).toEqual([]);
   });
 
   it('skips a user who has learned their whole portion (empty bucket)', () => {
     const allDone = [0, 1, 2, 3, 4, 5, 6, 7].map(ref);
     expect(
-      buildPreparedEmails(live, data({ completed: allDone }), engine, SUNDAY_8AM_NY),
+      buildPreparedEmails(
+        live,
+        data({ completed: allDone }),
+        engine,
+        SUNDAY_8AM_NY,
+      ),
     ).toEqual([]);
+  });
+
+  // -- the pinned bucket ------------------------------------------------------
+  //
+  // Every scheduled email carries a signed link that marks "these mishnayos" learned,
+  // and what it carries is this index — not a ref list. Three things have to hold for
+  // that to be safe, and each has a test below.
+
+  describe('the bucket pinned onto the job', () => {
+    it('records the index the refs were sliced from', () => {
+      const [email] = buildPreparedEmails(live, data(), engine, SUNDAY_8AM_NY);
+      expect(email.bucket).toBe(0);
+      const later = buildPreparedEmails(
+        live,
+        data({ completed: [ref(0), ref(1)] }),
+        engine,
+        SUNDAY_8AM_NY,
+      );
+      expect(later[0].bucket).toBe(1);
+    });
+
+    it('re-deriving from the index reproduces exactly the refs the email showed', () => {
+      // The click-through does exactly this, days later: getBucketAssignment(bucket).
+      // If the engine ever stops defining getNextAssignment as
+      // getBucketAssignment(nextUnlearnedBucket(...)), this fails here rather than
+      // silently marking the wrong mishnayot in production.
+      const blocks = [eightMishnaBlock('u1')];
+      const completed = [ref(0)];
+      const [email] = buildPreparedEmails(
+        live,
+        data({ completed }),
+        engine,
+        SUNDAY_8AM_NY,
+      );
+      const rederived = engine.getBucketAssignment(
+        blocks,
+        email.bucket,
+        SUNDAY_8AM_NY,
+      ).mishnas;
+      expect(rederived.map(refKey)).toEqual(
+        engine
+          .getNextAssignment(blocks, completed, SUNDAY_8AM_NY)
+          .mishnas.map(refKey),
+      );
+    });
+
+    it('is why the index must be pinned, not recomputed at click time', () => {
+      // A *partly* learned bucket still reports itself...
+      const partial = buildPreparedEmails(
+        reminderLive,
+        data({ completed: [ref(0)] }),
+        engine,
+        SUNDAY_8AM_NY,
+      );
+      expect(partial[0].bucket).toBe(0);
+      // ...but a *fully* learned one advances. So a user who checked this bucket off
+      // in the app before clicking the email would, on a recomputed index, mark the
+      // next bucket — mishnayot the email never showed them.
+      const complete = buildPreparedEmails(
+        live,
+        data({ completed: [ref(0), ref(1)] }),
+        engine,
+        SUNDAY_8AM_NY,
+      );
+      expect(complete[0].bucket).toBe(1);
+    });
+
+    it('weekly and reminder for the same week pin the same bucket', () => {
+      const completed = [ref(0)];
+      const [weekly] = buildPreparedEmails(
+        live,
+        data({ completed }),
+        engine,
+        SUNDAY_8AM_NY,
+      );
+      const [reminder] = buildPreparedEmails(
+        reminderLive,
+        data({ completed }),
+        engine,
+        SUNDAY_8AM_NY,
+      );
+      // Their *refs* differ (a reminder shows only what is still pending), but both
+      // links mark the same slice — which is the correct, idempotent semantic for
+      // both, since a reminder's omitted refs are already completions rows.
+      expect(reminder.refs.length).toBeLessThan(weekly.refs.length);
+      expect(reminder.bucket).toBe(weekly.bucket);
+    });
   });
 });
 
@@ -230,12 +342,18 @@ describe('planSends', () => {
   it('resolves a due user end-to-end into a prepared weekly email', async () => {
     const out = await planSends(repoFor(SUNDAY_8AM_NY), engine, SUNDAY_8AM_NY);
     expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ userId: 'u1', kind: 'weekly', to: 'u1@example.com' });
+    expect(out[0]).toMatchObject({
+      userId: 'u1',
+      kind: 'weekly',
+      to: 'u1@example.com',
+    });
     expect(out[0].refs.map(refKey)).toEqual([ref(0), ref(1)].map(refKey));
   });
 
   it('returns nothing when no one is at the send hour', async () => {
-    expect(await planSends(repoFor(SUNDAY_9AM_NY), engine, SUNDAY_9AM_NY)).toEqual([]);
+    expect(
+      await planSends(repoFor(SUNDAY_9AM_NY), engine, SUNDAY_9AM_NY),
+    ).toEqual([]);
   });
 
   it('drops a user already sent this (kind, week)', async () => {
@@ -308,11 +426,7 @@ describe('selectDue across a DST transition', () => {
   /** Every hourly cron tick in `[from, to)`, as the cron would fire them. */
   function hourlyTicks(from: string, to: string): Date[] {
     const out: Date[] = [];
-    for (
-      let t = Date.parse(from);
-      t < Date.parse(to);
-      t += 60 * 60 * 1000
-    ) {
+    for (let t = Date.parse(from); t < Date.parse(to); t += 60 * 60 * 1000) {
       out.push(new Date(t));
     }
     return out;
@@ -429,7 +543,12 @@ describe('planSends read batching', () => {
     const jobs = await planSends(repo, engine, SUNDAY_8AM_NY);
 
     expect(jobs).toHaveLength(250);
-    for (const name of ['alreadySent', 'loadBlocks', 'loadCompleted', 'loadEmails']) {
+    for (const name of [
+      'alreadySent',
+      'loadBlocks',
+      'loadCompleted',
+      'loadEmails',
+    ]) {
       expect(calls[name], name).toHaveLength(1);
       expect(calls[name][0], name).toHaveLength(250);
       // Deduplicated: a user due both kinds must not be looked up twice.
@@ -525,7 +644,9 @@ describe('prepareSingle', () => {
 
     it('skipWhenEmpty: true (the bulk path) — no email at all', () => {
       // A finished user must stop receiving scheduled mail.
-      expect(prepareSingle(finished, engine, { skipWhenEmpty: true })).toBeNull();
+      expect(
+        prepareSingle(finished, engine, { skipWhenEmpty: true }),
+      ).toBeNull();
       expect(
         prepareSingle({ ...finished, kind: 'reminder' }, engine, {
           skipWhenEmpty: true,
@@ -546,9 +667,13 @@ describe('prepareSingle', () => {
       });
       expect(weekly?.refs).toEqual([]);
 
-      const reminder = prepareSingle({ ...finished, kind: 'reminder' }, engine, {
-        skipWhenEmpty: false,
-      });
+      const reminder = prepareSingle(
+        { ...finished, kind: 'reminder' },
+        engine,
+        {
+          skipWhenEmpty: false,
+        },
+      );
       expect(reminder?.refs).toEqual([]);
     });
   });

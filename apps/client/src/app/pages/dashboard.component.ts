@@ -4,7 +4,7 @@ import {
   computed,
   inject,
   signal,
-  ChangeDetectionStrategy
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import {
   injectMutation,
@@ -12,6 +12,7 @@ import {
   keepPreviousData,
   QueryClient,
 } from '@tanstack/angular-query-experimental';
+import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { AssignmentService } from '../services/assignment.service';
@@ -52,6 +53,14 @@ import {
       .pager-body {
         touch-action: pan-y;
       }
+      .memorized-notice {
+        display: flex;
+        align-items: center;
+        gap: var(--wa-space-s, 0.5rem);
+      }
+      .memorized-notice span {
+        flex: 1;
+      }
       .spinner-wrap {
         display: flex;
         justify-content: center;
@@ -61,8 +70,34 @@ import {
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
+    <!--
+      Outside the loading gate on purpose: this is the landing spot for the emailed
+      "I've memorized this" link, and someone who just clicked it should see the
+      confirmation immediately rather than behind a spinner waiting on queries that
+      have nothing to do with it.
+    -->
+    @if (showMemorized()) {
+      <div class="readable">
+        <wa-callout variant="success" class="memorized-notice">
+          <wa-icon slot="icon" name="circle-check"></wa-icon>
+          <span i18n="@@dashboard.memorizedNotice"
+            >We've marked those mishnayos as learned.</span
+          >
+          <wa-button
+            appearance="plain"
+            aria-label="Dismiss"
+            i18n-aria-label="@@dashboard.dismissNotice"
+            (click)="dismissMemorized()"
+          >
+            <wa-icon name="xmark"></wa-icon>
+          </wa-button>
+        </wa-callout>
+      </div>
+    }
     @if (loading()) {
-      <div class="spinner-wrap"><wa-spinner style="font-size: 2rem"></wa-spinner></div>
+      <div class="spinner-wrap">
+        <wa-spinner style="font-size: 2rem"></wa-spinner>
+      </div>
     } @else {
       <div class="stack readable">
         @if (error()) {
@@ -129,6 +164,36 @@ export class DashboardComponent {
   private readonly cycleService = inject(CycleService);
   private readonly groups = inject(GroupService);
   private readonly queryClient = inject(QueryClient);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
+  /**
+   * The one-time "marked as memorized" notice, shown after the emailed CTA lands here
+   * with `?memorized=1`.
+   *
+   * The param is stripped immediately (`replaceUrl`, so it leaves no history entry):
+   * without that, a refresh or a back-navigation would replay a notice about something
+   * that happened once, days ago. The signal — not the URL — is what the template
+   * reads, so dismissing it is instant and doesn't touch routing.
+   */
+  protected readonly showMemorized = signal(
+    this.route.snapshot.queryParamMap.get('memorized') === '1',
+  );
+
+  constructor() {
+    if (this.showMemorized()) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { memorized: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+  }
+
+  protected dismissMemorized(): void {
+    this.showMemorized.set(false);
+  }
 
   private readonly meQuery = injectQuery(() => meQueryOptions(this.auth));
   protected readonly cycleQuery = injectQuery(() =>
@@ -155,9 +220,7 @@ export class DashboardComponent {
     const b = this.bucket();
     return {
       queryKey:
-        b === null
-          ? queryKeys.assignmentToday
-          : queryKeys.assignmentBucket(b),
+        b === null ? queryKeys.assignmentToday : queryKeys.assignmentBucket(b),
       queryFn: () =>
         firstValueFrom(
           b === null ? this.assignments.today() : this.assignments.atBucket(b),
@@ -206,7 +269,8 @@ export class DashboardComponent {
   // The assignment carries its own completion state, so the checks render from the
   // same response (no separate, separately-failing fetch).
   protected readonly completed = computed(
-    () => new Set((this.assignment()?.completed ?? []).map((r) => formatRef(r))),
+    () =>
+      new Set((this.assignment()?.completed ?? []).map((r) => formatRef(r))),
   );
 
   // The bucket index the server actually served (after clamping), and the bounds
@@ -246,7 +310,8 @@ export class DashboardComponent {
   }
   protected onTouchEnd(e: TouchEvent): void {
     if (this.touchStartX === null) return;
-    const delta = (e.changedTouches[0]?.clientX ?? this.touchStartX) - this.touchStartX;
+    const delta =
+      (e.changedTouches[0]?.clientX ?? this.touchStartX) - this.touchStartX;
     this.touchStartX = null;
     if (Math.abs(delta) < 50) return;
     // Swipe against the reading direction advances; mirrored in RTL. In LTR a

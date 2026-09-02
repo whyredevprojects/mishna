@@ -6,6 +6,10 @@ import {
 import { Resend } from 'resend';
 import {
   OutgoingEmail,
+  PreparedEmail,
+  memorizedExpiresAt,
+  memorizedUrl,
+  mintMemorizedToken,
   mintUnsubscribeToken,
   planSends,
   unsubscribeUrl,
@@ -112,6 +116,22 @@ export function composeDeps(
         env.APP_ORIGIN,
         await mintUnsubscribeToken(env.UNSUBSCRIBE_SECRET, userId, 'all'),
       ),
+    // The top CTA's signed link, signed with MEMORIZED_SECRET. Every input comes from
+    // the job — `bucket` was pinned at plan time and the expiry is derived from
+    // `weekStart`, never from the clock — so re-rendering a retried batch produces
+    // identical bytes. A `Date.now()` anywhere in here would make Resend answer the
+    // reused Idempotency-Key with 409 and fail the whole workflow.
+    // No `lang`, for the same reason as the unsubscribe link above.
+    memorizedUrlFor: async (job: PreparedEmail) =>
+      memorizedUrl(
+        env.APP_ORIGIN,
+        await mintMemorizedToken(
+          env.MEMORIZED_SECRET,
+          job.userId,
+          job.bucket,
+          memorizedExpiresAt(job.weekStart),
+        ),
+      ),
   };
 }
 
@@ -121,7 +141,8 @@ export function senderDeps(env: Env, textOrigin?: string): SenderDeps {
   const repo = emailRepo(env);
   return {
     ...composeDeps(env, textOrigin),
-    record: (userId, kind, weekStart) => repo.recordSent(userId, kind, weekStart),
+    record: (userId, kind, weekStart) =>
+      repo.recordSent(userId, kind, weekStart),
     send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
       const { error } = await resend.batch.send(emails, { idempotencyKey });
       if (error) {

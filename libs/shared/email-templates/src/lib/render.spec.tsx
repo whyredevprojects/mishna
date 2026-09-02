@@ -17,7 +17,10 @@ import { WEEKLY_TITLE } from './weekly-email';
 // `renderToReadableStream`.
 
 const ORIGIN = 'https://app.test';
-const UNSUB = 'https://app.test/api/unsubscribe?t=djEuYWxpY2UuYWxs.c2lnbmF0dXJl';
+const UNSUB =
+  'https://app.test/api/unsubscribe?t=djEuYWxpY2UuYWxs.c2lnbmF0dXJl';
+const MEMORIZED =
+  'https://app.test/api/memorized?t=bTEuYWxpY2UuMi4xNzcyNTA4ODAw.c2lnbmF0dXJl';
 
 function item(
   mesechta: string,
@@ -41,7 +44,10 @@ function count(haystack: string, needle: string): number {
 
 describe('weeklyEmail', () => {
   it('uses the exact subject line', async () => {
-    const built = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const built = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(built.subject).toBe('Your mishnayos for the coming week');
     expect(built.subject).toBe(WEEKLY_TITLE);
   });
@@ -50,12 +56,18 @@ describe('weeklyEmail', () => {
     // Asserted on the text part: React splits `week ({items.length}):` into three
     // text nodes and `renderToString` separates them with `<!-- -->` comments, so the
     // HTML never holds the sentence contiguously even though the reader sees it.
-    const { text } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { text } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(text).toContain('Here are your mishnayos for the coming week (3):');
   });
 
   it('renders every ref label', async () => {
-    const { text } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { text } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     for (const { ref } of ITEMS) {
       expect(text).toContain(`Perek ${ref.perek}, Mishna ${ref.mishna}`);
     }
@@ -64,7 +76,10 @@ describe('weeklyEmail', () => {
   it('renders each mishna body verbatim, not double-escaped', async () => {
     // React escapes text once; a second pass would show `&amp;#1502;` style mojibake
     // to a recipient. Hebrew has no HTML-special characters, so it must survive as-is.
-    const { html } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { html } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     for (const { hebrew } of ITEMS) {
       expect(html).toContain(hebrew);
     }
@@ -74,13 +89,19 @@ describe('weeklyEmail', () => {
   it('emits one tractate heading per tractate, not per mishna', async () => {
     // Two Berakhot mishnayot + one Peah: three <h2>s would mean the grouping in
     // MishnaList broke and the email reads like a list of headings.
-    const { html } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { html } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(count(html, '>Berakhot<')).toBe(1);
     expect(count(html, '>Peah<')).toBe(1);
   });
 
   it('marks the Hebrew body right-to-left and leaves the chrome LTR', async () => {
-    const { html } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { html } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(html).toContain('<html dir="ltr" lang="en">');
     expect(count(html, 'dir="rtl"')).toBe(ITEMS.length);
   });
@@ -89,7 +110,10 @@ describe('weeklyEmail', () => {
     // `prepareSingle({ skipWhenEmpty: false })` — the admin send-now path — will hand
     // this template zero refs for a user who has finished their portion. It must read
     // as a deliberate message, not as a broken email.
-    const { html, text, subject } = await weeklyEmail([], ORIGIN, UNSUB);
+    const { html, text, subject } = await weeklyEmail([], {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(subject).toBe(WEEKLY_TITLE);
     expect(html).toContain('You have no mishnayos scheduled for this week.');
     expect(text).not.toContain('Perek');
@@ -101,20 +125,29 @@ describe('weeklyEmail', () => {
 
 describe('reminderEmail', () => {
   it('uses the exact subject line', async () => {
-    const built = await reminderEmail(ITEMS, ORIGIN, UNSUB);
+    const built = await reminderEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(built.subject).toBe('Reminder: your mishnayos for this week');
     expect(built.subject).toBe(REMINDER_TITLE);
   });
 
   it('counts what is still pending', async () => {
-    const { text } = await reminderEmail(ITEMS.slice(0, 2), ORIGIN, UNSUB);
+    const { text } = await reminderEmail(ITEMS.slice(0, 2), {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(text).toContain('You still have 2 mishnayos to finish this week');
     expect(text).toContain('Perek 1, Mishna 1');
     expect(text).toContain('Perek 1, Mishna 2');
   });
 
   it('congratulates rather than nags when nothing is pending', async () => {
-    const { text } = await reminderEmail([], ORIGIN, UNSUB);
+    const { text } = await reminderEmail([], {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(text).toContain("you've finished all your mishnayos this week");
     expect(text).not.toContain('You still have');
     expect(text).not.toContain('Perek');
@@ -125,14 +158,17 @@ describe('the unsubscribe footer', () => {
   it('renders a visible link when a URL is given', async () => {
     // Gmail's bulk-sender rules want an in-body link *in addition to* the RFC 8058
     // headers, so the header alone is not enough.
-    const { html } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { html } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(html).toContain('Unsubscribe');
     expect(html).toContain(UNSUB.replace(/&/g, '&amp;'));
   });
 
   it('is entirely absent when no URL is given', async () => {
     // The preview and any future non-bulk use must not render a dead link.
-    const { html } = await weeklyEmail(ITEMS, ORIGIN);
+    const { html } = await weeklyEmail(ITEMS, { appOrigin: ORIGIN });
     expect(html).not.toContain('Unsubscribe');
     expect(html).not.toContain('/api/unsubscribe');
     // The brand line stays.
@@ -144,7 +180,10 @@ describe('the unsubscribe footer', () => {
     // because html-to-text renders an anchor as "text href" — a one-line footer would
     // read "Chevras Mishnayos Baal Peh · Unsubscribe https://…" with the URL buried
     // mid-sentence, where text-only clients and copy-paste mangle it.
-    const { text } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { text } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(text.split('\n').map((l) => l.trim())).toContain(
       `Unsubscribe ${UNSUB}`,
     );
@@ -153,12 +192,18 @@ describe('the unsubscribe footer', () => {
 
 describe('the plain-text part', () => {
   it('is derived from the very HTML being sent', async () => {
-    const built = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const built = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     expect(built.text).toBe(toPlainText(built.html));
   });
 
   it('carries the email, not a stub', async () => {
-    const { text } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { text } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     // html-to-text upper-cases <h1>/<h2>, hence the shouty title + tractate.
     expect(text).toContain('YOUR MISHNAYOS FOR THE COMING WEEK');
     expect(text).toContain('BERAKHOT');
@@ -168,7 +213,10 @@ describe('the plain-text part', () => {
   });
 
   it('has no markup and no invisible preheader padding', async () => {
-    const { text } = await weeklyEmail(ITEMS, ORIGIN, UNSUB);
+    const { text } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: UNSUB,
+    });
     // A text part with markup in it is a broken text part.
     expect(text).not.toContain('<');
     // The <Preview> preheader pads with zero-width spaces/non-joiners to 150 chars;
@@ -181,7 +229,10 @@ describe('the plain-text part', () => {
     // `toPlainText` hard-sets `wordwrap: false`; html-to-text's default 80-column wrap
     // would split this base64url URL across lines and make it unclickable.
     const long = `${ORIGIN}/api/unsubscribe?t=${'a'.repeat(120)}.${'b'.repeat(60)}`;
-    const { text } = await weeklyEmail(ITEMS, ORIGIN, long);
+    const { text } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      unsubscribeUrl: long,
+    });
     expect(text.split('\n').some((l) => l.includes(long))).toBe(true);
   });
 });
@@ -193,14 +244,81 @@ describe('escaping', () => {
     const hostile = '<script>alert(1)</script> & "quoted"';
     const { html, text } = await weeklyEmail(
       [item('Berakhot', 1, 1, hostile)],
-      ORIGIN,
-      UNSUB,
+      {
+        appOrigin: ORIGIN,
+        unsubscribeUrl: UNSUB,
+      },
     );
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
     // ...and the text part shows the original characters back to the reader.
     expect(text).toContain('alert(1)');
     expect(text).not.toContain('&lt;');
+  });
+});
+
+describe('the "I\'ve memorized this" CTA', () => {
+  it('renders as a link to the signed URL, in both templates', async () => {
+    for (const built of [
+      await weeklyEmail(ITEMS, { appOrigin: ORIGIN, memorizedUrl: MEMORIZED }),
+      await reminderEmail(ITEMS, {
+        appOrigin: ORIGIN,
+        memorizedUrl: MEMORIZED,
+      }),
+    ]) {
+      expect(built.html).toContain(`href="${MEMORIZED}"`);
+      expect(built.html).toContain('memorized this');
+    }
+  });
+
+  it('sits above the mishna list, not below it', async () => {
+    // The whole point of putting it at the top: Gmail clips messages over ~102 KB, so
+    // a CTA under a long weekly list may simply not be in what the reader sees. If a
+    // refactor moves it below `children`, this fails.
+    const { html } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      memorizedUrl: MEMORIZED,
+      unsubscribeUrl: UNSUB,
+    });
+    expect(html.indexOf(MEMORIZED)).toBeGreaterThan(-1);
+    expect(html.indexOf(MEMORIZED)).toBeLessThan(html.indexOf('Berakhot'));
+    // ...and above the footer's unsubscribe link, which is the other emailed URL.
+    expect(html.indexOf(MEMORIZED)).toBeLessThan(html.indexOf(UNSUB));
+  });
+
+  it('puts the URL on its own line in the text part', async () => {
+    // Asserted on `.text`, not `.html`: React inserts `<!-- -->` separators between
+    // adjacent text nodes, and html-to-text renders an anchor as "text href". Its own
+    // paragraph is what keeps the URL from being buried mid-sentence.
+    const { text } = await weeklyEmail(ITEMS, {
+      appOrigin: ORIGIN,
+      memorizedUrl: MEMORIZED,
+    });
+    // The CTA and its URL on one unbroken line (`toPlainText` hard-sets
+    // wordwrap: false, so the long base64url token never gets split).
+    const line = text.split('\n').find((l) => l.includes('memorized this'));
+    expect(line).toBe(`Click here when you've memorized this. ${MEMORIZED}`);
+    // ...and still above the content in the text part, not just in the HTML.
+    expect(text.indexOf(MEMORIZED)).toBeLessThan(text.indexOf('BERAKHOT'));
+  });
+
+  it('is absent on the empty state, where there is nothing to have memorized', async () => {
+    const weekly = await weeklyEmail([], {
+      appOrigin: ORIGIN,
+      memorizedUrl: MEMORIZED,
+    });
+    const reminder = await reminderEmail([], {
+      appOrigin: ORIGIN,
+      memorizedUrl: MEMORIZED,
+    });
+    expect(weekly.html).not.toContain(MEMORIZED);
+    expect(reminder.html).not.toContain(MEMORIZED);
+    expect(weekly.html).not.toContain('memorized this');
+  });
+
+  it('is absent when no URL is passed (the control)', async () => {
+    const { html } = await weeklyEmail(ITEMS, { appOrigin: ORIGIN });
+    expect(html).not.toContain('memorized this');
   });
 });
 
@@ -211,12 +329,14 @@ describe('composeEmail', () => {
     weekStart: '2026-01-04',
     to: 'alice@example.com',
     refs: ITEMS.map((i) => i.ref),
+    bucket: 2,
   };
   const opts = {
     from: 'Chevras Mishnayos Baal Peh <reminders@app.test>',
     replyTo: 'Chevras Mishnayos Baal Peh <support@app.test>',
     appOrigin: ORIGIN,
     unsubscribeUrl: UNSUB,
+    memorizedUrl: MEMORIZED,
   };
 
   it('passes the addresses straight through', async () => {
@@ -231,7 +351,11 @@ describe('composeEmail', () => {
 
   it('picks the template from the job kind', async () => {
     const weekly = await composeEmail(job, ITEMS, opts);
-    const reminder = await composeEmail({ ...job, kind: 'reminder' }, ITEMS, opts);
+    const reminder = await composeEmail(
+      { ...job, kind: 'reminder' },
+      ITEMS,
+      opts,
+    );
     expect(weekly.subject).toBe(WEEKLY_TITLE);
     expect(reminder.subject).toBe(REMINDER_TITLE);
   });

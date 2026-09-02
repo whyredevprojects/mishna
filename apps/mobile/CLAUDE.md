@@ -99,3 +99,18 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8787 --dart-define=TURNST
 
 iOS builds need a Mac (this workspace is Windows); the iOS notification
 permission flow is wired but untested on-device.
+
+## Emailed links are web-only, by design
+
+`apps/server`'s scheduled emails carry an "I've memorized this" CTA that marks the
+week's mishnayos learned and signs the reader in. Tapping it opens the **browser**, not
+this app, and that is not a parity gap: the capability itself (checking mishnayos off)
+is already fully here, and every email link in this product — password reset, address
+verification, unsubscribe — already completes on the web. There is no deep-link /
+app-link infrastructure in this app, and adding it (Android `assetlinks.json` + intent
+filters, iOS AASA + associated-domains entitlement + a provisioning-profile change) is
+its own project, not a same-effort mirror.
+
+Behavior today is already correct: the mark happens server-side, and this app shows it
+on its next fetch, because both clients read the same `completions` table through the
+same API.

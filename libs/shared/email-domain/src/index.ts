@@ -1,8 +1,9 @@
 // Public surface of the @mishna/email-domain library.
 //
 // The abstract email business logic: who gets which email, when, with what content,
-// and the pure rules the send path leans on (prefs defaults, the unsubscribe token +
-// landing page, the outgoing-email shape and its idempotency/header contracts).
+// and the pure rules the send path leans on (prefs defaults, the unsubscribe and
+// "memorized" tokens + their landing pages, the outgoing-email shape and its
+// idempotency/header contracts).
 // Framework-free and storage-free, over an injected EmailRepository port and an
 // AssignmentSource (satisfied by @mishna/domain's AssignmentEngine). The D1 adapter
 // for the port lives in @mishna/email-data; the React Email rendering lives in
@@ -76,6 +77,7 @@ export {
   COPY,
   pickLang,
   escapeHtml,
+  appUrl,
   settingsUrl,
   page,
   confirmPageHtml,
@@ -84,3 +86,26 @@ export {
   plainDone,
   plainError,
 } from './lib/unsubscribe-page';
+
+// -- one-click "I've memorized this" (token + landing page) ------------------
+export type { MemorizedClaims } from './lib/memorized-token';
+export {
+  MARK_TTL_DAYS,
+  LOGIN_TTL_DAYS,
+  memorizedExpiresAt,
+  mintMemorizedToken,
+  verifyMemorizedToken,
+  parseMemorizedClaims,
+  canMark,
+  canLogin,
+  memorizedUrl,
+} from './lib/memorized-token';
+export {
+  MEMORIZED_COPY,
+  dashboardUrl,
+  memorizedConfirmPageHtml,
+  memorizedDonePageHtml,
+  memorizedErrorPageHtml,
+  plainMemorizedDone,
+  plainMemorizedError,
+} from './lib/memorized-page';

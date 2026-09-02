@@ -271,9 +271,25 @@
         <source><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon name=&quot;circle-check&quot; variant=&quot;solid&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> You’ve finished all your mishnayos! </source>
       </segment>
     </unit>
+    <unit id="dashboard.memorizedNotice">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:84,87</note>
+      </notes>
+      <segment>
+        <source>We&apos;ve marked those mishnayos as learned.</source>
+      </segment>
+    </unit>
+    <unit id="dashboard.dismissNotice">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:89</note>
+      </notes>
+      <segment>
+        <source>Dismiss</source>
+      </segment>
+    </unit>
     <unit id="dashboard.prevMishnayos">
       <notes>
-        <note category="location">apps/client/src/app/pages/dashboard.component.ts:76,77</note>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:111,112</note>
       </notes>
       <segment>
         <source>Previous mishnayos</source>
@@ -281,7 +297,7 @@
     </unit>
     <unit id="dashboard.nextMishnayos">
       <notes>
-        <note category="location">apps/client/src/app/pages/dashboard.component.ts:86,87</note>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:121,122</note>
       </notes>
       <segment>
         <source>Next mishnayos</source>
@@ -289,7 +305,7 @@
     </unit>
     <unit id="5596024541911467822">
       <notes>
-        <note category="location">apps/client/src/app/pages/dashboard.component.ts:192</note>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:255</note>
       </notes>
       <segment>
         <source>Could not load this week’s assignment.</source>
@@ -297,7 +313,7 @@
     </unit>
     <unit id="4598804549939327168">
       <notes>
-        <note category="location">apps/client/src/app/pages/dashboard.component.ts:195</note>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:258</note>
       </notes>
       <segment>
         <source>Could not join the cycle. Please try again.</source>
@@ -305,7 +321,7 @@
     </unit>
     <unit id="5191427943920604173">
       <notes>
-        <note category="location">apps/client/src/app/pages/dashboard.component.ts:226</note>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:290</note>
       </notes>
       <segment>
         <source>Already learned</source>
@@ -313,7 +329,7 @@
     </unit>
     <unit id="131402376475677470">
       <notes>
-        <note category="location">apps/client/src/app/pages/dashboard.component.ts:227</note>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:291</note>
       </notes>
       <segment>
         <source>Coming up</source>
@@ -321,7 +337,7 @@
     </unit>
     <unit id="6142996217503131245">
       <notes>
-        <note category="location">apps/client/src/app/pages/dashboard.component.ts:228</note>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:292</note>
       </notes>
       <segment>
         <source>Current mishnayos</source>

@@ -6,7 +6,7 @@
 // sends. No storage, no network, no clock — rendering is a pure function of the job,
 // its resolved Hebrew text, and the sender options.
 
-export type { BuiltEmail } from './lib/render';
+export type { BuiltEmail, RenderOptions } from './lib/render';
 export { weeklyEmail, reminderEmail } from './lib/render';
 export type { ComposeOptions } from './lib/compose';
 export { composeEmail } from './lib/compose';

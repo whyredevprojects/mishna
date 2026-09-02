@@ -23,18 +23,32 @@ interface EmailShellProps {
    * addition to the RFC 8058 `List-Unsubscribe` headers `sender.ts` sets.
    */
   unsubscribeUrl?: string;
+  /**
+   * The recipient's signed "I've memorized this" URL. Rendered as a prominent CTA
+   * **above** the content — the one action we want taken, and the reason it goes at
+   * the top rather than beside the footer: Gmail clips messages over ~102 KB, and a
+   * long weekly can reach that, so anything below the list may simply not be there.
+   *
+   * Omitted when the email has no mishnayot in it (the empty state) — "click when
+   * you've memorized this" over an empty list is nonsense. That decision belongs to
+   * the two templates, which know whether their list is empty; this shell just
+   * renders what it is handed.
+   */
+  memorizedUrl?: string;
   children: ReactNode;
 }
 
 /**
  * The shared chrome for every email: page background, centered container, the
- * heading, the "Open the app" call-to-action, and the unsubscribe footer.
+ * heading, the "I've memorized this" call-to-action, the "Open the app" button, and
+ * the unsubscribe footer.
  * English/LTR — only the mishna text inside `children` is rendered right-to-left.
  */
 export function EmailShell({
   title,
   appOrigin,
   unsubscribeUrl,
+  memorizedUrl,
   children,
 }: EmailShellProps) {
   return (
@@ -46,6 +60,19 @@ export function EmailShell({
           <Heading as="h1" style={styles.h1}>
             {title}
           </Heading>
+          {/*
+            The top CTA, above the content. Its own paragraph, not appended to the
+            intro line: `toPlainText` renders an anchor as "text href", so sharing a
+            paragraph would bury the URL mid-sentence in the text/plain part — the
+            same reasoning as the unsubscribe footer below. Don't collapse it.
+          */}
+          {memorizedUrl ? (
+            <Text style={styles.ctaTopWrap}>
+              <Button href={memorizedUrl} style={styles.ctaTop}>
+                Click here when you&apos;ve memorized this.
+              </Button>
+            </Text>
+          ) : null}
           {children}
           <Hr style={styles.hr} />
           <Button href={`${appOrigin}/dashboard`} style={styles.button}>

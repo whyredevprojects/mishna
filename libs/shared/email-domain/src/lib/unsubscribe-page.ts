@@ -103,9 +103,21 @@ export function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** `/settings` in the right locale build (the Hebrew client is served under /he/). */
+/**
+ * A path on the app in the right locale build (the Hebrew client is served under
+ * /he/). Shared with the "memorized" landing page, which links to `/dashboard`.
+ */
+export function appUrl(
+  appOrigin: string,
+  lang: UnsubscribeLang,
+  path: string,
+): string {
+  return `${appOrigin.replace(/\/+$/, '')}${lang === 'he' ? '/he' : ''}${path}`;
+}
+
+/** `/settings` in the right locale build. */
 export function settingsUrl(appOrigin: string, lang: UnsubscribeLang): string {
-  return `${appOrigin.replace(/\/+$/, '')}${lang === 'he' ? '/he' : ''}/settings`;
+  return appUrl(appOrigin, lang, '/settings');
 }
 
 export function page(
@@ -122,9 +134,10 @@ export function page(
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="robots" content="noindex" />
     <!--
-      The URL carries the (never-expiring) unsubscribe token in ?t=, and this page
-      links to the app's own /settings — same-origin, so the default
-      strict-origin-when-cross-origin policy would send the *full* URL as Referer.
+      The URL carries a signed token in ?t=, and this page links back to the app —
+      same-origin, so the default strict-origin-when-cross-origin policy would send
+      the *full* URL as Referer. That token is an unsubscribe capability here and a
+      login capability on the "memorized" page that shares this shell.
       Belt to the Referrer-Policy header the routes set.
     -->
     <meta name="referrer" content="no-referrer" />

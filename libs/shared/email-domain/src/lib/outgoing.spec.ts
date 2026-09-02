@@ -11,6 +11,7 @@ const job = (over: Partial<PreparedEmail> = {}): PreparedEmail => ({
   weekStart: '2026-01-04',
   to: 'u1@example.com',
   refs: [],
+  bucket: 0,
   ...over,
 });
 

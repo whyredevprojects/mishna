@@ -2,6 +2,7 @@ import { WeeklyEmail } from '../weekly-email';
 import {
   SAMPLE_LARGE_ITEMS,
   SAMPLE_ORIGIN,
+  SAMPLE_MEMORIZED_URL,
   SAMPLE_UNSUBSCRIBE_URL,
 } from './sample-data';
 
@@ -20,6 +21,7 @@ export default function WeeklyLargePreview() {
       items={SAMPLE_LARGE_ITEMS}
       appOrigin={SAMPLE_ORIGIN}
       unsubscribeUrl={SAMPLE_UNSUBSCRIBE_URL}
+      memorizedUrl={SAMPLE_MEMORIZED_URL}
     />
   );
 }

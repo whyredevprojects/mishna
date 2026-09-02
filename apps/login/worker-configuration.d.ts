@@ -13,6 +13,14 @@ interface __BaseEnv_Env {
 	GOOGLE_CLIENT_ID: string;
 	GOOGLE_CLIENT_SECRET: string;
 	TURNSTILE_SECRET_KEY: string;
+	/**
+	 * Signs the emailed "I've memorized this" links. Comma-separated (sign with the
+	 * first, verify against all; rotate by prepending). Must be the SAME value as
+	 * apps/server's — that worker mints the tokens, this one verifies them.
+	 * Prunable, unlike UNSUBSCRIBE_SECRET: see libs/shared/email-domain's
+	 * memorized-token.ts for the retention policy and why it is the opposite one.
+	 */
+	MEMORIZED_SECRET: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

@@ -20,7 +20,16 @@ export default defineConfig(() => ({
       // RESEND_API_KEY is blanked for the same reason: keep tests hermetic (the
       // verification-email send fails-and-is-swallowed, as the sign-up test asserts)
       // and never dispatch a real email from a test run.
-      miniflare: { bindings: { TURNSTILE_SECRET_KEY: '', RESEND_API_KEY: '' } },
+      // MEMORIZED_SECRET is bound (unlike the two blanked above) because the
+      // server-only session-minting endpoint is gated on it — with no secret the
+      // plugin isn't even registered and its tests would assert nothing.
+      miniflare: {
+        bindings: {
+          TURNSTILE_SECRET_KEY: '',
+          RESEND_API_KEY: '',
+          MEMORIZED_SECRET: 'test-memorized-secret',
+        },
+      },
     }),
   ],
   test: {

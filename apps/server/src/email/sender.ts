@@ -39,6 +39,15 @@ export interface SenderDeps {
    * `processJobs` stays offline-testable and the HMAC secret never reaches this module.
    */
   unsubscribeUrlFor: (userId: string) => Promise<string>;
+  /**
+   * The signed "I've memorized this" URL — the CTA at the top of the email.
+   *
+   * Takes the **whole job**, unlike `unsubscribeUrlFor`: its token binds the user,
+   * the bucket the refs were sliced from, and an expiry derived from `weekStart`. All
+   * three come from the job, so the URL stays a pure function of it and a re-rendered
+   * email is byte-identical — which is what the Resend idempotency key requires.
+   */
+  memorizedUrlFor: (job: PreparedEmail) => Promise<string>;
   from: string;
   replyTo: string;
   appOrigin: string;
@@ -107,6 +116,7 @@ export async function processJobs(
         replyTo: deps.replyTo,
         appOrigin: deps.appOrigin,
         unsubscribeUrl: await deps.unsubscribeUrlFor(job.userId),
+        memorizedUrl: await deps.memorizedUrlFor(job),
       }),
     );
   }

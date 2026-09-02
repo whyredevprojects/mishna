@@ -305,6 +305,24 @@
         <target><pc id="0" equivStart="START_TAG_WA_ICON" equivEnd="CLOSE_TAG_WA_ICON" type="other" dispStart="&lt;wa-icon name=&quot;circle-check&quot; variant=&quot;solid&quot;&gt;" dispEnd="&lt;/wa-icon&gt;"></pc> סיימת את כל המשניות שלך! </target>
       </segment>
     </unit>
+    <unit id="dashboard.memorizedNotice">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:84,87</note>
+      </notes>
+      <segment>
+        <source>We&apos;ve marked those mishnayos as learned.</source>
+        <target>סימנו עבורכם את המשניות האלה כנלמדו.</target>
+      </segment>
+    </unit>
+    <unit id="dashboard.dismissNotice">
+      <notes>
+        <note category="location">apps/client/src/app/pages/dashboard.component.ts:89</note>
+      </notes>
+      <segment>
+        <source>Dismiss</source>
+        <target>סגירה</target>
+      </segment>
+    </unit>
     <unit id="dashboard.prevMishnayos">
       <notes>
         <note category="location">apps/client/src/app/pages/dashboard.component.ts:75,76</note>

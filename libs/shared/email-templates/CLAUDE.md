@@ -105,3 +105,25 @@ runtime (a byte-identical re-render, the headers as wired) stay in `apps/server`
 One gotcha when writing assertions: React separates adjacent text nodes with `<!-- -->`
 comments, so `Perek {n}, Mishna {m}` never appears contiguously in the **HTML**. Assert
 copy against `built.text`; assert structure (headings, `dir`, hrefs) against `.html`.
+
+## The top CTA ("Click here when you've memorized this.")
+
+`EmailShell` takes an optional `memorizedUrl` and renders it as a prominent button
+**immediately after the heading, above `children`**. Three rules:
+
+- **Top, not bottom.** Gmail clips messages over ~102 KB and a long weekly can reach
+  that, so anything below the mishna list may not be in what the reader sees. The
+  `render.spec.tsx` case asserting the CTA's index is before the first tractate name is
+  what keeps a refactor from quietly moving it.
+- **Its own paragraph.** `toPlainText` renders an anchor as `text href`, so sharing a
+  line with the intro would bury the URL mid-sentence in the `text/plain` part — the
+  same reasoning as the unsubscribe footer's two `<Text>`s. Don't collapse it.
+- **Never on the empty state.** "Click here when you've memorized this" over an empty
+  list is nonsense, so `WeeklyEmail`/`ReminderEmail` forward the URL only when their
+  list is non-empty. The shell just renders what it's handed.
+
+`weeklyEmail`/`reminderEmail` take an options object (`RenderOptions`) rather than
+positional optionals — three optional trailing args is where that stopped being
+readable. `ComposeOptions.memorizedUrl` is **required**, so a caller that forgets it is
+a compile error rather than an email silently shipping without the one action it asks
+for.

@@ -138,6 +138,54 @@ The callbacks need runtime secrets so they live in `createAuth(env)`, not the
 static `authOptions`; they `await` the Resend send (reliable on Workers without
 `ctx.waitUntil`; transactional volume is low).
 
+## Session minting from the emailed "memorized" link
+
+`apps/server`'s scheduled emails carry a CTA — *"Click here when you've memorized
+this."* — that marks mishnayos learned **and** signs the reader in. This worker owns the
+sign-in half, because only it has better-auth's session tables, cookie secret and cookie
+conventions.
+
+- `src/memorized-session.ts` — a one-endpoint plugin exposing
+  `auth.api.mintMemorizedSession({ headers: { 'x-memorized-token': t } })`. It verifies
+  the token (`@mishna/email-domain`'s `verifyMemorizedToken`), enforces the **7-day
+  login window** (`canLogin` — shorter than the 30-day marking window), looks the user
+  up, creates a session and writes the cookie with better-auth's own `setSessionCookie`.
+  Adds **no tables** — no schema change, no migration.
+- `src/index.ts` — `POST /internal/memorized-session`, reached only over `apps/server`'s
+  `AUTH` service binding. Non-POST is a bare `404`: a GET must never mint a session,
+  because mail scanners follow every link in a message.
+- Gated on `MEMORIZED_SECRET` (like `captcha` on its secret), which must be the **same
+  value** as `apps/server`'s.
+
+**Why not the obvious plugins.** `magicLink` publishes a *public* `POST
+/sign-in/magic-link` taking `{ email }` — on this topology that is a new "make us email
+any address" endpoint, and the captcha plugin's default endpoint list doesn't cover it.
+`oneTimeToken`'s `generateOneTimeToken` sits behind `sessionMiddleware`, so it needs the
+very session we're trying to create.
+
+**Four layers keep `/internal/*` unreachable**, in increasing order of what actually
+matters:
+
+1. **Routing.** `wrangler.toml`'s only route is `app.<apex>/api/auth/*`. No hostname on
+   the zone dispatches `/internal/*` here.
+2. **No other hostnames.** `workers_dev = false` and `preview_urls = false` — a
+   `*.workers.dev` or per-version preview URL routes *every* path to the worker, which
+   would bypass layer 1 entirely. Wrangler suppresses the workers.dev route once
+   `routes` is set, but that is an implicit default and this is a session-minting
+   endpoint, so it's stated explicitly.
+3. **`createAuthEndpoint.serverOnly`.** better-call's router skips an endpoint with
+   `metadata.SERVER_ONLY`, so there is no path under `/api/auth/*` that reaches the
+   handler even if someone later mounts one.
+4. **Capability scoping — the one that carries the weight.** The endpoint takes a
+   *signed token*, not a bare `userId`. A `{ userId }` endpoint plus a shared service
+   secret would be a mint-a-session-for-anyone primitive needing a second secret to
+   protect; this way, if layers 1–3 all failed at once, the worst an attacker gains is
+   the power they'd already have by holding a valid unexpired link — signing in as that
+   link's owner.
+
+`src/memorized-session.integration.test.ts` pins layers 2–4 and every refusal (expired
+token, forged signature, foreign secret, escalated bucket, unknown user, no token).
+
 ## Admin
 
 The better-auth admin plugin is enabled in `authOptions` (`src/auth.ts`). Admin

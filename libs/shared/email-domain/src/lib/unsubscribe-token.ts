@@ -12,9 +12,10 @@
  *   payload = "v1.<userId>.<scope>"
  *   token   = base64url(payload) "." base64url(HMAC-SHA256(secret, payload))
  *
- * Pure and runtime-agnostic: only `crypto.subtle`, `btoa`/`atob` and
- * `TextEncoder`/`TextDecoder`, all present in workerd and node 18+. No clock, no
- * storage — the secret is a plain argument, so this is unit-testable in plain node.
+ * The base64url/HMAC machinery lives in `hmac-token.ts`, shared with the "memorized"
+ * click-through token; what stays here is this token's payload and its policy. Pure
+ * and runtime-agnostic, with no clock and no storage — the secret is a plain
+ * argument — so this is unit-testable in plain node.
  *
  * Notes on the deliberate choices here:
  *
@@ -47,12 +48,12 @@
  *   after the last send that used it, and removal is a deliberate, documented act —
  *   accepting that any older mail still in an inbox loses its one-click link.
  *   (`apps/server/CLAUDE.md` "One-time setup" carries the same policy.)
- * - Verification uses `crypto.subtle.verify` (constant-time inside the runtime), never
- *   a string comparison of hex digests.
  * - Every parse failure (missing dot, bad base64, wrong version, unknown scope) is a
  *   `null` return, never a throw — a malformed link must render a friendly page, not a
  *   500.
  */
+
+import { signingSecrets, signToken, verifyToken } from './hmac-token';
 
 export type UnsubscribeScope = 'all' | 'weekly' | 'reminder';
 
@@ -76,60 +77,6 @@ export type UnsubscribeLang = 'en' | 'he';
 const VERSION = 'v1';
 const SCOPES: readonly string[] = ['all', 'weekly', 'reminder'];
 
-// -- base64url --------------------------------------------------------------
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-/**
- * Decode base64url, or `null` for anything that isn't valid base64url.
- *
- * The `Uint8Array<ArrayBuffer>` return type is load-bearing, not decoration: the
- * bytes are handed to `crypto.subtle.verify`, whose `BufferSource` parameter excludes
- * views over a `SharedArrayBuffer`. Widening to a bare `Uint8Array` makes this file
- * fail to compile against the DOM lib.
- */
-function fromBase64Url(text: string): Uint8Array<ArrayBuffer> | null {
-  if (text === '' || !/^[A-Za-z0-9_-]+$/.test(text)) return null;
-  const padded =
-    text.replace(/-/g, '+').replace(/_/g, '/') +
-    '='.repeat((4 - (text.length % 4)) % 4);
-  try {
-    const binary = atob(padded);
-    const out = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-    return out;
-  } catch {
-    return null;
-  }
-}
-
-// -- signing ----------------------------------------------------------------
-
-/** The configured secrets, newest first. Empty when unconfigured. */
-function signingSecrets(secret: string | undefined): string[] {
-  return (secret ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s !== '');
-}
-
-function importKey(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify'],
-  );
-}
-
 /**
  * Mint a token for a user. Signed with the **first** configured secret, and
  * **deterministic** — the same (secret, userId, scope) always yields the same token,
@@ -148,12 +95,7 @@ export async function mintUnsubscribeToken(
       'UNSUBSCRIBE_SECRET is not set — cannot sign unsubscribe links (wrangler secret put UNSUBSCRIBE_SECRET)',
     );
   }
-  const payload = `${VERSION}.${userId}.${scope}`;
-  const bytes = new TextEncoder().encode(payload);
-  const signature = new Uint8Array(
-    await crypto.subtle.sign('HMAC', await importKey(secrets[0]), bytes),
-  );
-  return `${toBase64Url(bytes)}.${toBase64Url(signature)}`;
+  return signToken(secrets[0], `${VERSION}.${userId}.${scope}`);
 }
 
 /**
@@ -181,30 +123,8 @@ export async function verifyUnsubscribeToken(
   secret: string | undefined,
   token: string | undefined | null,
 ): Promise<UnsubscribeClaims | null> {
-  const secrets = signingSecrets(secret);
-  if (secrets.length === 0 || typeof token !== 'string') return null;
-  const parts = token.split('.');
-  if (parts.length !== 2) return null;
-  const payloadBytes = fromBase64Url(parts[0]);
-  const signature = fromBase64Url(parts[1]);
-  if (!payloadBytes || !signature) return null;
-
-  let valid = false;
-  for (const s of secrets) {
-    if (
-      await crypto.subtle.verify(
-        'HMAC',
-        await importKey(s),
-        signature,
-        payloadBytes,
-      )
-    ) {
-      valid = true;
-      break;
-    }
-  }
-  if (!valid) return null;
-  return parseClaims(new TextDecoder().decode(payloadBytes));
+  const payload = await verifyToken(signingSecrets(secret), token);
+  return payload === null ? null : parseClaims(payload);
 }
 
 /** The link that goes in the mail: header + visible footer. */

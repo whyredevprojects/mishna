@@ -23,6 +23,21 @@ interface Env {
    * `wrangler secret put UNSUBSCRIBE_SECRET`.
    */
   UNSUBSCRIBE_SECRET: string;
+  /**
+   * HMAC key(s) signing the emailed "I've memorized this" links (comma-separated;
+   * sign with the first, verify against all). Rotate by prepending. Must be the SAME
+   * value as apps/login's — this worker mints the tokens, that one verifies them when
+   * minting a session.
+   *
+   * The retention policy is the **opposite** of `UNSUBSCRIBE_SECRET`'s. These tokens
+   * expire 30 days after their send, and for their first 7 days one is a login
+   * credential — so a retired secret is **prunable** once its tokens are all dead
+   * (floor: 60 days after its last send), and if one is ever suspected of leaking,
+   * removing it is the correct incident response, not the harm: it revokes every
+   * outstanding link in a single deploy, and the worst outcome is a dead button. Set
+   * with `wrangler secret put MEMORIZED_SECRET` (on **both** workers).
+   */
+  MEMORIZED_SECRET: string;
   /** GitHub PAT (contents:write on whyredevprojects/mishna). Set with `wrangler secret put GITHUB_TOKEN`. */
   GITHUB_TOKEN: string;
   /** GitHub repo owner for the about commit (wrangler.toml [vars]). */
@@ -53,6 +68,14 @@ declare namespace Cloudflare {
      * with it. Hard floor if one ever must go: **24 months** after its last send.
      */
     UNSUBSCRIBE_SECRET: string;
+    /**
+     * HMAC key(s) signing the emailed "I've memorized this" links (comma-separated;
+     * sign with the first, verify against all). Same value as apps/login's. Unlike
+     * `UNSUBSCRIBE_SECRET` this list is **prunable and revocable** — its tokens expire
+     * in 30 days, and one is a login credential for its first 7, so dropping a leaked
+     * secret is the incident response rather than the harm.
+     */
+    MEMORIZED_SECRET: string;
     /** GitHub PAT (contents:write on whyredevprojects/mishna). Set with `wrangler secret put GITHUB_TOKEN`. */
     GITHUB_TOKEN: string;
     /** GitHub repo owner for the about commit (wrangler.toml [vars]). */

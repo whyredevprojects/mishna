@@ -96,3 +96,28 @@ export const button: CSSProperties = {
   padding: '10px 20px',
   borderRadius: 6,
 };
+
+/**
+ * The top call-to-action ("Click here when you've memorized this."). Deliberately
+ * heavier than {@link button}: it is the one thing in the email we want acted on, and
+ * unlike the unsubscribe footer it sits above the mishna list, so Gmail's ~102 KB
+ * clipping can never bury it.
+ */
+export const ctaTop: CSSProperties = {
+  ...button,
+  display: 'block',
+  textAlign: 'center',
+  padding: '14px 24px',
+  fontSize: 16,
+  fontWeight: 'bold',
+};
+
+/**
+ * The paragraph the top CTA sits in. Its own block, for the same reason the footer's
+ * unsubscribe link is its own: `toPlainText` renders an anchor as "text href", so
+ * sharing a paragraph with the intro would bury the URL mid-sentence in the
+ * text/plain part.
+ */
+export const ctaTopWrap: CSSProperties = {
+  margin: '0 0 24px',
+};

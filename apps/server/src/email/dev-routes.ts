@@ -152,6 +152,7 @@ async function compose(
     replyTo: deps.replyTo,
     appOrigin: deps.appOrigin,
     unsubscribeUrl: await deps.unsubscribeUrlFor(job.userId),
+    memorizedUrl: await deps.memorizedUrlFor(job),
   });
 }
 

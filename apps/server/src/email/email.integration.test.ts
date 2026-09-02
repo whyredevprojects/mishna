@@ -8,7 +8,14 @@ import {
   createMishnaChalakim,
   createMishnaStructure,
 } from '@mishna/domain';
-import { planSends, refKey } from '@mishna/email-domain';
+import {
+  memorizedExpiresAt,
+  memorizedUrl,
+  mintMemorizedToken,
+  planSends,
+  refKey,
+  verifyMemorizedToken,
+} from '@mishna/email-domain';
 import { D1EmailRepository } from '@mishna/email-data';
 import { applyMigrations } from '../apply-migrations';
 import { loadBlocks, loadRecipient } from './data';
@@ -94,7 +101,14 @@ async function seedParticipant(opts: {
   await env.DB.prepare(
     'INSERT INTO user_email_prefs (user_id, timezone, weekly_email_dow, reminder_email_dow, weekly_enabled, reminder_enabled, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0)',
   )
-    .bind(userId, timezone, weeklyDow, reminderDow, weeklyEnabled, reminderEnabled)
+    .bind(
+      userId,
+      timezone,
+      weeklyDow,
+      reminderDow,
+      weeklyEnabled,
+      reminderEnabled,
+    )
     .run();
   await env.AUTH_DB.prepare(
     'INSERT INTO "user" (id, email, name, "emailVerified") VALUES (?, ?, ?, ?)',
@@ -134,7 +148,16 @@ async function seedSharedGroup(userIds: string[]): Promise<Group> {
   for (const userId of userIds) {
     const after = taken.length ? taken[taken.length - 1] : undefined;
     // `() => 0` takes the lowest free lot; `taken`/`after` give each user a distinct run.
-    const { lots } = group.addUser(userId, 1, CYCLE_START, 50, taken, () => 0, true, after);
+    const { lots } = group.addUser(
+      userId,
+      1,
+      CYCLE_START,
+      50,
+      taken,
+      () => 0,
+      true,
+      after,
+    );
     taken.push(...lots);
   }
   await env.DB.prepare(
@@ -160,6 +183,20 @@ const unsubscribeUrlFor = (userId: string) =>
     unsubscribeUrl('https://app.test', t),
   );
 
+const TEST_MEMORIZED_SECRET = 'test-memorized-secret';
+
+/**
+ * The production wiring of `memorizedUrlFor`, over a fixed test secret. Every input
+ * comes from the job — no clock — which is what the byte-identity tests below prove.
+ */
+const memorizedUrlFor = (job: PreparedEmail) =>
+  mintMemorizedToken(
+    TEST_MEMORIZED_SECRET,
+    job.userId,
+    job.bucket,
+    memorizedExpiresAt(job.weekStart),
+  ).then((t) => memorizedUrl('https://app.test', t));
+
 /** A `SenderDeps` whose `send` records the emails + idempotency key it was given. */
 function recordingDeps(sink: { emails: OutgoingEmail[][]; keys: string[] }) {
   return {
@@ -167,6 +204,7 @@ function recordingDeps(sink: { emails: OutgoingEmail[][]; keys: string[] }) {
       refs.map((ref) => ({ ref, tractateHebrew: 'ברכות', hebrew: 'טקסט' })),
     ),
     unsubscribeUrlFor,
+    memorizedUrlFor,
     send: async (emails: OutgoingEmail[], idempotencyKey: string) => {
       sink.emails.push(emails);
       sink.keys.push(idempotencyKey);
@@ -194,7 +232,12 @@ describe('email path', () => {
       await seedGroupFor('alice');
       const jobs = await planSends(repo, engine, NOW_NY_WED_8AM);
       expect(jobs).toMatchObject([
-        { userId: 'alice', kind: 'weekly', weekStart: '2026-06-03', to: 'alice@example.com' },
+        {
+          userId: 'alice',
+          kind: 'weekly',
+          weekStart: '2026-06-03',
+          to: 'alice@example.com',
+        },
       ]);
       expect(jobs[0].refs.length).toBeGreaterThan(0);
     });
@@ -202,12 +245,20 @@ describe('email path', () => {
     it('does nothing outside the 08:00 local hour', async () => {
       await seedParticipant({ userId: 'alice', weeklyDow: 3 });
       // NY 09:00.
-      const jobs = await planSends(repo, engine, new Date('2026-06-03T13:00:00Z'));
+      const jobs = await planSends(
+        repo,
+        engine,
+        new Date('2026-06-03T13:00:00Z'),
+      );
       expect(jobs).toEqual([]);
     });
 
     it('respects the weekly_enabled flag', async () => {
-      await seedParticipant({ userId: 'alice', weeklyDow: 3, weeklyEnabled: 0 });
+      await seedParticipant({
+        userId: 'alice',
+        weeklyDow: 3,
+        weeklyEnabled: 0,
+      });
       expect(await planSends(repo, engine, NOW_NY_WED_8AM)).toEqual([]);
     });
 
@@ -233,7 +284,11 @@ describe('email path', () => {
     it('skips a participant whose email is not verified', async () => {
       // Dropping `WHERE "emailVerified" = 1` from loadEmails means the hourly cron
       // mails every unverified signup — the population most likely to mark it spam.
-      await seedParticipant({ userId: 'alice', weeklyDow: 3, emailVerified: 0 });
+      await seedParticipant({
+        userId: 'alice',
+        weeklyDow: 3,
+        emailVerified: 0,
+      });
       await seedGroupFor('alice');
       expect(await planSends(repo, engine, NOW_NY_WED_8AM)).toEqual([]);
     });
@@ -297,7 +352,7 @@ describe('email path', () => {
     // the target user's. (With single-member groups this is invisible — that's why
     // the bug slipped through: the email path was assigning each user the *whole
     // group's* portion, so the weekly email showed ~40 mishnayos, some not theirs.)
-    it('repo.loadBlocks returns only each user\'s own blocks', async () => {
+    it("repo.loadBlocks returns only each user's own blocks", async () => {
       await seedSharedGroup(['alice', 'bob']);
       const byUser = await repo.loadBlocks(['alice', 'bob']);
       for (const userId of ['alice', 'bob']) {
@@ -307,7 +362,7 @@ describe('email path', () => {
       }
     });
 
-    it('loadBlocks returns only the given user\'s blocks', async () => {
+    it("loadBlocks returns only the given user's blocks", async () => {
       await seedSharedGroup(['alice', 'bob']);
       const blocks = await loadBlocks(env, 'bob');
       expect(blocks.length).toBeGreaterThan(0);
@@ -323,7 +378,9 @@ describe('email path', () => {
           group
             .toState()
             .blocks.filter((b) => b.userId === userId)
-            .flatMap((b) => b.ranges.flatMap((r) => [...structure.iterateRange(r)]))
+            .flatMap((b) =>
+              b.ranges.flatMap((r) => [...structure.iterateRange(r)]),
+            )
             .map(refKey),
         );
 
@@ -349,6 +406,7 @@ describe('email path', () => {
         weekStart: '2026-06-03',
         to: 'alice@example.com',
         refs: [REF],
+        bucket: 0,
       };
       await processJobs([job], deps);
 
@@ -356,7 +414,9 @@ describe('email path', () => {
       expect(sink.emails[0]).toHaveLength(1);
       expect(sink.emails[0][0].to).toBe('alice@example.com');
       expect(sink.emails[0][0].replyTo).toBe('support@example.com');
-      expect(sink.emails[0][0].subject).toContain('mishnayos for the coming week');
+      expect(sink.emails[0][0].subject).toContain(
+        'mishnayos for the coming week',
+      );
       expect(deps.resolveText).toHaveBeenCalledOnce();
 
       const log = await env.DB.prepare(
@@ -373,6 +433,7 @@ describe('email path', () => {
         weekStart: '2026-06-03',
         to: 'alice@example.com',
         refs: [REF],
+        bucket: 0,
       };
       await processJobs(
         [
@@ -385,11 +446,15 @@ describe('email path', () => {
       const [weekly, reminder] = sink.emails[0];
       for (const [i, email] of [weekly, reminder].entries()) {
         const headers = email.headers ?? {};
-        expect(headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+        expect(headers['List-Unsubscribe-Post']).toBe(
+          'List-Unsubscribe=One-Click',
+        );
         expect(headers['List-Id']).toBe('Mishna study emails <study.app.test>');
         // RFC 5322 angle-bracket form, pointing at this worker's endpoint.
         const wrapped = headers['List-Unsubscribe'] ?? '';
-        expect(wrapped).toMatch(/^<https:\/\/app\.test\/api\/unsubscribe\?t=.+>$/);
+        expect(wrapped).toMatch(
+          /^<https:\/\/app\.test\/api\/unsubscribe\?t=.+>$/,
+        );
         const url = new URL(wrapped.slice(1, -1));
         // The token round-trips to the right user (and only that user).
         const claims = await verifyUnsubscribeToken(
@@ -432,6 +497,7 @@ describe('email path', () => {
             weekStart: '2026-06-03',
             to: 'alice@example.com',
             refs: [REF],
+            bucket: 0,
           },
         ],
         recordingDeps(sink),
@@ -455,11 +521,15 @@ describe('email path', () => {
         weekStart: '2026-06-03',
         to: 'alice@example.com',
         refs: [REF],
+        bucket: 0,
       };
       // Same batch twice (a retry) -> same key. A different batch -> different key.
       await processJobs([job], recordingDeps(sink));
       await processJobs([job], recordingDeps(sink));
-      await processJobs([{ ...job, userId: 'carol', to: 'c@e.com' }], recordingDeps(sink));
+      await processJobs(
+        [{ ...job, userId: 'carol', to: 'c@e.com' }],
+        recordingDeps(sink),
+      );
 
       expect(sink.keys[0]).toMatch(/^reminder-batch-/);
       expect(sink.keys[1]).toBe(sink.keys[0]);
@@ -472,6 +542,90 @@ describe('email path', () => {
       expect(sink.emails[1]).toEqual(sink.emails[0]);
     });
 
+    it('re-renders byte-identically even when the clock has moved', async () => {
+      // The sharper version of the test above, and the direct proof of the one design
+      // decision the "memorized" token turns on: its expiry is derived from the job's
+      // `weekStart`, never from `Date.now()`. If anyone ever "improves" that to a real
+      // timestamp, the body changes between a send and its retry, Resend answers the
+      // reused Idempotency-Key with 409, and the whole hour's remaining batches die.
+      // That failure is invisible in every other test here, because they all render
+      // within the same millisecond.
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      const job: PreparedEmail = {
+        userId: 'alice',
+        kind: 'weekly',
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+        bucket: 3,
+      };
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-06-03T08:00:00.000Z'));
+        await processJobs([job], recordingDeps(sink));
+        vi.setSystemTime(new Date('2026-06-19T15:31:07.000Z'));
+        await processJobs([job], recordingDeps(sink));
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(sink.keys[1]).toBe(sink.keys[0]);
+      expect(sink.emails[1]).toEqual(sink.emails[0]);
+    });
+
+    it('hands processJobs a memorized link whose token verifies to the job', async () => {
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      const job: PreparedEmail = {
+        userId: 'alice',
+        kind: 'weekly',
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+        bucket: 5,
+      };
+      await processJobs([job], recordingDeps(sink));
+
+      const html = sink.emails[0][0].html;
+      const token = /\/api\/memorized\?t=([^"'&\s]+)/.exec(html)?.[1] ?? '';
+      expect(token).not.toBe('');
+      const claims = await verifyMemorizedToken(
+        TEST_MEMORIZED_SECRET,
+        decodeURIComponent(token),
+      );
+      // The link marks the bucket the email actually showed, and expires off its week.
+      expect(claims).toEqual({
+        userId: 'alice',
+        bucket: 5,
+        expiresAt: memorizedExpiresAt('2026-06-03'),
+      });
+    });
+
+    it('fails closed when MEMORIZED_SECRET is missing', async () => {
+      // Mirrors the UNSUBSCRIBE_SECRET case: a deploy that forgot the secret must
+      // throw and retry loudly, not mail a CTA that can never verify.
+      const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
+      const job: PreparedEmail = {
+        userId: 'alice',
+        kind: 'weekly',
+        weekStart: '2026-06-03',
+        to: 'alice@example.com',
+        refs: [REF],
+        bucket: 0,
+      };
+      await expect(
+        processJobs([job], {
+          ...recordingDeps(sink),
+          memorizedUrlFor: (j: PreparedEmail) =>
+            mintMemorizedToken(
+              undefined,
+              j.userId,
+              j.bucket,
+              memorizedExpiresAt(j.weekStart),
+            ).then((t) => memorizedUrl('https://app.test', t)),
+        }),
+      ).rejects.toThrow(/MEMORIZED_SECRET/);
+      expect(sink.emails).toEqual([]);
+    });
+
     it('fails closed when UNSUBSCRIBE_SECRET is missing', async () => {
       // A deploy without the secret must throw (and retry loudly), not mail a footer
       // link and a List-Unsubscribe header that can never verify.
@@ -482,6 +636,7 @@ describe('email path', () => {
         weekStart: '2026-06-03',
         to: 'alice@example.com',
         refs: [REF],
+        bucket: 0,
       };
       await expect(
         processJobs([job], {
@@ -499,7 +654,9 @@ describe('email path', () => {
       const sink = { emails: [] as OutgoingEmail[][], keys: [] as string[] };
       await processJobs([], recordingDeps(sink));
       expect(sink.emails).toEqual([]);
-      const log = await env.DB.prepare('SELECT COUNT(*) AS n FROM email_log').first<{
+      const log = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM email_log',
+      ).first<{
         n: number;
       }>();
       expect(log?.n).toBe(0);
@@ -512,11 +669,17 @@ describe('email path', () => {
         weekStart: '2026-06-03',
         to: 'alice@example.com',
         refs: [REF],
+        bucket: 0,
       };
       await expect(
         processJobs([job], {
           resolveText: async (refs) =>
-            refs.map((ref) => ({ ref, tractateHebrew: 'ברכות', hebrew: 'טקסט' })),
+            refs.map((ref) => ({
+              ref,
+              tractateHebrew: 'ברכות',
+              hebrew: 'טקסט',
+            })),
+          memorizedUrlFor,
           send: async () => {
             throw new Error('Resend batch failed: boom');
           },
@@ -527,7 +690,9 @@ describe('email path', () => {
           appOrigin: 'https://app.test',
         }),
       ).rejects.toThrow('boom');
-      const log = await env.DB.prepare('SELECT COUNT(*) AS n FROM email_log').first<{
+      const log = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM email_log',
+      ).first<{
         n: number;
       }>();
       expect(log?.n).toBe(0);

@@ -19,6 +19,17 @@ export interface ComposeOptions {
    * idempotency key promises Resend.
    */
   unsubscribeUrl: string;
+  /**
+   * The recipient's signed "I've memorized this" URL — the top CTA. Required, not
+   * optional: a job that forgets it should be a compile error, not an email that
+   * silently ships without the one action it is asking for.
+   *
+   * Like `unsubscribeUrl` it must be **deterministic per job**. Its token binds
+   * (userId, bucket, weekStart-derived expiry), all of which come from the job, so
+   * re-composing produces identical bytes — which is what the batch idempotency key
+   * promises Resend.
+   */
+  memorizedUrl: string;
 }
 
 /**
@@ -34,10 +45,12 @@ export async function composeEmail(
   resolved: ResolvedMishna[],
   opts: ComposeOptions,
 ): Promise<OutgoingEmail> {
-  const built =
-    job.kind === 'weekly'
-      ? await weeklyEmail(resolved, opts.appOrigin, opts.unsubscribeUrl)
-      : await reminderEmail(resolved, opts.appOrigin, opts.unsubscribeUrl);
+  const render = job.kind === 'weekly' ? weeklyEmail : reminderEmail;
+  const built = await render(resolved, {
+    appOrigin: opts.appOrigin,
+    unsubscribeUrl: opts.unsubscribeUrl,
+    memorizedUrl: opts.memorizedUrl,
+  });
   return {
     from: opts.from,
     replyTo: opts.replyTo,

@@ -347,3 +347,17 @@ environments because the API is always same-origin:
 - `nx serve client` (depends on `server:serve`) → http://localhost:4200.
 - Service worker / offline: build, then serve `dist/apps/client/browser`
   statically (NGSW is off under `nx serve`) and test in an incognito window.
+
+## The `?memorized=1` dashboard notice
+
+`/dashboard?memorized=1` is where the emailed "I've memorized this" CTA lands after
+`apps/server` has marked the mishnayos and (usually) signed the reader in. The dashboard
+shows a dismissible `wa-callout` and immediately strips the param with `replaceUrl`, so
+a refresh or a back-navigation doesn't replay a notice about something that happened
+once, possibly days ago.
+
+Two deliberate details: the callout renders **outside** the loading gate — someone
+arriving from an email should see the confirmation immediately, not behind a spinner
+waiting on queries unrelated to it — and there is **no new route**, so `public/_redirects`
+needs nothing (a missing entry there silently demotes Hebrew users to the English shell
+for the tab session). `dashboard.component.spec.ts` covers it.
