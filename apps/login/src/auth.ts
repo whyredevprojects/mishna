@@ -36,6 +36,39 @@ export function parseAdminUserIds(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The `http://` twin of `appOrigin`, to be trusted **in local dev only** — or
+ * `undefined` when there is nothing to add.
+ *
+ * In dev this worker is reached through the server worker's AUTH service binding, and
+ * wrangler's local binding presents this worker's *route* host from wrangler.toml
+ * (`app.<apex>/api/auth/*`) as the request Origin. There is no TLS in front of
+ * `wrangler dev`, so it arrives as `http://app.<apex>` — the same host APP_ORIGIN
+ * names, one scheme off. better-auth compares trusted origins as plain strings, so
+ * that one character is the difference between a sign-up succeeding and a 403
+ * INVALID_ORIGIN ("Invalid origin: http://app.<apex>" in the login worker's log).
+ *
+ * Gated on BETTER_AUTH_URL being a loopback origin, which is true only under
+ * `.dev.vars`: in production the app host stays https-only, since a browser will
+ * never send an http Origin for it.
+ */
+export function devHttpAppOrigin(
+  appOrigin: string | undefined,
+  betterAuthUrl: string | undefined,
+): string | undefined {
+  if (!appOrigin?.startsWith('https://')) return undefined;
+  let authHost: string;
+  try {
+    authHost = new URL(betterAuthUrl ?? '').hostname;
+  } catch {
+    return undefined;
+  }
+  if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(authHost)) {
+    return undefined;
+  }
+  return `http://${appOrigin.slice('https://'.length)}`;
+}
+
 export function createAuth(env: Env) {
   const adminIds = parseAdminUserIds(env.ADMIN_USER_IDS);
   return betterAuth({
@@ -64,15 +97,19 @@ export function createAuth(env: Env) {
     // in dev, the app host in prod). APP_ORIGIN is the *canonical* app host in ALL
     // envs — trusted independently of BETTER_AUTH_URL: in dev the request reaches this
     // worker via the server worker's AUTH service binding, and wrangler's dev binding
-    // presents this worker's route host (APP_ORIGIN) as the request Origin, so it must
-    // be trusted even though BETTER_AUTH_URL is localhost. Both come from the single
-    // source (config/domains.json → wrangler.toml). Deduped (they're equal in prod).
+    // presents this worker's route host — the same host APP_ORIGIN names — as the
+    // request Origin, so it must be trusted even though BETTER_AUTH_URL is localhost.
+    // Both come from the single source (config/domains.json → wrangler.toml).
+    // Deduped (they're equal in prod).
+    // Plus, in dev only, the http:// form of that host — what the binding actually
+    // presents, since wrangler dev has no TLS (see devHttpAppOrigin).
     trustedOrigins: [
       ...new Set(
         [
           ...authOptions.trustedOrigins,
           env.BETTER_AUTH_URL,
           env.APP_ORIGIN,
+          devHttpAppOrigin(env.APP_ORIGIN, env.BETTER_AUTH_URL),
         ].filter(Boolean),
       ),
     ],
